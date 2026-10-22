@@ -33,6 +33,67 @@ func TestCatalogIntegrity(t *testing.T) {
 	}
 }
 
+func TestNoDuplicateNames(t *testing.T) {
+	tools := DefaultCatalog()
+	namesSeen := make(map[string]string)
+	for _, tool := range tools {
+		if prevID, exists := namesSeen[tool.Name]; exists {
+			t.Errorf("Nome duplicado %q compartilhado pelas ferramentas %s e %s", tool.Name, prevID, tool.ID)
+		}
+		namesSeen[tool.Name] = tool.ID
+	}
+}
+
+func TestSuitesIntegrityAndNoDuplicates(t *testing.T) {
+	for suiteName, members := range packages {
+		seen := make(map[string]bool)
+		for _, member := range members {
+			if seen[member] {
+				t.Errorf("Suite @%s contém ferramenta duplicada: %s", suiteName, member)
+			}
+			seen[member] = true
+
+			if FindTool(member) == nil {
+				t.Errorf("Suite @%s referencia ferramenta inexistente: %s", suiteName, member)
+			}
+		}
+	}
+}
+
+func TestAliasesIntegrity(t *testing.T) {
+	for alias, targetID := range toolAliases {
+		if FindTool(targetID) == nil {
+			t.Errorf("Alias %q aponta para ferramenta inexistente: %s", alias, targetID)
+		}
+	}
+}
+
+func TestTargetPackageIDsNoDuplicates(t *testing.T) {
+	tools := DefaultCatalog()
+	winPkgs := make(map[string]string)
+	linPkgs := make(map[string]string)
+
+	for _, tool := range tools {
+		if tool.Windows != nil && tool.Windows.PackageID != "" {
+			key := string(tool.Windows.Type) + ":" + tool.Windows.PackageID
+			// MinGW devkit provê gcc e gdb no Windows; Docker Desktop provê tanto a CLI quanto a GUI
+			isAllowedShared := tool.Windows.PackageID == "skeeto.w64devkit" || tool.Windows.PackageID == "Docker.DockerDesktop"
+			if prevID, exists := winPkgs[key]; exists && !isAllowedShared {
+				t.Errorf("Windows PackageID duplicado %s compartilhado por %s e %s", key, prevID, tool.ID)
+			}
+			winPkgs[key] = tool.ID
+		}
+
+		if tool.Linux != nil && tool.Linux.PackageID != "" {
+			key := string(tool.Linux.Type) + ":" + tool.Linux.PackageID
+			if prevID, exists := linPkgs[key]; exists {
+				t.Errorf("Linux PackageID duplicado %s compartilhado por %s e %s", key, prevID, tool.ID)
+			}
+			linPkgs[key] = tool.ID
+		}
+	}
+}
+
 func TestFindToolAndAliases(t *testing.T) {
 	testCases := []struct {
 		query  string

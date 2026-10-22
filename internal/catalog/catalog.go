@@ -269,13 +269,13 @@ var catalogList = []Tool{
 		Linux:   &Target{Type: TypeFlatpak, PackageID: "com.discordapp.Discord", Binary: "Discord"},
 	},
 	{
-		ID: "docker", Name: "Docker Desktop", Category: "Infraestrutura", Description: "Containers Docker para Windows",
+		ID: "docker", Name: "Docker Engine", Category: "Infraestrutura", Description: "Engine e CLI de containers Docker e Compose",
 		Windows: &Target{Type: TypeWinget, PackageID: "Docker.DockerDesktop", Binary: "docker.exe"},
 		Linux:   &Target{Type: TypeScript, PackageID: "docker", Binary: "docker"},
 	},
 	{
-		ID: "dockerdesktop", Name: "Docker Desktop", Category: "Desktop", Description: "Docker com GUI (pacote oficial ~440MB)",
-		Windows: nil,
+		ID: "dockerdesktop", Name: "Docker Desktop", Category: "Desktop", Description: "Interface gráfica e dashboard oficial do Docker (~440MB)",
+		Windows: &Target{Type: TypeWinget, PackageID: "Docker.DockerDesktop", Binary: "Docker Desktop.exe"},
 		Linux:   &Target{Type: TypeScript, PackageID: "dockerdesktop", Binary: "dockerdesktop"},
 	},
 	{
@@ -576,7 +576,7 @@ var catalogList = []Tool{
 	{
 		ID: "opengym", Name: "OpenGym", Category: "Desktop", Description: "Tracker de treino self-hosted (docker)",
 		Windows: nil,
-		Linux:   &Target{Type: TypeNative, PackageID: "git", Binary: "opengym"},
+		Linux:   &Target{Type: TypeScript, PackageID: "alexpcosta/opengym", Binary: "opengym"},
 	},
 	{
 		ID: "openhands", Name: "OpenHands", Category: "Agentes", Description: "Engenheiro de software com IA (sandbox)",
@@ -591,7 +591,7 @@ var catalogList = []Tool{
 	{
 		ID: "openmaicapp", Name: "OpenMAIC App", Category: "Desktop", Description: "Sala de aula multi-agente (docker; .env manual)",
 		Windows: nil,
-		Linux:   &Target{Type: TypeNative, PackageID: "git", Binary: "openmaicapp"},
+		Linux:   &Target{Type: TypeScript, PackageID: "THU-MAIC/OpenMAIC", Binary: "openmaicapp"},
 	},
 	{
 		ID: "openseo", Name: "Open SEO", Category: "Skills", Description: "Skills de SEO e análise competitiva",
@@ -606,7 +606,7 @@ var catalogList = []Tool{
 	{
 		ID: "openstock", Name: "OpenStock", Category: "Desktop", Description: "Bolsa de valores self-hosted (docker; .env manual)",
 		Windows: nil,
-		Linux:   &Target{Type: TypeNative, PackageID: "git", Binary: "openstock"},
+		Linux:   &Target{Type: TypeScript, PackageID: "Open-Dev-Society/OpenStock", Binary: "openstock"},
 	},
 	{
 		ID: "openv0", Name: "OpenV0", Category: "Agentes", Description: "Gerador de UI com IA (legado, descontinuado)",

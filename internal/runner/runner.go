@@ -307,6 +307,15 @@ func (r *Runner) installScript(id string, target *catalog.Target) error {
 		if r.sysInfo.OS == system.OSLinux {
 			return r.executor.Execute("sh", "-c", "mkdir -p $HOME/.local/bin && curl -fsSL https://github.com/stablyai/orca/releases/latest/download/orca-linux.AppImage -o $HOME/.local/bin/orca && chmod +x $HOME/.local/bin/orca")
 		}
+	case "docker":
+		if r.sysInfo.OS == system.OSLinux {
+			return r.executor.Execute("sh", "-c", "curl -fsSL https://get.docker.com | sh")
+		}
+	case "opengym", "openstock", "openmaicapp":
+		if r.sysInfo.OS == system.OSLinux {
+			repo := target.PackageID
+			return r.executor.Execute("sh", "-c", fmt.Sprintf("mkdir -p $HOME/.local/share/apps && git clone --depth 1 https://github.com/%s $HOME/.local/share/apps/%s", repo, id))
+		}
 	}
 
 	return fmt.Errorf("script de instalação direta não implementado para: %s", id)
@@ -354,6 +363,8 @@ func (r *Runner) Uninstall(tool catalog.Tool) error {
 	case catalog.TypeScript:
 		if tool.ID == "orca" {
 			_ = os.Remove(filepath.Join(os.Getenv("HOME"), ".local", "bin", "orca"))
+		} else if tool.ID == "opengym" || tool.ID == "openstock" || tool.ID == "openmaicapp" {
+			_ = os.RemoveAll(filepath.Join(os.Getenv("HOME"), ".local", "share", "apps", tool.ID))
 		}
 		err = r.reg.MarkUninstalled(tool.ID)
 
