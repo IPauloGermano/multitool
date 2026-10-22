@@ -1,0 +1,19 @@
+# Binários locais compilados
+multitool
+multitool-*
+*.exe
+*.AppImage
+*.dmg
+
+# Diretórios de build e distribuição
+bin/
+dist/
+
+# Logs e arquivos de auditoria locais
+multitool.log
+*.log
+
+# Arquivos temporários e testes
+*.out
+*.test
+.DS_Store
