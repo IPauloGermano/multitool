@@ -66,7 +66,7 @@ var packages = map[string][]string{
 		"langgraph", "crewai", "ax", "bubblewrap", "promptfoo", "phoenix", "otelcol", "podman", "ecc", "paperclip", "hyperframes", "orca",
 	},
 	"skills": {
-		"superpowers", "impeccable", "tasteskill", "emilkowalski", "archify", "opencodereview", "securityaudit", "contextmode", "ponytail", "reverseskill", "pocockskills", "diagramdesign", "ihaveadhd", "addyosmani", "humanizer", "openmaic", "openseo", "linkedin", "universalmodder",
+		"superpowers", "impeccable", "tasteskill", "emilkowalski", "archify", "opencodereview", "securityaudit", "contextmode", "ponytail", "reverseskill", "pocockskills", "diagramdesign", "ihaveadhd", "addyosmani", "humanizer", "openmaic", "openseo", "linkedin", "universalmodder", "androidskills",
 	},
 	"dev": {
 		"git", "gh", "fzf", "btop", "nodejs", "golang", "temurin", "docker", "vscode", "neovim", "waveterm", "ghostty", "jj", "uv", "rustup", "bat",
@@ -103,6 +103,11 @@ var toolAliases = map[string]string{
 	"stablyai/orca":                 "orca",
 	"stably-orca":                   "orca",
 	"stablyai":                      "orca",
+	"android/skills":                "androidskills",
+	"android-skills":                "androidskills",
+	"android":                       "androidskills",
+	"paperclipai/paperclip":         "paperclip",
+	"paperclipai":                   "paperclip",
 }
 
 var catalogList = []Tool{
@@ -115,6 +120,11 @@ var catalogList = []Tool{
 		ID: "addyosmani", Name: "AddyOsmani Skills", Category: "Skills", Description: "Skills de arquitetura de software e engenharia",
 		Windows: &Target{Type: TypeDirect, PackageID: "addyosmani/agent-skills", Binary: "SKILL.md"},
 		Linux:   &Target{Type: TypeSkill, PackageID: "addyosmani/agent-skills", Binary: "SKILL.md"},
+	},
+	{
+		ID: "androidskills", Name: "Android Skills", Category: "Skills", Description: "Skills oficiais do Google para desenvolvimento Android com IA",
+		Windows: &Target{Type: TypeDirect, PackageID: "android/skills", Binary: "SKILL.md"},
+		Linux:   &Target{Type: TypeSkill, PackageID: "android/skills", Binary: "SKILL.md"},
 	},
 	{
 		ID: "agy", Name: "Antigravity CLI", Category: "Agentes", Description: "Agente do Google no terminal (binário agy)",

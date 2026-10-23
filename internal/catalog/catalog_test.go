@@ -116,6 +116,15 @@ func TestFindToolAndAliases(t *testing.T) {
 		{"stablyai/orca", "orca"},
 		{"stably-orca", "orca"},
 		{"https://github.com/stablyai/orca", "orca"},
+		{"androidskills", "androidskills"},
+		{"android/skills", "androidskills"},
+		{"android", "androidskills"},
+		{"https://github.com/android/skills", "androidskills"},
+		{"https://github.com/android/skills.git", "androidskills"},
+		{"paperclip", "paperclip"},
+		{"paperclipai", "paperclip"},
+		{"paperclipai/paperclip", "paperclip"},
+		{"https://github.com/paperclipai/paperclip", "paperclip"},
 	}
 
 	for _, tc := range testCases {

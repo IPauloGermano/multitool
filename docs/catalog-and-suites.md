@@ -65,7 +65,7 @@ Harnesses, frameworks e observabilidade para agentes autônomos:
 - `hyperframes`: Framework de vídeo programático para agentes.
 - `orca`: Orquestração de frotas de agentes IA em worktrees paralelos.
 
-### 4. `@skills` (Coleção Curada de 19 Skills)
+### 4. `@skills` (Coleção Curada de 20 Skills)
 Coleção de metodologias e habilidades para agentes de código:
 - `superpowers`: Metodologia de desenvolvimento com TDD e planos.
 - `impeccable`: Design e frontend limpo sem slop.
@@ -86,6 +86,7 @@ Coleção de metodologias e habilidades para agentes de código:
 - `openseo`: Auditoria de SEO técnico e análise competitiva.
 - `linkedin`: Escrita e formatação de artigos técnicos.
 - `universalmodder`: Modding e instrumentação de jogos de PC para agentes IA.
+- `androidskills`: Skills oficiais do Google para agentes de IA no desenvolvimento Android.
 
 ### 5. `@dev` (Ferramentas Essenciais de Desenvolvimento)
 - `git`, `gh`, `fzf`, `btop`, `nodejs`, `golang`, `temurin`, `docker`, `vscode`, `neovim`, `waveterm`, `ghostty`, `jj`, `uv`, `rustup`, `bat`.
