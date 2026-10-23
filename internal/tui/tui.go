@@ -109,17 +109,23 @@ func (m *Model) refreshVisible() {
 		var list []catalog.Suite
 		if m.searchQuery != "" {
 			q := strings.ToLower(m.searchQuery)
+			cleanQ := strings.TrimPrefix(q, "@")
 			for _, s := range m.allSuites {
 				matchesTools := false
 				for _, tid := range s.Tools {
-					if strings.Contains(strings.ToLower(tid), q) {
+					if strings.Contains(strings.ToLower(tid), cleanQ) {
+						matchesTools = true
+						break
+					}
+					t := catalog.FindTool(tid)
+					if t != nil && strings.Contains(strings.ToLower(t.Name), cleanQ) {
 						matchesTools = true
 						break
 					}
 				}
-				if strings.Contains(strings.ToLower(s.ID), q) ||
-					strings.Contains(strings.ToLower(s.Name), q) ||
-					strings.Contains(strings.ToLower(s.Description), q) ||
+				if strings.Contains(strings.ToLower(s.ID), cleanQ) ||
+					strings.Contains(strings.ToLower(s.Name), cleanQ) ||
+					strings.Contains(strings.ToLower(s.Description), cleanQ) ||
 					matchesTools {
 					list = append(list, s)
 				}
@@ -161,12 +167,27 @@ func (m *Model) refreshVisible() {
 	if m.searchQuery != "" {
 		var filtered []catalog.Tool
 		q := strings.ToLower(m.searchQuery)
-		for _, t := range list {
-			if strings.Contains(strings.ToLower(t.ID), q) ||
-				strings.Contains(strings.ToLower(t.Name), q) ||
-				strings.Contains(strings.ToLower(t.Description), q) ||
-				strings.Contains(strings.ToLower(t.Category), q) {
-				filtered = append(filtered, t)
+		cleanQ := strings.TrimPrefix(q, "@")
+		isSuiteSearch := strings.HasPrefix(q, "@")
+
+		suite := catalog.GetSuite(cleanQ)
+		if isSuiteSearch && suite != nil {
+			for _, t := range list {
+				for _, tid := range suite.Tools {
+					if tid == t.ID {
+						filtered = append(filtered, t)
+						break
+					}
+				}
+			}
+		} else {
+			for _, t := range list {
+				if strings.Contains(strings.ToLower(t.ID), q) ||
+					strings.Contains(strings.ToLower(t.Name), q) ||
+					strings.Contains(strings.ToLower(t.Description), q) ||
+					strings.Contains(strings.ToLower(t.Category), q) {
+					filtered = append(filtered, t)
+				}
 			}
 		}
 		list = filtered

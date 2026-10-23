@@ -77,3 +77,46 @@ func TestTUIStateTransitions(t *testing.T) {
 		}
 	}
 }
+
+func TestTUISearch(t *testing.T) {
+	tempDir := t.TempDir()
+	reg, _ := registry.New(filepath.Join(tempDir, "installed.json"))
+	m := NewModel(reg, true)
+
+	// 1. Ativa busca com '/'
+	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'/'}})
+	m = updated.(Model)
+	if !m.searching {
+		t.Errorf("Esperava modo de busca ativo")
+	}
+
+	// 2. Digita 'docker'
+	for _, r := range "docker" {
+		updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{r}})
+		m = updated.(Model)
+	}
+
+	if len(m.GetVisibleTools()) == 0 {
+		t.Errorf("Busca por 'docker' não deveria ser vazia")
+	}
+
+	// 3. Limpa busca com Esc
+	updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyEsc}) // sai do modo input
+	m = updated.(Model)
+	updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyEsc}) // limpa query
+	m = updated.(Model)
+	if m.searchQuery != "" {
+		t.Errorf("Esperava busca limpa após Esc")
+	}
+
+	// 4. Busca por pacote @vibecode em TabAll
+	updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'/'}})
+	m = updated.(Model)
+	for _, r := range "@vibecode" {
+		updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{r}})
+		m = updated.(Model)
+	}
+	if len(m.GetVisibleTools()) != 15 {
+		t.Errorf("Busca por @vibecode deveria retornar 15 ferramentas, obteve %d", len(m.GetVisibleTools()))
+	}
+}
