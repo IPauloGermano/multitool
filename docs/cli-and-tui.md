@@ -21,27 +21,28 @@ multitool.exe        # Windows
 
 [ MODO: INSTALAR ]    Carrinho: 2 item(ns)
 
-Abas: [1] IA  [2] Código  [3] Sistema  [4] Apps  [5] Segurança  |  [t] Todas  [i] Instalados  [c] Carrinho
+Abas: [1] IA  [2] Código  [3] Sistema  [4] Apps  [5] Segurança  |  [t] Todas  [p] Pacotes  [i] Instalados  [c] Carrinho
 
 ▶ [✓] btop           Btop                   (native)   Monitor de recursos no terminal [instalado]
   [ ] git            Git                    (native)   Controle de versão distribuído
   [✓] ollama         Ollama                 (script)   Servidor local de modelos de IA
 
-Atalhos: [↑/↓/j/k] Navegar • [Espaço] Marcar/Desmarcar • [Enter] Executar • [r] Alternar Modo • [/] Buscar • [q] Sair
+Atalhos: [↑/↓/j/k] Navegar • [Espaço] Marcar/Desmarcar • [Enter] Executar • [r] Alternar Modo • [/] Buscar • [p] Pacotes • [q] Sair
 ```
 
 ### Tabela de Atalhos do Teclado
 
 | Tecla | Ação |
 | :---: | :--- |
-| `↑` / `↓` ou `k` / `j` | Navega entre as ferramentas da lista atual. |
-| `Espaço` | Marca ou desmarca a ferramenta atual no carrinho. |
+| `↑` / `↓` ou `k` / `j` | Navega entre as ferramentas ou suítes da lista atual. |
+| `Espaço` | Marca ou desmarca a ferramenta atual (ou todos os membros da suíte selecionada) no carrinho. |
 | `Enter` | Executa em lote a instalação ou remoção de todas as ferramentas marcadas. |
 | `r` | Alterna entre os modos de operação: `[ MODO: INSTALAR ]` ↔ `[ MODO: DESINSTALAR ]`. |
-| `/` | Ativa a busca difusa em tempo real (digite o nome ou descrição). |
+| `/` | Ativa a busca difusa em tempo real (digite o nome, descrição ou ferramenta). |
 | `Esc` | Limpa a busca atual ou fecha a tela. |
 | `1` a `5` | Filtra por topo: `1`=IA, `2`=Código, `3`=Sistema, `4`=Apps, `5`=Segurança. |
 | `t` | Aba "Todas": exibe todas as ferramentas suportadas pela plataforma. |
+| `p` | Aba "Pacotes": exibe e gerencia suítes integradas (`@vibecode`, `@dev`, `@mcp`, etc.). |
 | `i` | Aba "Instalados": exibe apenas ferramentas registradas no sistema. |
 | `c` | Aba "Carrinho": exibe apenas as ferramentas marcadas para execução. |
 | `q` | Encerra o programa. |

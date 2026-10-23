@@ -17,7 +17,7 @@ Unificação e evolução integrada dos projetos `linux-multitool` e `windows-mu
   - Filtro contextual: exibe e instala apenas ferramentas compatíveis com o SO atual.
 - **TUI Interativa Avançada com Bubble Tea**:
   - Badge no topo indicando o sistema detectado e status (ex: `MULTITOOL • linux (ubuntu / apt)` ou `MULTITOOL • Windows (x64 / winget)`).
-  - Abas rápidas: `[1-5]` Topos (IA, Código, Sistema, Apps, Segurança), `[t]` Todas, `[i]` Instalados, `[c]` Carrinho.
+  - Abas rápidas: `[1-5]` Topos (IA, Código, Sistema, Apps, Segurança), `[t]` Todas, `[p]` Pacotes (@suítes), `[i]` Instalados, `[c]` Carrinho.
   - Alternância de modo em tempo real com tecla `r` (`instalar` ↔ `desinstalar`).
   - Busca difusa em tempo real com `/`.
   - Carrinho persistente de compras para execução em lote (`Espaço` marca/desmarca, `Enter` executa).

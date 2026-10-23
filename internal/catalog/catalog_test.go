@@ -188,3 +188,34 @@ func TestSearch(t *testing.T) {
 		t.Errorf("Resultados de busca não continham o termo buscado")
 	}
 }
+
+func TestSuitesStruct(t *testing.T) {
+	suites := AllSuites()
+	if len(suites) != 10 {
+		t.Errorf("Esperava 10 suítes, obteve %d", len(suites))
+	}
+
+	for _, s := range suites {
+		if s.ID == "" || s.Name == "" || s.Description == "" || s.Category == "" {
+			t.Errorf("Suíte com metadados incompletos: %+v", s)
+		}
+		if len(s.Tools) == 0 {
+			t.Errorf("Suíte %s sem ferramentas associadas", s.ID)
+		}
+	}
+
+	vb := GetSuite("vibecode")
+	if vb == nil || vb.Name != "Vibe Coding & Pair AI" {
+		t.Errorf("GetSuite('vibecode') falhou: %+v", vb)
+	}
+
+	atVb := GetSuite("@vibecode")
+	if atVb == nil || atVb.ID != "vibecode" {
+		t.Errorf("GetSuite('@vibecode') falhou: %+v", atVb)
+	}
+
+	supp := SupportedSuites()
+	if len(supp) != 10 {
+		t.Errorf("Esperava 10 suítes suportadas, obteve %d", len(supp))
+	}
+}

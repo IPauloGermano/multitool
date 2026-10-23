@@ -36,6 +36,14 @@ type Tool struct {
 	Linux       *Target `json:"linux,omitempty"`
 }
 
+type Suite struct {
+	ID          string   `json:"id"`
+	Name        string   `json:"name"`
+	Description string   `json:"description"`
+	Category    string   `json:"category"`
+	Tools       []string `json:"tools"`
+}
+
 func (t Tool) TargetForCurrentOS() *Target {
 	if runtime.GOOS == "windows" {
 		return t.Windows
@@ -954,6 +962,106 @@ func Suites() map[string][]string {
 		res[k] = supported
 	}
 	return res
+}
+
+var suiteMetadata = []Suite{
+	{
+		ID:          "vibecode",
+		Name:        "Vibe Coding & Pair AI",
+		Description: "Desenvolvimento interativo orientado a IA no terminal",
+		Category:    "Suítes de IA & Dev",
+	},
+	{
+		ID:          "mcp",
+		Name:        "Model Context Protocol Toolkit",
+		Description: "Ferramentas, pontes e servidores MCP",
+		Category:    "Suítes de IA & Dev",
+	},
+	{
+		ID:          "agentstack",
+		Name:        "Agent Engineering & Sandbox",
+		Description: "Frameworks, observabilidade e isolamento de agentes",
+		Category:    "Suítes de IA & Dev",
+	},
+	{
+		ID:          "skills",
+		Name:        "Coleção Curada de Skills",
+		Description: "Skills de frontend, engenharia, SEO e CTF",
+		Category:    "Suítes de IA & Dev",
+	},
+	{
+		ID:          "dev",
+		Name:        "Essenciais p/ Dev",
+		Description: "Git, terminal, linguagens e editores essenciais",
+		Category:    "Suítes de IA & Dev",
+	},
+	{
+		ID:          "toolchain",
+		Name:        "Toolchain C/C++",
+		Description: "Compilação nativa com GCC, Make, GDB e CMake",
+		Category:    "Conjuntos Integrados",
+	},
+	{
+		ID:          "termstack",
+		Name:        "Stack Moderna de Terminal",
+		Description: "Wave Terminal, Ghostty, bat, fzf, Zsh e Oh My Zsh",
+		Category:    "Conjuntos Integrados",
+	},
+	{
+		ID:          "flatpakfull",
+		Name:        "Flatpak + Flathub",
+		Description: "Empacotamento sandbox universal no Linux",
+		Category:    "Conjuntos Integrados",
+	},
+	{
+		ID:          "ghidrajdk",
+		Name:        "Ghidra + Temurin JDK",
+		Description: "Framework de reversing emparelhado com Temurin JDK 21",
+		Category:    "Conjuntos Integrados",
+	},
+	{
+		ID:          "keepdocker",
+		Name:        "Keep + Docker",
+		Description: "Orquestração e deploy integrado para containers Docker",
+		Category:    "Conjuntos Integrados",
+	},
+}
+
+func AllSuites() []Suite {
+	var list []Suite
+	for _, meta := range suiteMetadata {
+		s := meta
+		s.Tools = packages[meta.ID]
+		list = append(list, s)
+	}
+	return list
+}
+
+func SupportedSuites() []Suite {
+	var list []Suite
+	for _, meta := range suiteMetadata {
+		var supported []string
+		for _, tid := range packages[meta.ID] {
+			t := FindTool(tid)
+			if t != nil && t.IsSupportedOnCurrentOS() {
+				supported = append(supported, tid)
+			}
+		}
+		s := meta
+		s.Tools = supported
+		list = append(list, s)
+	}
+	return list
+}
+
+func GetSuite(id string) *Suite {
+	cleanID := strings.TrimPrefix(strings.TrimSpace(id), "@")
+	for _, s := range AllSuites() {
+		if strings.EqualFold(s.ID, cleanID) {
+			return &s
+		}
+	}
+	return nil
 }
 
 func Search(query string) []Tool {

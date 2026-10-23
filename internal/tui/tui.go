@@ -60,45 +60,83 @@ type Tab int
 const (
 	TabAll Tab = iota
 	TabTopo
+	TabPackages
 	TabInstalled
 	TabCart
 )
 
 type Model struct {
-	reg          *registry.Registry
-	sysInfo      *system.SystemInfo
-	dryRun       bool
-	allTools     []catalog.Tool
-	visibleTools []catalog.Tool
-	cursor       int
-	selected     map[string]bool
-	mode         Mode
-	tab          Tab
-	activeTopo   string
-	searching    bool
-	searchQuery  string
-	quitting     bool
-	executed     bool
+	reg           *registry.Registry
+	sysInfo       *system.SystemInfo
+	dryRun        bool
+	allTools      []catalog.Tool
+	visibleTools  []catalog.Tool
+	allSuites     []catalog.Suite
+	visibleSuites []catalog.Suite
+	cursor        int
+	selected      map[string]bool
+	mode          Mode
+	tab           Tab
+	activeTopo    string
+	searching     bool
+	searchQuery   string
+	quitting      bool
+	executed      bool
 }
 
 func NewModel(reg *registry.Registry, dryRun bool) Model {
 	tools := catalog.SupportedCatalog()
+	suites := catalog.SupportedSuites()
 	m := Model{
-		reg:          reg,
-		sysInfo:      system.GetSystemInfo(),
-		dryRun:       dryRun,
-		allTools:     tools,
-		visibleTools: tools,
-		cursor:       0,
-		selected:     make(map[string]bool),
-		mode:         ModeInstall,
-		tab:          TabAll,
+		reg:           reg,
+		sysInfo:       system.GetSystemInfo(),
+		dryRun:        dryRun,
+		allTools:      tools,
+		visibleTools:  tools,
+		allSuites:     suites,
+		visibleSuites: suites,
+		cursor:        0,
+		selected:      make(map[string]bool),
+		mode:          ModeInstall,
+		tab:           TabAll,
 	}
 	m.refreshVisible()
 	return m
 }
 
 func (m *Model) refreshVisible() {
+	if m.tab == TabPackages {
+		var list []catalog.Suite
+		if m.searchQuery != "" {
+			q := strings.ToLower(m.searchQuery)
+			for _, s := range m.allSuites {
+				matchesTools := false
+				for _, tid := range s.Tools {
+					if strings.Contains(strings.ToLower(tid), q) {
+						matchesTools = true
+						break
+					}
+				}
+				if strings.Contains(strings.ToLower(s.ID), q) ||
+					strings.Contains(strings.ToLower(s.Name), q) ||
+					strings.Contains(strings.ToLower(s.Description), q) ||
+					matchesTools {
+					list = append(list, s)
+				}
+			}
+		} else {
+			list = m.allSuites
+		}
+		m.visibleSuites = list
+		if m.cursor >= len(m.visibleSuites) {
+			m.cursor = len(m.visibleSuites) - 1
+		}
+		if m.cursor < 0 {
+			m.cursor = 0
+		}
+		return
+	}
+
 	var list []catalog.Tool
 
 	switch m.tab {
@@ -163,6 +201,10 @@ func (m Model) GetVisibleTools() []catalog.Tool {
 	return m.visibleTools
 }
 
+func (m Model) GetVisibleSuites() []catalog.Suite {
+	return m.visibleSuites
+}
+
 func (m Model) Init() tea.Cmd {
 	return nil
 }
@@ -210,7 +252,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 
 		case "down", "j":
-			if m.cursor < len(m.visibleTools)-1 {
+			maxItems := len(m.visibleTools)
+			if m.tab == TabPackages {
+				maxItems = len(m.visibleSuites)
+			}
+			if m.cursor < maxItems-1 {
 				m.cursor++
 			}
 
@@ -227,50 +273,85 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		case "t":
 			m.tab = TabAll
+			m.cursor = 0
+			m.refreshVisible()
+
+		case "p":
+			m.tab = TabPackages
+			m.cursor = 0
 			m.refreshVisible()
 
 		case "i":
 			m.tab = TabInstalled
+			m.cursor = 0
 			m.refreshVisible()
 
 		case "c":
 			m.tab = TabCart
+			m.cursor = 0
 			m.refreshVisible()
 
 		case "1":
 			m.tab = TabTopo
 			m.activeTopo = "IA"
+			m.cursor = 0
 			m.refreshVisible()
 
 		case "2":
 			m.tab = TabTopo
 			m.activeTopo = "Código"
+			m.cursor = 0
 			m.refreshVisible()
 
 		case "3":
 			m.tab = TabTopo
 			m.activeTopo = "Sistema"
+			m.cursor = 0
 			m.refreshVisible()
 
 		case "4":
 			m.tab = TabTopo
 			m.activeTopo = "Apps"
+			m.cursor = 0
 			m.refreshVisible()
 
 		case "5":
 			m.tab = TabTopo
 			m.activeTopo = "Segurança"
+			m.cursor = 0
 			m.refreshVisible()
 
 		case " ":
-			if len(m.visibleTools) > 0 && m.cursor >= 0 && m.cursor < len(m.visibleTools) {
-				toolID := m.visibleTools[m.cursor].ID
-				m.selected[toolID] = !m.selected[toolID]
-				if !m.selected[toolID] {
-					delete(m.selected, toolID)
+			if m.tab == TabPackages {
+				if len(m.visibleSuites) > 0 && m.cursor >= 0 && m.cursor < len(m.visibleSuites) {
+					suite := m.visibleSuites[m.cursor]
+					allSelected := len(suite.Tools) > 0
+					for _, tid := range suite.Tools {
+						if !m.selected[tid] {
+							allSelected = false
+							break
+						}
+					}
+					if allSelected {
+						for _, tid := range suite.Tools {
+							delete(m.selected, tid)
+						}
+					} else {
+						for _, tid := range suite.Tools {
+							m.selected[tid] = true
+						}
+					}
 				}
-				if m.tab == TabCart {
-					m.refreshVisible()
+			} else {
+				if len(m.visibleTools) > 0 && m.cursor >= 0 && m.cursor < len(m.visibleTools) {
+					toolID := m.visibleTools[m.cursor].ID
+					m.selected[toolID] = !m.selected[toolID]
+					if !m.selected[toolID] {
+						delete(m.selected, toolID)
+					}
+					if m.tab == TabCart {
+						m.refreshVisible()
+					}
 				}
 			}
 
@@ -315,9 +396,29 @@ func (m Model) View() string {
 	cartBadge := cartStyle.Render(fmt.Sprintf("Carrinho: %d item(ns)", len(m.selected)))
 	b.WriteString(fmt.Sprintf("%s    %s\n\n", modeBadge, cartBadge))
 
-	// Abas
+	// Abas com destaque na ativa
 	b.WriteString(headerStyle.Render("Abas: "))
-	b.WriteString("[1] IA  [2] Código  [3] Sistema  [4] Apps  [5] Segurança  |  [t] Todas  [i] Instalados  [c] Carrinho\n")
+
+	renderTab := func(key, label string, active bool) string {
+		txt := fmt.Sprintf("[%s] %s", key, label)
+		if active {
+			return lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#FAFAFA")).Background(lipgloss.Color("#2563EB")).Padding(0, 1).Render(txt)
+		}
+		return dimStyle.Render(txt)
+	}
+
+	tabIA := renderTab("1", "IA", m.tab == TabTopo && m.activeTopo == "IA")
+	tabCod := renderTab("2", "Código", m.tab == TabTopo && m.activeTopo == "Código")
+	tabSis := renderTab("3", "Sistema", m.tab == TabTopo && m.activeTopo == "Sistema")
+	tabApp := renderTab("4", "Apps", m.tab == TabTopo && m.activeTopo == "Apps")
+	tabSeg := renderTab("5", "Segurança", m.tab == TabTopo && m.activeTopo == "Segurança")
+	tabAll := renderTab("t", "Todas", m.tab == TabAll)
+	tabPkg := renderTab("p", "Pacotes", m.tab == TabPackages)
+	tabIns := renderTab("i", "Instalados", m.tab == TabInstalled)
+	tabCrt := renderTab("c", "Carrinho", m.tab == TabCart)
+
+	b.WriteString(fmt.Sprintf("%s %s %s %s %s | %s %s %s %s\n",
+		tabIA, tabCod, tabSis, tabApp, tabSeg, tabAll, tabPkg, tabIns, tabCrt))
 
 	if m.searching {
 		b.WriteString(fmt.Sprintf("\n%s %s█\n", selectedStyle.Render("Buscar:"), m.searchQuery))
@@ -327,57 +428,124 @@ func (m Model) View() string {
 		b.WriteString("\n")
 	}
 
-	// Lista de Ferramentas
-	if len(m.visibleTools) == 0 {
-		b.WriteString(dimStyle.Render("  Nenhuma ferramenta para exibir nesta categoria ou filtro.\n\n"))
+	// Conteúdo da Aba
+	if m.tab == TabPackages {
+		if len(m.visibleSuites) == 0 {
+			b.WriteString(dimStyle.Render("  Nenhum pacote encontrado para o filtro.\n\n"))
+		} else {
+			for i, suite := range m.visibleSuites {
+				cursor := "  "
+				if m.cursor == i {
+					cursor = selectedStyle.Render("▶ ")
+				}
+
+				totalTools := len(suite.Tools)
+				selectedTools := 0
+				installedTools := 0
+				for _, tid := range suite.Tools {
+					if m.selected[tid] {
+						selectedTools++
+					}
+					if m.reg.IsInstalled(tid) {
+						installedTools++
+					}
+				}
+
+				checked := "[ ]"
+				if totalTools > 0 && selectedTools == totalTools {
+					checked = selectedStyle.Render("[✓]")
+				} else if selectedTools > 0 {
+					checked = lipgloss.NewStyle().Foreground(lipgloss.Color("#F59E0B")).Bold(true).Render("[-]")
+				}
+
+				suiteID := fmt.Sprintf("@%-12s", suite.ID)
+				if m.cursor == i {
+					suiteID = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#60A5FA")).Render(suiteID)
+				}
+
+				statsBadge := fmt.Sprintf("(%d/%d instalados)", installedTools, totalTools)
+				if installedTools == totalTools && totalTools > 0 {
+					statsBadge = lipgloss.NewStyle().Foreground(lipgloss.Color("#10B981")).Render(statsBadge)
+				} else {
+					statsBadge = dimStyle.Render(statsBadge)
+				}
+
+				line := fmt.Sprintf("%s%s %s %-32s %-16s %s\n",
+					cursor, checked, suiteID, suite.Name, statsBadge, dimStyle.Render(suite.Description))
+				b.WriteString(line)
+
+				if m.cursor == i {
+					var memberTokens []string
+					for _, tid := range suite.Tools {
+						token := tid
+						if m.selected[tid] {
+							token = lipgloss.NewStyle().Foreground(lipgloss.Color("#F59E0B")).Bold(true).Render("●" + tid)
+						} else if m.reg.IsInstalled(tid) {
+							token = lipgloss.NewStyle().Foreground(lipgloss.Color("#10B981")).Render("✓" + tid)
+						} else {
+							token = dimStyle.Render(tid)
+						}
+						memberTokens = append(memberTokens, token)
+					}
+					b.WriteString(fmt.Sprintf("       %s %s\n\n",
+						lipgloss.NewStyle().Foreground(lipgloss.Color("#93C5FD")).Render("↳ Membros:"),
+						strings.Join(memberTokens, "  ")))
+				}
+			}
+		}
 	} else {
-		maxItems := 14
-		start := 0
-		if m.cursor >= maxItems {
-			start = m.cursor - maxItems + 1
-		}
-		end := start + maxItems
-		if end > len(m.visibleTools) {
-			end = len(m.visibleTools)
-		}
-
-		for i := start; i < end; i++ {
-			tool := m.visibleTools[i]
-			cursor := "  "
-			if m.cursor == i {
-				cursor = selectedStyle.Render("▶ ")
+		// Lista de Ferramentas
+		if len(m.visibleTools) == 0 {
+			b.WriteString(dimStyle.Render("  Nenhuma ferramenta para exibir nesta categoria ou filtro.\n\n"))
+		} else {
+			maxItems := 14
+			start := 0
+			if m.cursor >= maxItems {
+				start = m.cursor - maxItems + 1
+			}
+			end := start + maxItems
+			if end > len(m.visibleTools) {
+				end = len(m.visibleTools)
 			}
 
-			checked := "[ ]"
-			if m.selected[tool.ID] {
-				checked = selectedStyle.Render("[✓]")
+			for i := start; i < end; i++ {
+				tool := m.visibleTools[i]
+				cursor := "  "
+				if m.cursor == i {
+					cursor = selectedStyle.Render("▶ ")
+				}
+
+				checked := "[ ]"
+				if m.selected[tool.ID] {
+					checked = selectedStyle.Render("[✓]")
+				}
+
+				installedTag := ""
+				if m.reg.IsInstalled(tool.ID) {
+					installedTag = lipgloss.NewStyle().Foreground(lipgloss.Color("#10B981")).Render(" [instalado]")
+				}
+
+				method := ""
+				target := tool.TargetForCurrentOS()
+				if target != nil {
+					method = fmt.Sprintf("(%s)", target.Type)
+				}
+
+				line := fmt.Sprintf("%s%s %-14s %-22s %-10s %s%s\n",
+					cursor, checked, tool.ID, tool.Name, method, dimStyle.Render(tool.Description), installedTag)
+
+				b.WriteString(line)
 			}
 
-			installedTag := ""
-			if m.reg.IsInstalled(tool.ID) {
-				installedTag = lipgloss.NewStyle().Foreground(lipgloss.Color("#10B981")).Render(" [instalado]")
+			if len(m.visibleTools) > maxItems {
+				b.WriteString(dimStyle.Render(fmt.Sprintf("\n  ... exibindo %d de %d ferramentas (use ↑/↓ para rolar)\n", end-start, len(m.visibleTools))))
 			}
-
-			method := ""
-			target := tool.TargetForCurrentOS()
-			if target != nil {
-				method = fmt.Sprintf("(%s)", target.Type)
-			}
-
-			line := fmt.Sprintf("%s%s %-14s %-22s %-10s %s%s\n",
-				cursor, checked, tool.ID, tool.Name, method, dimStyle.Render(tool.Description), installedTag)
-
-			b.WriteString(line)
-		}
-
-		if len(m.visibleTools) > maxItems {
-			b.WriteString(dimStyle.Render(fmt.Sprintf("\n  ... exibindo %d de %d ferramentas (use ↑/↓ para rolar)\n", end-start, len(m.visibleTools))))
 		}
 	}
 
 	// Rodapé de atalhos
 	b.WriteString("\n")
-	b.WriteString(dimStyle.Render("Atalhos: [↑/↓/j/k] Navegar • [Espaço] Marcar/Desmarcar • [Enter] Executar • [r] Alternar Modo • [/] Buscar • [q] Sair\n"))
+	b.WriteString(dimStyle.Render("Atalhos: [↑/↓/j/k] Navegar • [Espaço] Marcar/Desmarcar • [Enter] Executar • [r] Alternar Modo • [/] Buscar • [p] Pacotes • [q] Sair\n"))
 
 	return b.String()
 }
