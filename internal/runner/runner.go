@@ -16,6 +16,7 @@ import (
 
 type CommandExecutor interface {
 	Execute(name string, args ...string) error
+	LookPath(file string) (string, error)
 }
 
 type OSExecutor struct{}
@@ -26,6 +27,10 @@ func (o *OSExecutor) Execute(name string, args ...string) error {
 	cmd.Stderr = os.Stderr
 	cmd.Stdin = os.Stdin
 	return cmd.Run()
+}
+
+func (o *OSExecutor) LookPath(file string) (string, error) {
+	return exec.LookPath(file)
 }
 
 // -------------------------------------------------------------
@@ -159,6 +164,211 @@ func (r *Runner) execWithSudoIfNeeded(cmdName string, args ...string) error {
 	return r.executor.Execute(cmdName, args...)
 }
 
+func (r *Runner) haveCommand(cmd string) bool {
+	_, err := r.executor.LookPath(cmd)
+	return err == nil
+}
+
+func (r *Runner) IsDependencySatisfied(depTool *catalog.Tool) bool {
+	if depTool == nil {
+		return true
+	}
+	if r.reg.IsInstalled(depTool.ID) {
+		return true
+	}
+	target := depTool.TargetForCurrentOS()
+	if target == nil {
+		return true
+	}
+	if target.Binary != "" && r.haveCommand(target.Binary) {
+		return true
+	}
+	if depTool.ID == "temurin" && r.haveCommand("java") {
+		return true
+	}
+	return false
+}
+
+type runtimePkg struct {
+	command  string
+	apt      []string
+	dnf      []string
+	pacman   []string
+	zypper   []string
+	eopkg    []string
+	brew     []string
+	wingetID string
+}
+
+func (r *Runner) ensureRuntime(toolID string, target *catalog.Target) error {
+	var req *runtimePkg
+
+	switch target.Type {
+	case catalog.TypeNpm:
+		req = &runtimePkg{
+			command:  "npm",
+			apt:      []string{"nodejs", "npm"},
+			dnf:      []string{"nodejs", "npm"},
+			pacman:   []string{"nodejs", "npm"},
+			zypper:   []string{"nodejs", "npm"},
+			eopkg:    []string{"nodejs"},
+			brew:     []string{"node"},
+			wingetID: "OpenJS.NodeJS.LTS",
+		}
+	case catalog.TypePipx:
+		req = &runtimePkg{
+			command:  "pipx",
+			apt:      []string{"pipx"},
+			dnf:      []string{"pipx"},
+			pacman:   []string{"python-pipx"},
+			zypper:   []string{"python3-pipx"},
+			eopkg:    []string{"pipx"},
+			brew:     []string{"pipx"},
+			wingetID: "Python.Pipx",
+		}
+	case catalog.TypeCargo:
+		req = &runtimePkg{
+			command:  "cargo",
+			apt:      []string{"cargo"},
+			dnf:      []string{"cargo"},
+			pacman:   []string{"rust"},
+			zypper:   []string{"cargo"},
+			eopkg:    []string{"rust"},
+			brew:     []string{"rust"},
+			wingetID: "Rustlang.Rustup",
+		}
+	case catalog.TypeFlatpak:
+		req = &runtimePkg{
+			command: "flatpak",
+			apt:     []string{"flatpak"},
+			dnf:     []string{"flatpak"},
+			pacman:  []string{"flatpak"},
+			zypper:  []string{"flatpak"},
+			eopkg:   []string{"flatpak"},
+		}
+	case catalog.TypeSkill:
+		req = &runtimePkg{
+			command:  "git",
+			apt:      []string{"git"},
+			dnf:      []string{"git"},
+			pacman:   []string{"git"},
+			zypper:   []string{"git"},
+			eopkg:    []string{"git"},
+			brew:     []string{"git"},
+			wingetID: "Git.Git",
+		}
+	case catalog.TypeDirect:
+		if toolID != "orca" && toolID != "openmausbot" {
+			req = &runtimePkg{
+				command:  "git",
+				apt:      []string{"git"},
+				dnf:      []string{"git"},
+				pacman:   []string{"git"},
+				zypper:   []string{"git"},
+				eopkg:    []string{"git"},
+				brew:     []string{"git"},
+				wingetID: "Git.Git",
+			}
+		}
+	case catalog.TypeScript:
+		if toolID == "opengym" || toolID == "openstock" || toolID == "openmaicapp" {
+			req = &runtimePkg{
+				command:  "git",
+				apt:      []string{"git"},
+				dnf:      []string{"git"},
+				pacman:   []string{"git"},
+				zypper:   []string{"git"},
+				eopkg:    []string{"git"},
+				brew:     []string{"git"},
+				wingetID: "Git.Git",
+			}
+		}
+	}
+
+	if req == nil {
+		return nil
+	}
+
+	if r.haveCommand(req.command) {
+		return nil
+	}
+
+	fmt.Printf("➜ Runtime '%s' ausente. Auto-provisionando via gerenciador do sistema...\n", req.command)
+	LogOp("runtime auto-provision %s inicio", req.command)
+
+	var err error
+	if r.sysInfo.OS == system.OSWindows {
+		if req.wingetID == "" {
+			return fmt.Errorf("runtime '%s' não encontrado e não é suportado no Windows", req.command)
+		}
+		err = r.executor.Execute("winget", "install", "--exact", "--id", req.wingetID,
+			"--accept-source-agreements", "--accept-package-agreements", "--silent")
+	} else if r.sysInfo.OS == system.OSDarwin {
+		if len(req.brew) == 0 {
+			return fmt.Errorf("runtime '%s' não encontrado para macOS", req.command)
+		}
+		args := append([]string{"install"}, req.brew...)
+		err = r.executor.Execute("brew", args...)
+	} else if r.sysInfo.OS == system.OSLinux {
+		var pkgs []string
+		switch r.sysInfo.PrimaryManager {
+		case system.MgrApt:
+			pkgs = req.apt
+			if len(pkgs) > 0 {
+				args := append([]string{"install", "-y"}, pkgs...)
+				err = r.execWithSudoIfNeeded("apt-get", args...)
+			}
+		case system.MgrDnf:
+			pkgs = req.dnf
+			if len(pkgs) > 0 {
+				args := append([]string{"install", "-y"}, pkgs...)
+				err = r.execWithSudoIfNeeded("dnf", args...)
+			}
+		case system.MgrPacman:
+			pkgs = req.pacman
+			if len(pkgs) > 0 {
+				args := append([]string{"-S", "--noconfirm", "--needed"}, pkgs...)
+				err = r.execWithSudoIfNeeded("pacman", args...)
+			}
+		case system.MgrZypper:
+			pkgs = req.zypper
+			if len(pkgs) > 0 {
+				args := append([]string{"install", "-y"}, pkgs...)
+				err = r.execWithSudoIfNeeded("zypper", args...)
+			}
+		case system.MgrEopkg:
+			pkgs = req.eopkg
+			if len(pkgs) > 0 {
+				args := append([]string{"install", "-y"}, pkgs...)
+				err = r.execWithSudoIfNeeded("eopkg", args...)
+			}
+		case system.MgrBrew:
+			pkgs = req.brew
+			if len(pkgs) > 0 {
+				args := append([]string{"install"}, pkgs...)
+				err = r.executor.Execute("brew", args...)
+			}
+		default:
+			return fmt.Errorf("gerenciador de pacotes nativo não suportado para instalar runtime '%s'", req.command)
+		}
+	} else {
+		return fmt.Errorf("sistema operacional não suportado para auto-provisionamento de runtime '%s'", req.command)
+	}
+
+	if err != nil {
+		LogOp("runtime auto-provision %s fim rc=1 erro=%v", req.command, err)
+		return fmt.Errorf("falha ao auto-provisionar runtime '%s': %w", req.command, err)
+	}
+
+	if req.command == "flatpak" && r.sysInfo.OS == system.OSLinux {
+		_ = r.executor.Execute("flatpak", "remote-add", "--if-not-exists", "flathub", "https://dl.flathub.org/repo/flathub.flatpakrepo")
+	}
+
+	fmt.Printf("✔ Runtime '%s' provisionado com sucesso.\n", req.command)
+	LogOp("runtime auto-provision %s fim rc=0", req.command)
+	return nil
+}
+
 func (r *Runner) Install(tool catalog.Tool) error {
 	target := tool.TargetForCurrentOS()
 	if target == nil {
@@ -173,6 +383,26 @@ func (r *Runner) Install(tool catalog.Tool) error {
 		fmt.Printf("[DRY-RUN] Simulando instalação de %s via %s (%s)\n", tool.Name, target.Type, target.PackageID)
 		LogOp("install %s fim rc=0 dry-run", tool.ID)
 		return r.reg.MarkInstalled(tool.ID)
+	}
+
+	// Auto-provisionamento de dependências de software
+	for _, depID := range tool.Dependencies {
+		depTool := catalog.FindTool(depID)
+		if depTool != nil && depTool.IsSupportedOnCurrentOS() {
+			if !r.IsDependencySatisfied(depTool) {
+				fmt.Printf("➜ Instalando dependência obrigatória '%s' para '%s'...\n", depTool.Name, tool.Name)
+				if err := r.Install(*depTool); err != nil {
+					return fmt.Errorf("falha ao instalar dependência %s: %w", depID, err)
+				}
+			}
+		}
+	}
+
+	// Auto-provisionamento de runtime
+	if err := r.ensureRuntime(tool.ID, target); err != nil {
+		fmt.Printf("✖ Falha ao provisionar runtime para %s: %v\n", tool.Name, err)
+		LogOp("install %s fim rc=1 erro_runtime=%v", tool.ID, err)
+		return err
 	}
 
 	var err error
@@ -322,6 +552,18 @@ func (r *Runner) installScript(id string, target *catalog.Target) error {
 			repo := target.PackageID
 			return r.executor.Execute("sh", "-c", fmt.Sprintf("mkdir -p $HOME/.local/share/apps && git clone --depth 1 https://github.com/%s $HOME/.local/share/apps/%s", repo, id))
 		}
+	case "temurin":
+		if r.sysInfo.OS == system.OSLinux {
+			return r.executor.Execute("sh", "-c", "mkdir -p $HOME/.local/share/adoptium && curl -fsSL 'https://api.adoptium.net/v3/binary/latest/21/ga/linux/x64/jdk/hotspot/normal/eclipse' | tar -xz -C $HOME/.local/share/adoptium --strip-components=1 && mkdir -p $HOME/.local/bin && ln -sf $HOME/.local/share/adoptium/bin/java $HOME/.local/bin/java")
+		}
+	case "ghidra":
+		if r.sysInfo.OS == system.OSLinux {
+			return r.executor.Execute("sh", "-c", "mkdir -p $HOME/.local/share/ghidra && curl -fsSL 'https://github.com/NationalSecurityAgency/ghidra/releases/download/Ghidra_11.1.2_build/ghidra_11.1.2_PUBLIC_20240709.zip' -o /tmp/ghidra.zip && unzip -q /tmp/ghidra.zip -d /tmp && mv /tmp/ghidra_*/* $HOME/.local/share/ghidra && mkdir -p $HOME/.local/bin && ln -sf $HOME/.local/share/ghidra/ghidraRun $HOME/.local/bin/ghidra")
+		}
+	case "ohmyzsh":
+		if r.sysInfo.OS == system.OSLinux {
+			return r.executor.Execute("sh", "-c", "RUNZSH=no CHSH=no KEEP_ZSHRC=yes sh -c \"$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)\"")
+		}
 	}
 
 	return fmt.Errorf("script de instalação direta não implementado para: %s", id)
@@ -407,6 +649,13 @@ func (r *Runner) Update(tool catalog.Tool) error {
 		fmt.Printf("[DRY-RUN] Simulando atualização de %s via %s (%s)\n", tool.Name, target.Type, target.PackageID)
 		LogOp("update %s fim rc=0 dry-run", tool.ID)
 		return nil
+	}
+
+	// Auto-provisionamento de runtime
+	if err := r.ensureRuntime(tool.ID, target); err != nil {
+		fmt.Printf("✖ Falha ao provisionar runtime para %s: %v\n", tool.Name, err)
+		LogOp("update %s fim rc=1 erro_runtime=%v", tool.ID, err)
+		return err
 	}
 
 	var err error

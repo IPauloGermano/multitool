@@ -236,3 +236,76 @@ func TestSuitesStruct(t *testing.T) {
 		t.Errorf("Esperava 10 suítes suportadas, obteve %d", len(supp))
 	}
 }
+
+func TestResolveDependencies(t *testing.T) {
+	// 1. Tool com dependência (ghidra -> temurin)
+	resolved, err := ResolveDependencies([]string{"ghidra"})
+	if err != nil {
+		t.Fatalf("Erro inesperado ao resolver dependências de ghidra: %v", err)
+	}
+
+	temurinIdx := -1
+	ghidraIdx := -1
+	for i, tool := range resolved {
+		if tool.ID == "temurin" {
+			temurinIdx = i
+		}
+		if tool.ID == "ghidra" {
+			ghidraIdx = i
+		}
+	}
+
+	if temurinIdx == -1 {
+		t.Errorf("Dependência 'temurin' não foi incluída na resolução de 'ghidra'")
+	}
+	if ghidraIdx == -1 {
+		t.Errorf("'ghidra' não foi incluída na resolução")
+	}
+	if temurinIdx > ghidraIdx {
+		t.Errorf("Ordem topológica incorreta: temurin (%d) deve vir antes de ghidra (%d)", temurinIdx, ghidraIdx)
+	}
+
+	// 2. Múltiplas ferramentas compartilhando dependência (keep e opengym -> docker)
+	resolvedShared, err := ResolveDependencies([]string{"keep", "opengym"})
+	if err != nil {
+		t.Fatalf("Erro ao resolver dependências compartilhadas: %v", err)
+	}
+
+	dockerCount := 0
+	dockerIdx := -1
+	keepIdx := -1
+	opengymIdx := -1
+	for i, tool := range resolvedShared {
+		if tool.ID == "docker" {
+			dockerCount++
+			dockerIdx = i
+		}
+		if tool.ID == "keep" {
+			keepIdx = i
+		}
+		if tool.ID == "opengym" {
+			opengymIdx = i
+		}
+	}
+
+	if dockerCount != 1 {
+		t.Errorf("Esperava exatamente 1 ocorrência de docker desduplicada, obteve %d", dockerCount)
+	}
+	if dockerIdx > keepIdx || dockerIdx > opengymIdx {
+		t.Errorf("docker (%d) deve vir antes de keep (%d) e opengym (%d)", dockerIdx, keepIdx, opengymIdx)
+	}
+
+	// 3. Ferramenta sem dependências
+	resolvedSimple, err := ResolveDependencies([]string{"git"})
+	if err != nil {
+		t.Fatalf("Erro ao resolver ferramenta sem dependências: %v", err)
+	}
+	if len(resolvedSimple) != 1 || resolvedSimple[0].ID != "git" {
+		t.Errorf("Esperava apenas git, obteve: %+v", resolvedSimple)
+	}
+
+	// 4. Erro em ferramenta inexistente
+	if _, err := ResolveDependencies([]string{"pacote_inexistente_999"}); err == nil {
+		t.Errorf("Esperava erro ao resolver pacote inexistente")
+	}
+}

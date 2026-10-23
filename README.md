@@ -34,6 +34,12 @@ Unificação e evolução integrada dos projetos `linux-multitool` e `windows-mu
   - `@toolchain`: GCC, Make, GDB, CMake.
   - `@termstack`: Wave Terminal, Ghostty, bat, fzf, Zsh, Oh My Zsh.
   - `@flatpakfull`, `@ghidrajdk`, `@keepdocker`.
+- **Resolução de Dependências em Grafo (DAG)**:
+  - Ordenação topológica e detecção de ciclos automática (`Dependencies: []string`).
+  - Instalação inteligente de softwares base antes dos dependentes (ex: `Ghidra` ➔ `Temurin JDK`, `Keep`/`OpenGym` ➔ `Docker`, `Oh My Zsh` ➔ `Zsh`, `Flathub` ➔ `Flatpak`).
+  - Detecção de requisitos já satisfeitos no hospedeiro para evitar execuções redundantes.
+- **Auto-provisionamento de Runtimes no Host**:
+  - Quando uma ferramenta requer `npm`, `pipx`, `cargo`, `flatpak` ou `git`, o Multitool detecta comandos ausentes e os provisiona proativamente através do gerenciador de pacotes nativo do sistema (`apt`, `dnf`, `pacman`, `zypper`, `eopkg`, `brew`, `winget`).
 - **Rastreamento de Estado & Auditoria**:
   - Registra instalações em formato JSON estruturado (`~/.local/share/multitool/installed.json` no Linux/macOS ou `%LOCALAPPDATA%\multitool\installed.json` no Windows).
   - Registro de auditoria com rotação automática em 512 KB (`multitool.log`).

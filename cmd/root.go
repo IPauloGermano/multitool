@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"os"
 	"runtime"
 	"sort"
 	"strings"
@@ -191,6 +190,9 @@ agentes de IA, compiladores e aplicativos de sistema.`,
 			fmt.Fprintf(out, "• Descrição:    %s\n", tool.Description)
 			fmt.Fprintf(out, "• Categoria:    %s (%s)\n", tool.Category, catalog.TopoDaSub(tool.Category))
 			fmt.Fprintf(out, "• Instalado:    %s\n", installed)
+			if len(tool.Dependencies) > 0 {
+				fmt.Fprintf(out, "• Dependências: %s\n", styleCyan.Render(strings.Join(tool.Dependencies, ", ")))
+			}
 
 			target := tool.TargetForCurrentOS()
 			if target != nil {
@@ -352,30 +354,44 @@ func runInstalled(out io.Writer, reg *registry.Registry, asJSON bool) error {
 }
 
 func runInstall(r *runner.Runner, args []string) error {
-	expanded, err := catalog.Expand(args)
+	tools, err := catalog.ResolveDependencies(args)
 	if err != nil {
 		return err
 	}
 
-	var tools []catalog.Tool
+	explicitSet := make(map[string]bool)
+	expanded, _ := catalog.Expand(args)
 	for _, id := range expanded {
-		t := catalog.FindTool(id)
-		if t == nil {
-			return fmt.Errorf("ferramenta não encontrada no catálogo: %s", id)
-		}
-		if !t.IsSupportedOnCurrentOS() {
-			fmt.Fprintf(os.Stderr, "Aviso: %s (%s) não é suportada na plataforma atual. Ignorando.\n", t.Name, t.ID)
-			continue
-		}
-		tools = append(tools, *t)
+		explicitSet[id] = true
 	}
 
-	if len(tools) == 0 {
-		fmt.Println("Nenhuma ferramenta elegível para instalação nesta plataforma.")
+	var eligible []catalog.Tool
+	for _, t := range tools {
+		if !t.IsSupportedOnCurrentOS() {
+			continue
+		}
+		// Se foi adicionada apenas como dependência e já está satisfeita no sistema, pula
+		if !explicitSet[t.ID] && r.IsDependencySatisfied(&t) {
+			fmt.Printf("✔ Dependência '%s' (%s) já está disponível no sistema.\n", t.Name, t.ID)
+			continue
+		}
+		eligible = append(eligible, t)
+	}
+
+	if len(eligible) == 0 {
+		fmt.Println("Todas as ferramentas solicitadas ou dependências já estão instaladas.")
 		return nil
 	}
 
-	ok, fail := r.RunBatchInstall(tools)
+	if len(eligible) > 1 {
+		fmt.Printf("Plano de instalação (%d itens em ordem de dependência):\n", len(eligible))
+		for i, t := range eligible {
+			fmt.Printf("  %d. %s (%s)\n", i+1, t.Name, t.ID)
+		}
+		fmt.Println()
+	}
+
+	ok, fail := r.RunBatchInstall(eligible)
 	if fail > 0 && ok == 0 {
 		return fmt.Errorf("todas as %d instalações falharam", fail)
 	}

@@ -122,12 +122,19 @@ type Tool struct {
 * `t.IsSupportedOnCurrentOS()`: Retorna `true` se a ferramenta possuir receita para a plataforma em execução.
 * Se um usuário no Linux tentar instalar uma ferramenta exclusiva de Windows (ou vice-versa), o Multitool emite um aviso informativo e ignora o item com segurança sem travar o lote.
 
+### Árvore de Dependências no Catálogo (DAG & Resolução Topológica)
+* O campo `Dependencies: []string` permite declarar requisitos diretos entre ferramentas (ex: `ghidra` requer `temurin`, `keep`/`opengym`/`openstock` requerem `docker`, `ohmyzsh` requer `zsh`, `flathub` requer `flatpak`).
+* `catalog.ResolveDependencies(args []string)`: Executa expansão de suítes/aliases, ordenação topológica por grafo direcionado acíclico (DAG) e detecção recursiva de ciclos via call-stack (`inStack`).
+* Dependências satisfeitas no host (`r.IsDependencySatisfied`) ou já registradas são identificadas inteligentemente para evitar reinstalações desnecessárias.
+
 ---
 
 ## 4. Motor de Execução e Privilégios (`internal/runner`)
 
 O módulo `Runner` centraliza a execução de comandos, testes em mock (`CommandExecutor`), auditoria e isolamento de permissões:
 
+* **Auto-provisionamento Proativo de Runtimes (`ensureRuntime`)**:
+  - Quando uma ferramenta do tipo `TypeNpm`, `TypePipx`, `TypeCargo`, `TypeFlatpak` ou `TypeSkill` é acionada e o comando correspondente (`npm`, `pipx`, `cargo`, `flatpak`, `git`) não existe no PATH do hospedeiro (`LookPath`), o Multitool auto-provisiona o runtime automaticamente via gerenciador nativo da plataforma (`apt`, `dnf`, `pacman`, `zypper`, `eopkg`, `brew`, `winget`).
 * **Privilégios Sudo**: No Linux, para pacotes do tipo `TypeNative`, o comando é prefixado com `sudo` apenas se `sysInfo.NeedsSudo == true` (`os.Geteuid() != 0`).
 * **Simulação (`--dry-run`)**: Quando ativo, nenhum processo do sistema é gerado. Apenas o log de auditoria é preenchido e o estado é simulado.
 * **Auditoria com Rotação (`logGira`)**:

@@ -590,6 +590,21 @@ func Run(reg *registry.Registry, dryRun bool) error {
 
 		r := runner.New(reg, dryRun)
 		if res.mode == ModeInstall {
+			var ids []string
+			for _, t := range toRun {
+				ids = append(ids, t.ID)
+			}
+			resolved, err := catalog.ResolveDependencies(ids)
+			if err == nil {
+				var eligible []catalog.Tool
+				for _, t := range resolved {
+					if !res.selected[t.ID] && r.IsDependencySatisfied(&t) {
+						continue
+					}
+					eligible = append(eligible, t)
+				}
+				toRun = eligible
+			}
 			r.RunBatchInstall(toRun)
 		} else {
 			r.RunBatchUninstall(toRun)

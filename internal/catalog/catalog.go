@@ -28,12 +28,13 @@ type Target struct {
 }
 
 type Tool struct {
-	ID          string  `json:"id"`
-	Name        string  `json:"name"`
-	Category    string  `json:"category"`
-	Description string  `json:"description"`
-	Windows     *Target `json:"windows,omitempty"`
-	Linux       *Target `json:"linux,omitempty"`
+	ID           string   `json:"id"`
+	Name         string   `json:"name"`
+	Category     string   `json:"category"`
+	Description  string   `json:"description"`
+	Dependencies []string `json:"dependencies,omitempty"`
+	Windows      *Target  `json:"windows,omitempty"`
+	Linux        *Target  `json:"linux,omitempty"`
 }
 
 type Suite struct {
@@ -336,6 +337,7 @@ var catalogList = []Tool{
 	},
 	{
 		ID: "flathub", Name: "Flathub", Category: "Infraestrutura", Description: "Repositório oficial de flatpaks",
+		Dependencies: []string{"flatpak"},
 		Windows: nil,
 		Linux:   &Target{Type: TypeScript, PackageID: "flathub", Binary: "flathub"},
 	},
@@ -376,6 +378,7 @@ var catalogList = []Tool{
 	},
 	{
 		ID: "gethomepage", Name: "Homepage", Category: "Desktop", Description: "Dashboard de serviços (docker)",
+		Dependencies: []string{"docker"},
 		Windows: nil,
 		Linux:   &Target{Type: TypeScript, PackageID: "gethomepage", Binary: "gethomepage"},
 	},
@@ -386,6 +389,7 @@ var catalogList = []Tool{
 	},
 	{
 		ID: "ghidra", Name: "Ghidra", Category: "Análise", Description: "Framework de engenharia reversa da NSA",
+		Dependencies: []string{"temurin"},
 		Windows: &Target{Type: TypeWinget, PackageID: "NationalSecurityAgency.Ghidra", Binary: "ghidraRun.bat"},
 		Linux:   &Target{Type: TypeScript, PackageID: "ghidra", Binary: "ghidra"},
 	},
@@ -491,6 +495,7 @@ var catalogList = []Tool{
 	},
 	{
 		ID: "keep", Name: "Keep", Category: "Observabilidade", Description: "Gestão de alertas (Docker)",
+		Dependencies: []string{"docker"},
 		Windows: nil,
 		Linux:   &Target{Type: TypeScript, PackageID: "keep", Binary: "keep"},
 	},
@@ -571,6 +576,7 @@ var catalogList = []Tool{
 	},
 	{
 		ID: "ohmyzsh", Name: "Oh My Zsh", Category: "Terminais", Description: "Framework Zsh + powerlevel10k + plugins fullstack",
+		Dependencies: []string{"zsh"},
 		Windows: nil,
 		Linux:   &Target{Type: TypeScript, PackageID: "ohmyzsh", Binary: "ohmyzsh"},
 	},
@@ -596,6 +602,7 @@ var catalogList = []Tool{
 	},
 	{
 		ID: "opengym", Name: "OpenGym", Category: "Desktop", Description: "Tracker de treino self-hosted (docker)",
+		Dependencies: []string{"docker"},
 		Windows: nil,
 		Linux:   &Target{Type: TypeScript, PackageID: "alexpcosta/opengym", Binary: "opengym"},
 	},
@@ -611,6 +618,7 @@ var catalogList = []Tool{
 	},
 	{
 		ID: "openmaicapp", Name: "OpenMAIC App", Category: "Desktop", Description: "Sala de aula multi-agente (docker; .env manual)",
+		Dependencies: []string{"docker"},
 		Windows: nil,
 		Linux:   &Target{Type: TypeScript, PackageID: "THU-MAIC/OpenMAIC", Binary: "openmaicapp"},
 	},
@@ -631,6 +639,7 @@ var catalogList = []Tool{
 	},
 	{
 		ID: "openstock", Name: "OpenStock", Category: "Desktop", Description: "Bolsa de valores self-hosted (docker; .env manual)",
+		Dependencies: []string{"docker"},
 		Windows: nil,
 		Linux:   &Target{Type: TypeScript, PackageID: "Open-Dev-Society/OpenStock", Binary: "openstock"},
 	},
@@ -934,6 +943,67 @@ func Expand(args []string) ([]string, error) {
 		}
 	}
 	return result, nil
+}
+
+// ResolveDependencies expande argumentos (@pacotes ou IDs), resolve a árvore de dependências
+// em ordem topológica e retorna a lista final ordenada de ferramentas pronta para instalação.
+func ResolveDependencies(args []string) ([]Tool, error) {
+	expanded, err := Expand(args)
+	if err != nil {
+		return nil, err
+	}
+
+	var ordered []Tool
+	visited := make(map[string]bool)
+	inStack := make(map[string]bool)
+
+	var visit func(toolID string) error
+	visit = func(toolID string) error {
+		if inStack[toolID] {
+			return fmt.Errorf("ciclo de dependência detectado envolvendo '%s'", toolID)
+		}
+		if visited[toolID] {
+			return nil
+		}
+
+		tool := FindTool(toolID)
+		if tool == nil {
+			return fmt.Errorf("ferramenta ou dependência desconhecida: %s", toolID)
+		}
+
+		if !tool.IsSupportedOnCurrentOS() {
+			visited[toolID] = true
+			return nil
+		}
+
+		inStack[toolID] = true
+
+		// Visita primeiro as dependências para que venham antes na ordem de instalação
+		for _, depID := range tool.Dependencies {
+			depTool := FindTool(depID)
+			if depTool == nil {
+				return fmt.Errorf("dependência '%s' da ferramenta '%s' não existe no catálogo", depID, toolID)
+			}
+			if depTool.IsSupportedOnCurrentOS() {
+				if err := visit(depID); err != nil {
+					return err
+				}
+			}
+		}
+
+		inStack[toolID] = false
+		visited[toolID] = true
+		ordered = append(ordered, *tool)
+		return nil
+	}
+
+	for _, id := range expanded {
+		if err := visit(id); err != nil {
+			return nil, err
+		}
+	}
+
+	return ordered, nil
 }
 
 func TopoDaSub(category string) string {

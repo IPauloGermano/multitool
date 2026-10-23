@@ -100,4 +100,31 @@ func TestRootCommands(t *testing.T) {
 	if !reg.IsInstalled("btop") {
 		t.Errorf("btop deveria estar registrado após install dry-run")
 	}
+
+	// 8. Teste 'info' com dependências
+	buf.Reset()
+	rootCmd = NewRootCmd(reg)
+	rootCmd.SetOut(buf)
+	rootCmd.SetArgs([]string{"info", "ghidra"})
+	if err := rootCmd.Execute(); err != nil {
+		t.Fatalf("Erro no info ghidra: %v", err)
+	}
+	if !strings.Contains(buf.String(), "temurin") {
+		t.Errorf("Esperava 'temurin' listado nas dependências de ghidra: %s", buf.String())
+	}
+
+	// 9. Teste 'install --dry-run' com resolução de dependências
+	buf.Reset()
+	rootCmd = NewRootCmd(reg)
+	rootCmd.SetOut(buf)
+	rootCmd.SetArgs([]string{"install", "ghidra", "--dry-run"})
+	if err := rootCmd.Execute(); err != nil {
+		t.Fatalf("Erro no install ghidra dry-run: %v", err)
+	}
+	if !reg.IsInstalled("ghidra") {
+		t.Errorf("ghidra deveria estar registrado após install dry-run")
+	}
+	if !reg.IsInstalled("temurin") {
+		t.Errorf("dependência temurin deveria estar registrada após install dry-run de ghidra")
+	}
 }
