@@ -64,6 +64,7 @@ Harnesses, frameworks e observabilidade para agentes autônomos:
 - `paperclip`: Governança e orquestração de times de IA.
 - `hyperframes`: Framework de vídeo programático para agentes.
 - `orca`: Orquestração de frotas de agentes IA em worktrees paralelos.
+- `openmausbot`: Alternativa open-source ao Grok Bot / Manus com equipe de agentes IA e VMs.
 
 ### 4. `@skills` (Coleção Curada de 20 Skills)
 Coleção de metodologias e habilidades para agentes de código:

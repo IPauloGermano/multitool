@@ -63,7 +63,7 @@ var packages = map[string][]string{
 		"mcpm", "mcpinspector", "supergateway", "codebase_memory", "repomix", "context7", "rea",
 	},
 	"agentstack": {
-		"langgraph", "crewai", "ax", "bubblewrap", "promptfoo", "phoenix", "otelcol", "podman", "ecc", "paperclip", "hyperframes", "orca",
+		"langgraph", "crewai", "ax", "bubblewrap", "promptfoo", "phoenix", "otelcol", "podman", "ecc", "paperclip", "hyperframes", "orca", "openmausbot",
 	},
 	"skills": {
 		"superpowers", "impeccable", "tasteskill", "emilkowalski", "archify", "opencodereview", "securityaudit", "contextmode", "ponytail", "reverseskill", "pocockskills", "diagramdesign", "ihaveadhd", "addyosmani", "humanizer", "openmaic", "openseo", "linkedin", "universalmodder", "androidskills",
@@ -108,6 +108,9 @@ var toolAliases = map[string]string{
 	"android":                       "androidskills",
 	"paperclipai/paperclip":         "paperclip",
 	"paperclipai":                   "paperclip",
+	"milind-soni/openmausbot":       "openmausbot",
+	"mausbot":                       "openmausbot",
+	"opengrokbot":                   "openmausbot",
 }
 
 var catalogList = []Tool{
@@ -610,6 +613,11 @@ var catalogList = []Tool{
 		ID: "openmaicapp", Name: "OpenMAIC App", Category: "Desktop", Description: "Sala de aula multi-agente (docker; .env manual)",
 		Windows: nil,
 		Linux:   &Target{Type: TypeScript, PackageID: "THU-MAIC/OpenMAIC", Binary: "openmaicapp"},
+	},
+	{
+		ID: "openmausbot", Name: "OpenMausBot", Category: "Agentes", Description: "Alternativa open-source ao Grok Bot / Manus com equipe de agentes IA e VMs",
+		Windows: &Target{Type: TypeDirect, PackageID: "milind-soni/OpenMausBot", Binary: "OpenMausBot.exe"},
+		Linux:   &Target{Type: TypeScript, PackageID: "openmausbot", Binary: "openmausbot"},
 	},
 	{
 		ID: "openseo", Name: "Open SEO", Category: "Skills", Description: "Skills de SEO e análise competitiva",

@@ -125,6 +125,14 @@ func TestFindToolAndAliases(t *testing.T) {
 		{"paperclipai", "paperclip"},
 		{"paperclipai/paperclip", "paperclip"},
 		{"https://github.com/paperclipai/paperclip", "paperclip"},
+		{"openmausbot", "openmausbot"},
+		{"OpenMausBot", "openmausbot"},
+		{"milind-soni/OpenMausBot", "openmausbot"},
+		{"milind-soni/openmausbot", "openmausbot"},
+		{"https://github.com/milind-soni/OpenMausBot", "openmausbot"},
+		{"https://github.com/milind-soni/OpenMausBot.git", "openmausbot"},
+		{"mausbot", "openmausbot"},
+		{"opengrokbot", "openmausbot"},
 	}
 
 	for _, tc := range testCases {

@@ -202,6 +202,8 @@ func (r *Runner) Install(tool catalog.Tool) error {
 	case catalog.TypeDirect:
 		if tool.ID == "orca" {
 			err = r.executor.Execute("powershell", "-NoProfile", "-Command", "Invoke-WebRequest -Uri https://github.com/stablyai/orca/releases/latest/download/orca-windows-setup.exe -OutFile $env:TEMP\\orca-setup.exe; Start-Process -FilePath $env:TEMP\\orca-setup.exe -ArgumentList '/S' -Wait")
+		} else if tool.ID == "openmausbot" {
+			err = r.executor.Execute("powershell", "-NoProfile", "-Command", "Invoke-WebRequest -Uri https://github.com/milind-soni/OpenMausBot/releases/latest/download/OpenMausBot-setup.exe -OutFile $env:TEMP\\OpenMausBot-setup.exe; Start-Process -FilePath $env:TEMP\\OpenMausBot-setup.exe -ArgumentList '/S' -Wait")
 		} else {
 			err = r.installGitSkill(tool.ID, target.PackageID)
 		}
@@ -307,6 +309,10 @@ func (r *Runner) installScript(id string, target *catalog.Target) error {
 		if r.sysInfo.OS == system.OSLinux {
 			return r.executor.Execute("sh", "-c", "mkdir -p $HOME/.local/bin && curl -fsSL https://github.com/stablyai/orca/releases/latest/download/orca-linux.AppImage -o $HOME/.local/bin/orca && chmod +x $HOME/.local/bin/orca")
 		}
+	case "openmausbot":
+		if r.sysInfo.OS == system.OSLinux {
+			return r.executor.Execute("sh", "-c", "mkdir -p $HOME/.local/bin && curl -fsSL https://github.com/milind-soni/OpenMausBot/releases/latest/download/OpenMausBot.AppImage -o $HOME/.local/bin/openmausbot && chmod +x $HOME/.local/bin/openmausbot")
+		}
 	case "docker":
 		if r.sysInfo.OS == system.OSLinux {
 			return r.executor.Execute("sh", "-c", "curl -fsSL https://get.docker.com | sh")
@@ -363,6 +369,8 @@ func (r *Runner) Uninstall(tool catalog.Tool) error {
 	case catalog.TypeScript:
 		if tool.ID == "orca" {
 			_ = os.Remove(filepath.Join(os.Getenv("HOME"), ".local", "bin", "orca"))
+		} else if tool.ID == "openmausbot" {
+			_ = os.Remove(filepath.Join(os.Getenv("HOME"), ".local", "bin", "openmausbot"))
 		} else if tool.ID == "opengym" || tool.ID == "openstock" || tool.ID == "openmaicapp" {
 			_ = os.RemoveAll(filepath.Join(os.Getenv("HOME"), ".local", "share", "apps", tool.ID))
 		}
@@ -427,6 +435,8 @@ func (r *Runner) Update(tool catalog.Tool) error {
 	case catalog.TypeDirect:
 		if tool.ID == "orca" {
 			err = r.executor.Execute("powershell", "-NoProfile", "-Command", "Invoke-WebRequest -Uri https://github.com/stablyai/orca/releases/latest/download/orca-windows-setup.exe -OutFile $env:TEMP\\orca-setup.exe; Start-Process -FilePath $env:TEMP\\orca-setup.exe -ArgumentList '/S' -Wait")
+		} else if tool.ID == "openmausbot" {
+			err = r.executor.Execute("powershell", "-NoProfile", "-Command", "Invoke-WebRequest -Uri https://github.com/milind-soni/OpenMausBot/releases/latest/download/OpenMausBot-setup.exe -OutFile $env:TEMP\\OpenMausBot-setup.exe; Start-Process -FilePath $env:TEMP\\OpenMausBot-setup.exe -ArgumentList '/S' -Wait")
 		} else {
 			err = r.installGitSkill(tool.ID, target.PackageID)
 		}
