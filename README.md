@@ -81,7 +81,7 @@ multitool system
 # Listar ferramentas disponíveis na plataforma atual
 multitool list
 
-# Listar todas as 144 ferramentas de todas as plataformas
+# Listar todas as 147 ferramentas de todas as plataformas
 multitool list --all-platforms
 
 # Listar em formato JSON para automação
