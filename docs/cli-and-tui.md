@@ -27,25 +27,28 @@ Abas: [1] IA  [2] Código  [3] Sistema  [4] Apps  [5] Segurança  |  [t] Todas  
   [ ] git            Git                    (native)   Controle de versão distribuído
   [✓] ollama         Ollama                 (script)   Servidor local de modelos de IA
 
-Atalhos: [↑/↓/j/k] Navegar • [Espaço] Marcar/Desmarcar • [Enter] Executar • [r] Alternar Modo • [/] Buscar • [p] Pacotes • [q] Sair
+Atalhos: [↑/↓/j/k] Navegar • [Espaço] Marcar • [Enter] Detalhes/Executar • [a/A] Marcar Tudo/Limpar • [r] Modo • [/] Buscar • [q] Sair
 ```
 
 ### Tabela de Atalhos do Teclado
 
 | Tecla | Ação |
 | :---: | :--- |
-| `↑` / `↓` ou `k` / `j` | Navega entre as ferramentas ou suítes da lista atual. |
+| `↑` / `↓` ou `k` / `j` | Navega entre as ferramentas ou suítes da lista atual (com rolagem suave via `bubbles/viewport`). |
+| `PgUp` / `PgDown` | Rolagem por página na viewport ativa. |
 | `Espaço` | Marca ou desmarca a ferramenta atual (ou todos os membros da suíte selecionada) no carrinho. |
-| `Enter` | Executa em lote a instalação ou remoção de todas as ferramentas marcadas. |
+| `Enter` | **Executar ou Inspecionar**: Se o carrinho tiver itens, executa a ação em lote. Se o carrinho estiver vazio, abre a janela modal com detalhes da ferramenta (`info`) ou pacote. |
+| `a` | **Marcar Tudo**: Adiciona todas as ferramentas da visualização/aba atual ao carrinho. |
+| `A` | **Limpar Carrinho**: Remove todos os itens selecionados do carrinho. |
 | `r` | Alterna entre os modos de operação: `[ MODO: INSTALAR ]` ↔ `[ MODO: DESINSTALAR ]`. |
 | `/` | Ativa a busca difusa em tempo real (digite o nome, descrição ou ferramenta). |
-| `Esc` | Limpa a busca atual ou fecha a tela. |
+| `Esc` | Fecha o modal de detalhes ativo, limpa o filtro de busca ou encerra o programa. |
 | `1` a `5` | Filtra por topo: `1`=IA, `2`=Código, `3`=Sistema, `4`=Apps, `5`=Segurança. |
 | `t` | Aba "Todas": exibe todas as ferramentas suportadas pela plataforma. |
 | `p` | Aba "Pacotes": exibe e gerencia suítes integradas (`@vibecode`, `@dev`, `@mcp`, etc.). |
 | `i` | Aba "Instalados": exibe apenas ferramentas registradas no sistema. |
 | `c` | Aba "Carrinho": exibe apenas as ferramentas marcadas para execução. |
-| `q` | Encerra o programa. |
+| `q` | Fecha o modal ativo ou encerra o programa. |
 
 ---
 

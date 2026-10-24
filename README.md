@@ -71,10 +71,12 @@ multitool.exe
 > - `c`: Abre o carrinho de compras.
 > - `/`: Digita termo para busca e filtro instantâneo.
 > - `r`: Alterna o modo (`instalar` ↔ `desinstalar`).
-> - `↑` / `↓` ou `k` / `j`: Navega entre itens.
+> - `↑` / `↓` ou `k` / `j`: Navega entre itens (rolagem responsiva via viewport).
 > - `Espaço`: Marca/desmarca do carrinho.
-> - `Enter`: Executa o lote selecionado.
-> - `q` ou `Esc`: Sai do programa.
+> - `a`: Marca todas as ferramentas da aba atual no carrinho.
+> - `A`: Limpa completamente o carrinho.
+> - `Enter`: Se houver itens no carrinho, executa o lote; se o carrinho estiver vazio, abre modal de detalhes da ferramenta ou pacote.
+> - `q` ou `Esc`: Fecha o modal ou sai do programa.
 
 ---
 

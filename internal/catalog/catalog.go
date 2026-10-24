@@ -1268,3 +1268,44 @@ func Search(query string) []Tool {
 	}
 	return results
 }
+
+// GetUpstreamRepo retorna a URL canônica do repositório ou projeto oficial da ferramenta se conhecida.
+func GetUpstreamRepo(toolID string) string {
+	tool := FindTool(toolID)
+	if tool == nil {
+		return ""
+	}
+
+	// 1. Alvos do tipo skill apontam diretamente para o repositório Git
+	for _, target := range []*Target{tool.Linux, tool.Windows, tool.Darwin} {
+		if target != nil && target.Type == TypeSkill && strings.HasPrefix(target.PackageID, "http") {
+			return target.PackageID
+		}
+	}
+
+	// 2. Verifica se há aliases no formato owner/repo apontando para este ID
+	for alias, tid := range toolAliases {
+		if tid == tool.ID && strings.Contains(alias, "/") && !strings.Contains(alias, " ") && !strings.HasPrefix(alias, "http") {
+			return "https://github.com/" + alias
+		}
+	}
+
+	// 3. Procura por links do GitHub no PackageID ou Script de qualquer plataforma
+	for _, target := range []*Target{tool.Linux, tool.Windows, tool.Darwin} {
+		if target != nil {
+			if strings.HasPrefix(target.PackageID, "https://github.com/") {
+				return target.PackageID
+			}
+			if target.Script != "" && strings.Contains(target.Script, "https://github.com/") {
+				idx := strings.Index(target.Script, "https://github.com/")
+				sub := target.Script[idx:]
+				fields := strings.Fields(sub)
+				if len(fields) > 0 {
+					return strings.Trim(fields[0], `"'`)
+				}
+			}
+		}
+	}
+
+	return ""
+}

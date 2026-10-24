@@ -4,12 +4,13 @@ import (
 	"fmt"
 	"strings"
 
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
 	"github.com/IPauloGermano/multitool/internal/catalog"
 	"github.com/IPauloGermano/multitool/internal/registry"
 	"github.com/IPauloGermano/multitool/internal/runner"
 	"github.com/IPauloGermano/multitool/internal/system"
+	"github.com/charmbracelet/bubbles/viewport"
+	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 )
 
 var (
@@ -82,6 +83,18 @@ type Model struct {
 	searchQuery   string
 	quitting      bool
 	executed      bool
+
+	// Viewport e layout responsivo
+	viewport      viewport.Model
+	width         int
+	height        int
+	ready         bool
+
+	// Modal de detalhes
+	showModal     bool
+	modalTool     *catalog.Tool
+	modalSuite    *catalog.Suite
+	modalViewport viewport.Model
 }
 
 func NewModel(reg *registry.Registry, dryRun bool) Model {
@@ -99,9 +112,72 @@ func NewModel(reg *registry.Registry, dryRun bool) Model {
 		selected:      make(map[string]bool),
 		mode:          ModeInstall,
 		tab:           TabAll,
+		width:         100,
+		height:        24,
 	}
+	m.updateViewportDimensions()
 	m.refreshVisible()
 	return m
+}
+
+func (m *Model) updateViewportDimensions() {
+	if m.width <= 0 {
+		m.width = 100
+	}
+	if m.height <= 0 {
+		m.height = 24
+	}
+
+	headerLines := 6
+	if m.height < 22 {
+		headerLines = 4 // layout compacto para telas reduzidas (splits < 20 linhas)
+	}
+	if m.searching || m.searchQuery != "" {
+		headerLines++
+	}
+
+	footerLines := 2
+	if m.height < 20 {
+		footerLines = 1
+	}
+
+	bodyHeight := m.height - headerLines - footerLines
+	if bodyHeight < 3 {
+		bodyHeight = 3
+	}
+
+	vpWidth := m.width
+	if vpWidth > 120 {
+		vpWidth = 120
+	}
+
+	modalW := m.width - 6
+	if modalW > 86 {
+		modalW = 86
+	}
+	if modalW < 36 {
+		modalW = 36
+	}
+	modalH := m.height - 4
+	if modalH < 6 {
+		modalH = 6
+	}
+
+	if !m.ready {
+		m.viewport = viewport.New(vpWidth, bodyHeight)
+		m.modalViewport = viewport.New(modalW-4, modalH-2)
+		m.ready = true
+	} else {
+		m.viewport.Width = vpWidth
+		m.viewport.Height = bodyHeight
+		m.modalViewport.Width = modalW - 4
+		m.modalViewport.Height = modalH - 2
+	}
+
+	m.syncViewport()
+	if m.showModal {
+		m.syncModalViewport()
+	}
 }
 
 func (m *Model) refreshVisible() {
@@ -140,6 +216,7 @@ func (m *Model) refreshVisible() {
 		if m.cursor < 0 {
 			m.cursor = 0
 		}
+		m.syncViewport()
 		return
 	}
 
@@ -200,6 +277,306 @@ func (m *Model) refreshVisible() {
 	if m.cursor < 0 {
 		m.cursor = 0
 	}
+	m.syncViewport()
+}
+
+func (m *Model) syncViewport() {
+	if m.tab == TabPackages {
+		var lines []string
+		suiteOffsets := make([]int, len(m.visibleSuites))
+		currLine := 0
+
+		for i, suite := range m.visibleSuites {
+			suiteOffsets[i] = currLine
+			cursor := "  "
+			if m.cursor == i {
+				cursor = selectedStyle.Render("▶ ")
+			}
+
+			totalTools := len(suite.Tools)
+			selectedTools := 0
+			installedTools := 0
+			for _, tid := range suite.Tools {
+				if m.selected[tid] {
+					selectedTools++
+				}
+				if m.reg.IsInstalled(tid) {
+					installedTools++
+				}
+			}
+
+			checked := "[ ]"
+			if totalTools > 0 && selectedTools == totalTools {
+				checked = selectedStyle.Render("[✓]")
+			} else if selectedTools > 0 {
+				checked = lipgloss.NewStyle().Foreground(lipgloss.Color("#F59E0B")).Bold(true).Render("[-]")
+			}
+
+			suiteID := fmt.Sprintf("@%-12s", suite.ID)
+			if m.cursor == i {
+				suiteID = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#60A5FA")).Render(suiteID)
+			}
+
+			statsBadge := fmt.Sprintf("(%d/%d instalados)", installedTools, totalTools)
+			if installedTools == totalTools && totalTools > 0 {
+				statsBadge = lipgloss.NewStyle().Foreground(lipgloss.Color("#10B981")).Render(statsBadge)
+			} else {
+				statsBadge = dimStyle.Render(statsBadge)
+			}
+
+			line := fmt.Sprintf("%s%s %s %-32s %-16s %s",
+				cursor, checked, suiteID, suite.Name, statsBadge, dimStyle.Render(suite.Description))
+			lines = append(lines, line)
+			currLine++
+
+			if m.cursor == i {
+				var memberTokens []string
+				for _, tid := range suite.Tools {
+					token := tid
+					if m.selected[tid] {
+						token = lipgloss.NewStyle().Foreground(lipgloss.Color("#F59E0B")).Bold(true).Render("●" + tid)
+					} else if m.reg.IsInstalled(tid) {
+						token = lipgloss.NewStyle().Foreground(lipgloss.Color("#10B981")).Render("✓" + tid)
+					} else {
+						token = dimStyle.Render(tid)
+					}
+					memberTokens = append(memberTokens, token)
+				}
+				lines = append(lines, fmt.Sprintf("       %s %s",
+					lipgloss.NewStyle().Foreground(lipgloss.Color("#93C5FD")).Render("↳ Membros:"),
+					strings.Join(memberTokens, "  ")))
+				lines = append(lines, "")
+				currLine += 2
+			}
+		}
+
+		if len(lines) == 0 {
+			lines = append(lines, dimStyle.Render("  Nenhum pacote encontrado para o filtro."))
+		}
+
+		m.viewport.SetContent(strings.Join(lines, "\n"))
+
+		if len(m.visibleSuites) > 0 && m.cursor >= 0 && m.cursor < len(suiteOffsets) {
+			targetLine := suiteOffsets[m.cursor]
+			if targetLine < m.viewport.YOffset {
+				m.viewport.SetYOffset(targetLine)
+			} else if targetLine+2 >= m.viewport.YOffset+m.viewport.Height {
+				m.viewport.SetYOffset(targetLine + 2 - m.viewport.Height + 1)
+			}
+			if m.viewport.YOffset < 0 {
+				m.viewport.SetYOffset(0)
+			}
+		}
+	} else {
+		var lines []string
+		for i, tool := range m.visibleTools {
+			cursor := "  "
+			if m.cursor == i {
+				cursor = selectedStyle.Render("▶ ")
+			}
+
+			checked := "[ ]"
+			if m.selected[tool.ID] {
+				checked = selectedStyle.Render("[✓]")
+			}
+
+			installedTag := ""
+			if m.reg.IsInstalled(tool.ID) {
+				installedTag = lipgloss.NewStyle().Foreground(lipgloss.Color("#10B981")).Render(" [instalado]")
+			}
+
+			method := ""
+			target := tool.TargetForCurrentOS()
+			if target != nil {
+				method = fmt.Sprintf("(%s)", target.Type)
+			}
+
+			line := fmt.Sprintf("%s%s %-14s %-22s %-10s %s%s",
+				cursor, checked, tool.ID, tool.Name, method, dimStyle.Render(tool.Description), installedTag)
+			lines = append(lines, line)
+		}
+
+		if len(lines) == 0 {
+			lines = append(lines, dimStyle.Render("  Nenhuma ferramenta para exibir nesta categoria ou filtro."))
+		}
+
+		m.viewport.SetContent(strings.Join(lines, "\n"))
+
+		if len(m.visibleTools) > 0 {
+			if m.cursor < m.viewport.YOffset {
+				m.viewport.SetYOffset(m.cursor)
+			} else if m.cursor >= m.viewport.YOffset+m.viewport.Height {
+				m.viewport.SetYOffset(m.cursor - m.viewport.Height + 1)
+			}
+			if m.viewport.YOffset < 0 {
+				m.viewport.SetYOffset(0)
+			}
+		}
+	}
+}
+
+func (m *Model) syncModalViewport() {
+	var content string
+	if m.modalTool != nil {
+		content = m.renderToolModalContent(*m.modalTool)
+	} else if m.modalSuite != nil {
+		content = m.renderSuiteModalContent(*m.modalSuite)
+	}
+	m.modalViewport.SetContent(content)
+}
+
+func (m *Model) renderToolModalContent(tool catalog.Tool) string {
+	var b strings.Builder
+
+	title := lipgloss.NewStyle().
+		Bold(true).
+		Foreground(lipgloss.Color("#FAFAFA")).
+		Background(lipgloss.Color("#2563EB")).
+		Padding(0, 1).
+		Render(fmt.Sprintf(" %s (%s) ", tool.Name, tool.ID))
+
+	b.WriteString(title + "\n\n")
+
+	b.WriteString(fmt.Sprintf("• Descrição:    %s\n", tool.Description))
+	b.WriteString(fmt.Sprintf("• Categoria:    %s (%s)\n", tool.Category, catalog.TopoDaSub(tool.Category)))
+
+	installed := dimStyle.Render("Não")
+	if m.reg.IsInstalled(tool.ID) {
+		installed = lipgloss.NewStyle().Foreground(lipgloss.Color("#10B981")).Bold(true).Render("Sim (Instalado)")
+	}
+	b.WriteString(fmt.Sprintf("• Instalado:    %s\n", installed))
+
+	inCart := dimStyle.Render("Não")
+	if m.selected[tool.ID] {
+		inCart = lipgloss.NewStyle().Foreground(lipgloss.Color("#F59E0B")).Bold(true).Render("Sim (Marcado no carrinho)")
+	}
+	b.WriteString(fmt.Sprintf("• No Carrinho:  %s\n", inCart))
+
+	upstream := catalog.GetUpstreamRepo(tool.ID)
+	if upstream == "" {
+		upstream = dimStyle.Render("—")
+	} else {
+		upstream = lipgloss.NewStyle().Foreground(lipgloss.Color("#38BDF8")).Render(upstream)
+	}
+	b.WriteString(fmt.Sprintf("• Repositório:  %s\n", upstream))
+
+	deps := dimStyle.Render("nenhuma")
+	if len(tool.Dependencies) > 0 {
+		deps = lipgloss.NewStyle().Foreground(lipgloss.Color("#60A5FA")).Render(strings.Join(tool.Dependencies, ", "))
+	}
+	b.WriteString(fmt.Sprintf("• Dependências: %s\n", deps))
+
+	target := tool.TargetForCurrentOS()
+	if target != nil {
+		bin := target.Binary
+		if bin == "" {
+			bin = tool.ID
+		}
+		b.WriteString(fmt.Sprintf("• Executável:   %s\n", lipgloss.NewStyle().Foreground(lipgloss.Color("#10B981")).Bold(true).Render(bin)))
+		b.WriteString(fmt.Sprintf("• Alvo Atual:   %s (%s)\n", lipgloss.NewStyle().Foreground(lipgloss.Color("#60A5FA")).Render(target.PackageID), target.Type))
+		if target.SHA256 != "" {
+			b.WriteString(fmt.Sprintf("• SHA-256:      %s\n", dimStyle.Render(target.SHA256)))
+		}
+	} else {
+		b.WriteString(fmt.Sprintf("• Alvo Atual:   %s\n", lipgloss.NewStyle().Foreground(lipgloss.Color("#EF4444")).Render("Incompatível com o SO atual")))
+	}
+
+	b.WriteString("\n" + lipgloss.NewStyle().Foreground(lipgloss.Color("#93C5FD")).Bold(true).Render("Compatibilidade Multiplataforma:") + "\n")
+	if tool.Windows != nil {
+		b.WriteString(fmt.Sprintf("  • Windows: %-30s [%s]\n", tool.Windows.PackageID, tool.Windows.Type))
+	} else {
+		b.WriteString(fmt.Sprintf("  • Windows: %s\n", dimStyle.Render("não suportado")))
+	}
+	if tool.Linux != nil {
+		b.WriteString(fmt.Sprintf("  • Linux:   %-30s [%s]\n", tool.Linux.PackageID, tool.Linux.Type))
+	} else {
+		b.WriteString(fmt.Sprintf("  • Linux:   %s\n", dimStyle.Render("não suportado")))
+	}
+	if tool.Darwin != nil {
+		b.WriteString(fmt.Sprintf("  • macOS:   %-30s [%s]\n", tool.Darwin.PackageID, tool.Darwin.Type))
+	} else {
+		b.WriteString(fmt.Sprintf("  • macOS:   %s\n", dimStyle.Render("não suportado")))
+	}
+
+	b.WriteString("\n" + dimStyle.Render("Ações: [Espaço] Alternar Carrinho • [Esc/Enter/q] Fechar Detalhes"))
+
+	return b.String()
+}
+
+func (m *Model) renderSuiteModalContent(suite catalog.Suite) string {
+	var b strings.Builder
+
+	title := lipgloss.NewStyle().
+		Bold(true).
+		Foreground(lipgloss.Color("#FAFAFA")).
+		Background(lipgloss.Color("#2563EB")).
+		Padding(0, 1).
+		Render(fmt.Sprintf(" PACOTE: @%s - %s ", suite.ID, suite.Name))
+
+	b.WriteString(title + "\n\n")
+	b.WriteString(fmt.Sprintf("• Descrição:    %s\n", suite.Description))
+	b.WriteString(fmt.Sprintf("• Categoria:    %s\n", suite.Category))
+
+	installedCount := 0
+	selectedCount := 0
+	for _, tid := range suite.Tools {
+		if m.reg.IsInstalled(tid) {
+			installedCount++
+		}
+		if m.selected[tid] {
+			selectedCount++
+		}
+	}
+	b.WriteString(fmt.Sprintf("• Progresso:    %d/%d instalados no sistema\n", installedCount, len(suite.Tools)))
+	b.WriteString(fmt.Sprintf("• No Carrinho:  %d/%d marcados para ação\n\n", selectedCount, len(suite.Tools)))
+
+	b.WriteString(lipgloss.NewStyle().Foreground(lipgloss.Color("#93C5FD")).Bold(true).Render("Ferramentas Integrantes:") + "\n")
+	for _, tid := range suite.Tools {
+		status := dimStyle.Render("○")
+		if m.selected[tid] {
+			status = lipgloss.NewStyle().Foreground(lipgloss.Color("#F59E0B")).Bold(true).Render("●")
+		} else if m.reg.IsInstalled(tid) {
+			status = lipgloss.NewStyle().Foreground(lipgloss.Color("#10B981")).Render("✓")
+		}
+
+		t := catalog.FindTool(tid)
+		desc := ""
+		if t != nil {
+			desc = dimStyle.Render(" - " + t.Description)
+		}
+		b.WriteString(fmt.Sprintf("  %s %-16s%s\n", status, tid, desc))
+	}
+
+	b.WriteString("\n" + dimStyle.Render("Ações: [Espaço] Marcar/Desmarcar Pacote • [Esc/Enter/q] Fechar Detalhes"))
+
+	return b.String()
+}
+
+func (m Model) renderModalView() string {
+	modalBoxStyle := lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(lipgloss.Color("#38BDF8")).
+		Padding(0, 1)
+
+	box := modalBoxStyle.Render(m.modalViewport.View())
+
+	var b strings.Builder
+	isCompact := m.height > 0 && m.height < 22
+
+	b.WriteString(titleStyle.Render(" MULTITOOL "))
+	b.WriteString(fmt.Sprintf(" %s", badgeStyle.Render("DETALHES")))
+	cartBadge := cartStyle.Render(fmt.Sprintf("Carrinho: %d item(ns)", len(m.selected)))
+	b.WriteString(fmt.Sprintf("    %s", cartBadge))
+	if isCompact {
+		b.WriteString("\n")
+	} else {
+		b.WriteString("\n\n")
+	}
+
+	b.WriteString(box)
+	b.WriteString("\n")
+	b.WriteString(dimStyle.Render("Dica: [Esc/Enter/q] Fechar • [Espaço] Alternar Carrinho • [↑/↓/j/k] Rolar\n"))
+	return b.String()
 }
 
 func (m Model) SelectedCount() int {
@@ -226,17 +603,96 @@ func (m Model) GetVisibleSuites() []catalog.Suite {
 	return m.visibleSuites
 }
 
+func (m Model) IsModalOpen() bool {
+	return m.showModal
+}
+
+func (m Model) GetModalTool() *catalog.Tool {
+	return m.modalTool
+}
+
+func (m Model) GetModalSuite() *catalog.Suite {
+	return m.modalSuite
+}
+
+func (m Model) GetViewportHeight() int {
+	return m.viewport.Height
+}
+
 func (m Model) Init() tea.Cmd {
 	return nil
 }
 
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
+	case tea.WindowSizeMsg:
+		m.width = msg.Width
+		m.height = msg.Height
+		m.updateViewportDimensions()
+		return m, nil
+
 	case tea.KeyMsg:
+		if m.showModal {
+			switch msg.String() {
+			case "ctrl+c":
+				m.quitting = true
+				return m, tea.Quit
+			case "esc", "enter", "q":
+				m.showModal = false
+				m.syncViewport()
+				return m, nil
+			case "up", "k":
+				m.modalViewport.LineUp(1)
+				return m, nil
+			case "down", "j":
+				m.modalViewport.LineDown(1)
+				return m, nil
+			case "pgup":
+				m.modalViewport.HalfViewUp()
+				return m, nil
+			case "pgdown":
+				m.modalViewport.HalfViewDown()
+				return m, nil
+			case " ":
+				if m.modalTool != nil {
+					toolID := m.modalTool.ID
+					m.selected[toolID] = !m.selected[toolID]
+					if !m.selected[toolID] {
+						delete(m.selected, toolID)
+					}
+					if m.tab == TabCart {
+						m.refreshVisible()
+					}
+				} else if m.modalSuite != nil {
+					suite := m.modalSuite
+					allSelected := len(suite.Tools) > 0
+					for _, tid := range suite.Tools {
+						if !m.selected[tid] {
+							allSelected = false
+							break
+						}
+					}
+					if allSelected {
+						for _, tid := range suite.Tools {
+							delete(m.selected, tid)
+						}
+					} else {
+						for _, tid := range suite.Tools {
+							m.selected[tid] = true
+						}
+					}
+				}
+				m.syncModalViewport()
+				return m, nil
+			}
+			return m, nil
+		}
+
 		if m.searching {
 			switch msg.String() {
 			case "enter", "esc":
 				m.searching = false
+				m.syncViewport()
 				return m, nil
 			case "backspace":
 				if len(m.searchQuery) > 0 {
@@ -270,6 +726,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "up", "k":
 			if m.cursor > 0 {
 				m.cursor--
+				m.syncViewport()
 			}
 
 		case "down", "j":
@@ -279,6 +736,49 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			if m.cursor < maxItems-1 {
 				m.cursor++
+				m.syncViewport()
+			}
+
+		case "pgup":
+			m.viewport.HalfViewUp()
+			m.cursor = m.viewport.YOffset
+			m.syncViewport()
+
+		case "pgdown":
+			m.viewport.HalfViewDown()
+			maxItems := len(m.visibleTools)
+			if m.tab == TabPackages {
+				maxItems = len(m.visibleSuites)
+			}
+			m.cursor = m.viewport.YOffset + m.viewport.Height - 1
+			if m.cursor >= maxItems {
+				m.cursor = maxItems - 1
+			}
+			if m.cursor < 0 {
+				m.cursor = 0
+			}
+			m.syncViewport()
+
+		case "a":
+			if m.tab == TabPackages {
+				for _, s := range m.visibleSuites {
+					for _, tid := range s.Tools {
+						m.selected[tid] = true
+					}
+				}
+			} else {
+				for _, t := range m.visibleTools {
+					m.selected[t.ID] = true
+				}
+			}
+			m.syncViewport()
+
+		case "A":
+			m.selected = make(map[string]bool)
+			if m.tab == TabCart {
+				m.refreshVisible()
+			} else {
+				m.syncViewport()
 			}
 
 		case "/":
@@ -291,6 +791,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			} else {
 				m.mode = ModeInstall
 			}
+			m.syncViewport()
 
 		case "t":
 			m.tab = TabAll
@@ -375,11 +876,30 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					}
 				}
 			}
+			m.syncViewport()
 
 		case "enter":
 			if len(m.selected) > 0 {
 				m.executed = true
 				return m, tea.Quit
+			}
+			// Se o carrinho estiver vazio, abre o modal de detalhes do item no cursor
+			if m.tab == TabPackages {
+				if len(m.visibleSuites) > 0 && m.cursor >= 0 && m.cursor < len(m.visibleSuites) {
+					suite := m.visibleSuites[m.cursor]
+					m.modalSuite = &suite
+					m.modalTool = nil
+					m.showModal = true
+					m.syncModalViewport()
+				}
+			} else {
+				if len(m.visibleTools) > 0 && m.cursor >= 0 && m.cursor < len(m.visibleTools) {
+					tool := m.visibleTools[m.cursor]
+					m.modalTool = &tool
+					m.modalSuite = nil
+					m.showModal = true
+					m.syncModalViewport()
+				}
 			}
 		}
 	}
@@ -392,9 +912,12 @@ func (m Model) View() string {
 		return "Operação cancelada pelo usuário.\n"
 	}
 
+	if m.showModal {
+		return m.renderModalView()
+	}
+
 	var b strings.Builder
 
-	// Header com info do sistema detectado
 	osLabel := string(m.sysInfo.OS)
 	if m.sysInfo.DistroPretty != "" {
 		osLabel = fmt.Sprintf("%s (%s / %s)", m.sysInfo.OS, m.sysInfo.Distro, m.sysInfo.PrimaryManager)
@@ -402,22 +925,31 @@ func (m Model) View() string {
 		osLabel = fmt.Sprintf("Windows (%s / %s)", m.sysInfo.Arch, m.sysInfo.PrimaryManager)
 	}
 
+	isCompact := m.height > 0 && m.height < 22
+
 	b.WriteString(titleStyle.Render(" MULTITOOL "))
 	b.WriteString(fmt.Sprintf(" %s", badgeStyle.Render(osLabel)))
 	if m.dryRun {
 		b.WriteString(fmt.Sprintf(" %s", lipgloss.NewStyle().Background(lipgloss.Color("#D97706")).Padding(0, 1).Bold(true).Render("DRY-RUN")))
 	}
-	b.WriteString("\n\n")
+	if isCompact {
+		b.WriteString("\n")
+	} else {
+		b.WriteString("\n\n")
+	}
 
-	// Modo e Status
 	modeBadge := modeInstallStyle.Render("[ MODO: INSTALAR ]")
 	if m.mode == ModeUninstall {
 		modeBadge = modeUninstallStyle.Render("[ MODO: DESINSTALAR ]")
 	}
 	cartBadge := cartStyle.Render(fmt.Sprintf("Carrinho: %d item(ns)", len(m.selected)))
-	b.WriteString(fmt.Sprintf("%s    %s\n\n", modeBadge, cartBadge))
+	b.WriteString(fmt.Sprintf("%s    %s", modeBadge, cartBadge))
+	if isCompact {
+		b.WriteString("\n")
+	} else {
+		b.WriteString("\n\n")
+	}
 
-	// Abas com destaque na ativa
 	b.WriteString(headerStyle.Render("Abas: "))
 
 	renderTab := func(key, label string, active bool) string {
@@ -442,138 +974,33 @@ func (m Model) View() string {
 		tabIA, tabCod, tabSis, tabApp, tabSeg, tabAll, tabPkg, tabIns, tabCrt))
 
 	if m.searching {
-		b.WriteString(fmt.Sprintf("\n%s %s█\n", selectedStyle.Render("Buscar:"), m.searchQuery))
+		b.WriteString(fmt.Sprintf("%s %s█\n", selectedStyle.Render("Buscar:"), m.searchQuery))
 	} else if m.searchQuery != "" {
-		b.WriteString(fmt.Sprintf("\n%s %s (pressione '/' para editar ou 'Esc' para limpar)\n", dimStyle.Render("Filtro:"), m.searchQuery))
-	} else {
+		b.WriteString(fmt.Sprintf("%s %s (pressione '/' para editar ou 'Esc' para limpar)\n", dimStyle.Render("Filtro:"), m.searchQuery))
+	} else if !isCompact {
 		b.WriteString("\n")
 	}
 
-	// Conteúdo da Aba
+	b.WriteString(m.viewport.View())
+	b.WriteString("\n")
+
+	totalItems := len(m.visibleTools)
 	if m.tab == TabPackages {
-		if len(m.visibleSuites) == 0 {
-			b.WriteString(dimStyle.Render("  Nenhum pacote encontrado para o filtro.\n\n"))
-		} else {
-			for i, suite := range m.visibleSuites {
-				cursor := "  "
-				if m.cursor == i {
-					cursor = selectedStyle.Render("▶ ")
-				}
-
-				totalTools := len(suite.Tools)
-				selectedTools := 0
-				installedTools := 0
-				for _, tid := range suite.Tools {
-					if m.selected[tid] {
-						selectedTools++
-					}
-					if m.reg.IsInstalled(tid) {
-						installedTools++
-					}
-				}
-
-				checked := "[ ]"
-				if totalTools > 0 && selectedTools == totalTools {
-					checked = selectedStyle.Render("[✓]")
-				} else if selectedTools > 0 {
-					checked = lipgloss.NewStyle().Foreground(lipgloss.Color("#F59E0B")).Bold(true).Render("[-]")
-				}
-
-				suiteID := fmt.Sprintf("@%-12s", suite.ID)
-				if m.cursor == i {
-					suiteID = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#60A5FA")).Render(suiteID)
-				}
-
-				statsBadge := fmt.Sprintf("(%d/%d instalados)", installedTools, totalTools)
-				if installedTools == totalTools && totalTools > 0 {
-					statsBadge = lipgloss.NewStyle().Foreground(lipgloss.Color("#10B981")).Render(statsBadge)
-				} else {
-					statsBadge = dimStyle.Render(statsBadge)
-				}
-
-				line := fmt.Sprintf("%s%s %s %-32s %-16s %s\n",
-					cursor, checked, suiteID, suite.Name, statsBadge, dimStyle.Render(suite.Description))
-				b.WriteString(line)
-
-				if m.cursor == i {
-					var memberTokens []string
-					for _, tid := range suite.Tools {
-						token := tid
-						if m.selected[tid] {
-							token = lipgloss.NewStyle().Foreground(lipgloss.Color("#F59E0B")).Bold(true).Render("●" + tid)
-						} else if m.reg.IsInstalled(tid) {
-							token = lipgloss.NewStyle().Foreground(lipgloss.Color("#10B981")).Render("✓" + tid)
-						} else {
-							token = dimStyle.Render(tid)
-						}
-						memberTokens = append(memberTokens, token)
-					}
-					b.WriteString(fmt.Sprintf("       %s %s\n\n",
-						lipgloss.NewStyle().Foreground(lipgloss.Color("#93C5FD")).Render("↳ Membros:"),
-						strings.Join(memberTokens, "  ")))
-				}
-			}
-		}
-	} else {
-		// Lista de Ferramentas
-		if len(m.visibleTools) == 0 {
-			b.WriteString(dimStyle.Render("  Nenhuma ferramenta para exibir nesta categoria ou filtro.\n\n"))
-		} else {
-			maxItems := 14
-			start := 0
-			if m.cursor >= maxItems {
-				start = m.cursor - maxItems + 1
-			}
-			end := start + maxItems
-			if end > len(m.visibleTools) {
-				end = len(m.visibleTools)
-			}
-
-			for i := start; i < end; i++ {
-				tool := m.visibleTools[i]
-				cursor := "  "
-				if m.cursor == i {
-					cursor = selectedStyle.Render("▶ ")
-				}
-
-				checked := "[ ]"
-				if m.selected[tool.ID] {
-					checked = selectedStyle.Render("[✓]")
-				}
-
-				installedTag := ""
-				if m.reg.IsInstalled(tool.ID) {
-					installedTag = lipgloss.NewStyle().Foreground(lipgloss.Color("#10B981")).Render(" [instalado]")
-				}
-
-				method := ""
-				target := tool.TargetForCurrentOS()
-				if target != nil {
-					method = fmt.Sprintf("(%s)", target.Type)
-				}
-
-				line := fmt.Sprintf("%s%s %-14s %-22s %-10s %s%s\n",
-					cursor, checked, tool.ID, tool.Name, method, dimStyle.Render(tool.Description), installedTag)
-
-				b.WriteString(line)
-			}
-
-			if len(m.visibleTools) > maxItems {
-				b.WriteString(dimStyle.Render(fmt.Sprintf("\n  ... exibindo %d de %d ferramentas (use ↑/↓ para rolar)\n", end-start, len(m.visibleTools))))
-			}
-		}
+		totalItems = len(m.visibleSuites)
+	}
+	if totalItems > m.viewport.Height && m.viewport.Height > 0 {
+		scrollPct := m.viewport.ScrollPercent() * 100
+		b.WriteString(dimStyle.Render(fmt.Sprintf("  Item %d de %d (rolagem: %.0f%% • use ↑/↓)\n", m.cursor+1, totalItems, scrollPct)))
 	}
 
-	// Rodapé de atalhos
-	b.WriteString("\n")
-	b.WriteString(dimStyle.Render("Atalhos: [↑/↓/j/k] Navegar • [Espaço] Marcar/Desmarcar • [Enter] Executar • [r] Alternar Modo • [/] Buscar • [p] Pacotes • [q] Sair\n"))
+	b.WriteString(dimStyle.Render("Atalhos: [↑/↓/j/k] Navegar • [Espaço] Marcar • [Enter] Detalhes/Executar • [a/A] Marcar Tudo/Limpar • [r] Modo • [/] Buscar • [q] Sair\n"))
 
 	return b.String()
 }
 
 func Run(reg *registry.Registry, dryRun bool) error {
 	m := NewModel(reg, dryRun)
-	p := tea.NewProgram(m)
+	p := tea.NewProgram(m, tea.WithAltScreen())
 	finalModel, err := p.Run()
 	if err != nil {
 		return err
