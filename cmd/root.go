@@ -208,6 +208,9 @@ agentes de IA, compiladores e aplicativos de sistema.`,
 			if tool.Linux != nil {
 				fmt.Fprintf(out, "• Linux:        %s [%s]\n", tool.Linux.PackageID, tool.Linux.Type)
 			}
+			if tool.Darwin != nil {
+				fmt.Fprintf(out, "• macOS:        %s [%s]\n", tool.Darwin.PackageID, tool.Darwin.Type)
+			}
 			fmt.Fprintln(out)
 			return nil
 		},
@@ -293,8 +296,55 @@ agentes de IA, compiladores e aplicativos de sistema.`,
 		},
 	}
 
-	rootCmd.AddCommand(listCmd, installedCmd, installCmd, uninstallCmd, updateCmd, searchCmd, infoCmd, suitesCmd, systemCmd, versionCmd)
+	syncCmd := &cobra.Command{
+		Use:   "sync",
+		Short: "Detecta ferramentas pré-existentes no sistema host e sincroniza o estado",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			r := runner.New(reg, flagDryRun)
+			return runSync(cmd.OutOrStdout(), r, flagJSON, flagDryRun)
+		},
+	}
+
+	rootCmd.AddCommand(listCmd, installedCmd, installCmd, uninstallCmd, updateCmd, searchCmd, infoCmd, suitesCmd, systemCmd, syncCmd, versionCmd)
 	return rootCmd
+}
+
+func runSync(out io.Writer, r *runner.Runner, asJSON, dryRun bool) error {
+	synced, already, err := r.SyncInstalled()
+	if err != nil {
+		return fmt.Errorf("erro durante a sincronização: %w", err)
+	}
+
+	if asJSON {
+		data, _ := json.MarshalIndent(map[string]interface{}{
+			"synced":            synced,
+			"already_installed": already,
+			"total_synced":      len(synced),
+			"dry_run":           dryRun,
+		}, "", "  ")
+		fmt.Fprintln(out, string(data))
+		return nil
+	}
+
+	fmt.Fprintf(out, "\n%s\n\n", styleTitle.Render(" SINCRONIZAÇÃO DE FERRAMENTAS DO HOST "))
+	if len(synced) == 0 {
+		fmt.Fprintf(out, "Nenhuma nova ferramenta detectada no PATH do sistema (%d já registradas).\n\n", already)
+		return nil
+	}
+
+	modePrefix := ""
+	if dryRun {
+		modePrefix = "[DRY-RUN] "
+	}
+
+	for _, item := range synced {
+		fmt.Fprintf(out, "  %s %s%-16s %-24s (via %s)\n",
+			styleGreen.Render("✔"), modePrefix, item.ToolID, item.ToolName, styleCyan.Render(item.Method))
+	}
+
+	fmt.Fprintf(out, "\n%s Sincronização concluída: %d ferramenta(s) detectada(s) e registrada(s) (%d já estavam no registro).\n\n",
+		styleGreen.Render("✔"), len(synced), already)
+	return nil
 }
 
 func runList(out io.Writer, reg *registry.Registry, asJSON, allPlatforms bool) error {

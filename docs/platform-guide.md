@@ -53,5 +53,7 @@ winget install --exact --id <PackageID> --accept-source-agreements --accept-pack
 ## 🍎 3. macOS
 
 * Suporta tanto chips Apple Silicon (`arm64` - M1/M2/M3/M4) quanto Intel (`amd64`).
+* Possui suporte formal no catálogo através do campo dedicado `Darwin *Target` e do tipo `TypeBrew` (`brew install <pkg>`).
+* Ferramentas universais baseadas em `npm`, `pipx`, `cargo` ou `skills` de IA funcionam identicamente no macOS via fallback transparente.
 * Utiliza o **Homebrew** (`brew`) como gerenciador de pacotes nativo para ferramentas CLI e utilitários.
 * Skills de agentes são vinculadas automaticamente em `~/.claude/skills`, `~/.config/opencode/skills` e `~/.gemini/skills`.

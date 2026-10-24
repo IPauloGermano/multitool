@@ -18,6 +18,7 @@ const (
 	TypeFlatpak TargetType = "flatpak"
 	TypeScript  TargetType = "script"
 	TypeDirect  TargetType = "direct"
+	TypeBrew    TargetType = "brew"
 )
 
 type Target struct {
@@ -25,6 +26,7 @@ type Target struct {
 	PackageID string     `json:"package_id"`
 	Binary    string     `json:"binary"`
 	Script    string     `json:"script,omitempty"`
+	SHA256    string     `json:"sha256,omitempty"`
 }
 
 type Tool struct {
@@ -35,6 +37,7 @@ type Tool struct {
 	Dependencies []string `json:"dependencies,omitempty"`
 	Windows      *Target  `json:"windows,omitempty"`
 	Linux        *Target  `json:"linux,omitempty"`
+	Darwin       *Target  `json:"darwin,omitempty"`
 }
 
 type Suite struct {
@@ -46,10 +49,24 @@ type Suite struct {
 }
 
 func (t Tool) TargetForCurrentOS() *Target {
-	if runtime.GOOS == "windows" {
+	switch runtime.GOOS {
+	case "windows":
 		return t.Windows
+	case "darwin":
+		if t.Darwin != nil {
+			return t.Darwin
+		}
+		// Fallback para ferramentas agnósticas (npm, pipx, cargo, git skills)
+		if t.Linux != nil {
+			switch t.Linux.Type {
+			case TypeNpm, TypePipx, TypeCargo, TypeSkill:
+				return t.Linux
+			}
+		}
+		return nil
+	default:
+		return t.Linux
 	}
-	return t.Linux
 }
 
 func (t Tool) IsSupportedOnCurrentOS() bool {
@@ -169,6 +186,7 @@ var catalogList = []Tool{
 		ID: "bat", Name: "bat", Category: "Terminais", Description: "cat com syntax highlighting",
 		Windows: &Target{Type: TypeWinget, PackageID: "sharkdp.bat", Binary: "bat.exe"},
 		Linux:   &Target{Type: TypeNative, PackageID: "bat", Binary: "bat"},
+		Darwin:  &Target{Type: TypeBrew, PackageID: "bat", Binary: "bat"},
 	},
 	{
 		ID: "binaryninja", Name: "Binary Ninja Free", Category: "Análise", Description: "Descompilador e analisador binário moderno",
@@ -199,6 +217,7 @@ var catalogList = []Tool{
 		ID: "btop", Name: "Btop", Category: "Infraestrutura", Description: "Monitor de recursos no terminal",
 		Windows: &Target{Type: TypeWinget, PackageID: "aristocratos.btop4win", Binary: "btop.exe"},
 		Linux:   &Target{Type: TypeNative, PackageID: "btop", Binary: "btop"},
+		Darwin:  &Target{Type: TypeBrew, PackageID: "btop", Binary: "btop"},
 	},
 	{
 		ID: "bubblewrap", Name: "Bubblewrap", Category: "Análise", Description: "Sandbox leve e sem privilégios para execução isolada",
@@ -234,6 +253,7 @@ var catalogList = []Tool{
 		ID: "cmake", Name: "CMake", Category: "Infraestrutura", Description: "Build multiplataforma",
 		Windows: &Target{Type: TypeWinget, PackageID: "Kitware.CMake", Binary: "cmake.exe"},
 		Linux:   &Target{Type: TypeNative, PackageID: "cmake", Binary: "cmake"},
+		Darwin:  &Target{Type: TypeBrew, PackageID: "cmake", Binary: "cmake"},
 	},
 	{
 		ID: "codebase_memory", Name: "Codebase Memory", Category: "Agentes", Description: "Grafo persistente de inteligência MCP",
@@ -294,6 +314,7 @@ var catalogList = []Tool{
 		ID: "docker", Name: "Docker Engine", Category: "Infraestrutura", Description: "Engine e CLI de containers Docker e Compose",
 		Windows: &Target{Type: TypeWinget, PackageID: "Docker.DockerDesktop", Binary: "docker.exe"},
 		Linux:   &Target{Type: TypeScript, PackageID: "docker", Binary: "docker"},
+		Darwin:  &Target{Type: TypeBrew, PackageID: "docker", Binary: "docker"},
 	},
 	{
 		ID: "dockerdesktop", Name: "Docker Desktop", Category: "Desktop", Description: "Interface gráfica e dashboard oficial do Docker (~440MB)",
@@ -360,16 +381,19 @@ var catalogList = []Tool{
 		ID: "fzf", Name: "fzf", Category: "Infraestrutura", Description: "Busca difusa no terminal",
 		Windows: &Target{Type: TypeWinget, PackageID: "junegunn.fzf", Binary: "fzf.exe"},
 		Linux:   &Target{Type: TypeNative, PackageID: "fzf", Binary: "fzf"},
+		Darwin:  &Target{Type: TypeBrew, PackageID: "fzf", Binary: "fzf"},
 	},
 	{
 		ID: "gcc", Name: "GCC (w64devkit)", Category: "Infraestrutura", Description: "Compilador C/C++ para Windows",
 		Windows: &Target{Type: TypeWinget, PackageID: "skeeto.w64devkit", Binary: "gcc.exe"},
 		Linux:   &Target{Type: TypeNative, PackageID: "gcc", Binary: "gcc"},
+		Darwin:  &Target{Type: TypeBrew, PackageID: "gcc", Binary: "gcc"},
 	},
 	{
 		ID: "gdb", Name: "GDB", Category: "Infraestrutura", Description: "Debugger C/C++",
 		Windows: &Target{Type: TypeWinget, PackageID: "skeeto.w64devkit", Binary: "gdb.exe"},
 		Linux:   &Target{Type: TypeNative, PackageID: "gdb", Binary: "gdb"},
+		Darwin:  &Target{Type: TypeBrew, PackageID: "gdb", Binary: "gdb"},
 	},
 	{
 		ID: "geist", Name: "Geist", Category: "Fontes", Description: "Fonte moderna da Vercel (Sans + Mono)",
@@ -386,6 +410,7 @@ var catalogList = []Tool{
 		ID: "gh", Name: "GitHub CLI", Category: "Versionamento", Description: "CLI oficial do GitHub",
 		Windows: &Target{Type: TypeWinget, PackageID: "GitHub.cli", Binary: "gh.exe"},
 		Linux:   &Target{Type: TypeScript, PackageID: "gh", Binary: "gh"},
+		Darwin:  &Target{Type: TypeBrew, PackageID: "gh", Binary: "gh"},
 	},
 	{
 		ID: "ghidra", Name: "Ghidra", Category: "Análise", Description: "Framework de engenharia reversa da NSA",
@@ -397,11 +422,13 @@ var catalogList = []Tool{
 		ID: "ghostty", Name: "Ghostty", Category: "Terminais", Description: "Terminal rápido com aceleração GPU",
 		Windows: nil,
 		Linux:   &Target{Type: TypeScript, PackageID: "ghostty", Binary: "ghostty"},
+		Darwin:  &Target{Type: TypeBrew, PackageID: "ghostty", Binary: "ghostty"},
 	},
 	{
 		ID: "git", Name: "Git", Category: "Versionamento", Description: "Controle de versão distribuído",
 		Windows: &Target{Type: TypeWinget, PackageID: "Git.Git", Binary: "git.exe"},
 		Linux:   &Target{Type: TypeNative, PackageID: "git", Binary: "git"},
+		Darwin:  &Target{Type: TypeBrew, PackageID: "git", Binary: "git"},
 	},
 	{
 		ID: "gnomeextensions", Name: "GNOME Extensions", Category: "Infraestrutura", Description: "Liga/desliga extensões do Shell",
@@ -422,6 +449,7 @@ var catalogList = []Tool{
 		ID: "golang", Name: "Go", Category: "Infraestrutura", Description: "Toolchain Go da Google",
 		Windows: &Target{Type: TypeWinget, PackageID: "GoLang.Go", Binary: "go.exe"},
 		Linux:   &Target{Type: TypeScript, PackageID: "golang", Binary: "golang"},
+		Darwin:  &Target{Type: TypeBrew, PackageID: "go", Binary: "go"},
 	},
 	{
 		ID: "goose", Name: "Goose", Category: "Agentes", Description: "Agente autônomo de código da Block/AAIF",
@@ -482,11 +510,13 @@ var catalogList = []Tool{
 		ID: "jj", Name: "Jujutsu", Category: "Versionamento", Description: "VCS compatível com Git, fluxo simples",
 		Windows: &Target{Type: TypeWinget, PackageID: "martinvonz.jj", Binary: "jj.exe"},
 		Linux:   &Target{Type: TypeScript, PackageID: "jj", Binary: "jj"},
+		Darwin:  &Target{Type: TypeBrew, PackageID: "jj", Binary: "jj"},
 	},
 	{
 		ID: "jq", Name: "jq", Category: "Infraestrutura", Description: "Processador JSON de linha de comando",
 		Windows: &Target{Type: TypeWinget, PackageID: "jqlang.jq", Binary: "jq.exe"},
 		Linux:   &Target{Type: TypeNative, PackageID: "jq", Binary: "jq"},
+		Darwin:  &Target{Type: TypeBrew, PackageID: "jq", Binary: "jq"},
 	},
 	{
 		ID: "kdenlive", Name: "Kdenlive", Category: "Desktop", Description: "Editor de vídeo poderoso e open-source",
@@ -528,6 +558,7 @@ var catalogList = []Tool{
 		ID: "make", Name: "Make", Category: "Infraestrutura", Description: "Automação de build",
 		Windows: &Target{Type: TypeWinget, PackageID: "GnuWin32.Make", Binary: "make.exe"},
 		Linux:   &Target{Type: TypeNative, PackageID: "make", Binary: "make"},
+		Darwin:  &Target{Type: TypeBrew, PackageID: "make", Binary: "make"},
 	},
 	{
 		ID: "margem", Name: "Margem", Category: "Desktop", Description: "Leitor desktop tipográfico (AppImage oficial)",
@@ -553,11 +584,13 @@ var catalogList = []Tool{
 		ID: "neovim", Name: "Neovim", Category: "Editores", Description: "Editor modal moderno",
 		Windows: &Target{Type: TypeWinget, PackageID: "Neovim.Neovim", Binary: "nvim.exe"},
 		Linux:   &Target{Type: TypeScript, PackageID: "neovim", Binary: "neovim"},
+		Darwin:  &Target{Type: TypeBrew, PackageID: "neovim", Binary: "nvim"},
 	},
 	{
 		ID: "nodejs", Name: "Node.js LTS", Category: "Infraestrutura", Description: "Runtime JavaScript LTS",
 		Windows: &Target{Type: TypeWinget, PackageID: "OpenJS.NodeJS.LTS", Binary: "node.exe"},
 		Linux:   &Target{Type: TypeScript, PackageID: "nodejs", Binary: "nodejs"},
+		Darwin:  &Target{Type: TypeBrew, PackageID: "node", Binary: "node"},
 	},
 	{
 		ID: "obs", Name: "OBS Studio", Category: "Desktop", Description: "Gravação de tela e streaming de vídeo",
@@ -584,6 +617,7 @@ var catalogList = []Tool{
 		ID: "ollama", Name: "Ollama", Category: "Agentes", Description: "Servidor local de modelos de IA",
 		Windows: &Target{Type: TypeWinget, PackageID: "Ollama.Ollama", Binary: "ollama.exe"},
 		Linux:   &Target{Type: TypeScript, PackageID: "ollama", Binary: "ollama"},
+		Darwin:  &Target{Type: TypeBrew, PackageID: "ollama", Binary: "ollama"},
 	},
 	{
 		ID: "omniroute", Name: "OmniRoute", Category: "Agentes", Description: "Gateway de IA local para múltiplos provedores",
@@ -687,6 +721,7 @@ var catalogList = []Tool{
 		ID: "podman", Name: "Podman Desktop", Category: "Infraestrutura", Description: "Containers sem daemon para Windows",
 		Windows: &Target{Type: TypeWinget, PackageID: "RedHat.Podman-Desktop", Binary: "podman.exe"},
 		Linux:   &Target{Type: TypeNative, PackageID: "podman", Binary: "podman"},
+		Darwin:  &Target{Type: TypeBrew, PackageID: "podman", Binary: "podman"},
 	},
 	{
 		ID: "ponytail", Name: "Ponytail", Category: "Skills", Description: "Regras anti-overengineering para agentes",
@@ -722,6 +757,7 @@ var catalogList = []Tool{
 		ID: "ripgrep", Name: "Ripgrep", Category: "Infraestrutura", Description: "Busca de texto ultrarrápida (rg)",
 		Windows: &Target{Type: TypeWinget, PackageID: "BurntSushi.ripgrep.MSVC", Binary: "rg.exe"},
 		Linux:   &Target{Type: TypeNative, PackageID: "ripgrep", Binary: "ripgrep"},
+		Darwin:  &Target{Type: TypeBrew, PackageID: "ripgrep", Binary: "rg"},
 	},
 	{
 		ID: "robusta", Name: "Robusta CLI", Category: "Observabilidade", Description: "Troubleshooting Kubernetes com IA",
@@ -832,6 +868,7 @@ var catalogList = []Tool{
 		ID: "vscode", Name: "Visual Studio Code", Category: "Editores", Description: "Editor de código da Microsoft",
 		Windows: &Target{Type: TypeWinget, PackageID: "Microsoft.VisualStudioCode", Binary: "code.cmd"},
 		Linux:   &Target{Type: TypeScript, PackageID: "vscode", Binary: "vscode"},
+		Darwin:  &Target{Type: TypeBrew, PackageID: "visual-studio-code", Binary: "code"},
 	},
 	{
 		ID: "warp", Name: "Warp", Category: "Terminais", Description: "Terminal moderno com IA",
@@ -842,6 +879,7 @@ var catalogList = []Tool{
 		ID: "waveterm", Name: "Wave Terminal", Category: "Terminais", Description: "Terminal com IA e sessões persistentes",
 		Windows: &Target{Type: TypeWinget, PackageID: "wavetermdev.waveterm", Binary: "waveterm.exe"},
 		Linux:   &Target{Type: TypeScript, PackageID: "waveterm", Binary: "waveterm"},
+		Darwin:  &Target{Type: TypeBrew, PackageID: "waveterm", Binary: "waveterm"},
 	},
 	{
 		ID: "waydroid", Name: "Waydroid", Category: "Infraestrutura", Description: "Android em container (init manual)",
@@ -857,6 +895,7 @@ var catalogList = []Tool{
 		ID: "zsh", Name: "Zsh", Category: "Terminais", Description: "Shell interativo (base do oh-my-zsh)",
 		Windows: nil,
 		Linux:   &Target{Type: TypeNative, PackageID: "zsh", Binary: "zsh"},
+		Darwin:  &Target{Type: TypeBrew, PackageID: "zsh", Binary: "zsh"},
 	},
 }
 

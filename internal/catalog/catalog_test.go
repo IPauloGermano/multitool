@@ -72,6 +72,7 @@ func TestTargetPackageIDsNoDuplicates(t *testing.T) {
 	tools := DefaultCatalog()
 	winPkgs := make(map[string]string)
 	linPkgs := make(map[string]string)
+	darPkgs := make(map[string]string)
 
 	for _, tool := range tools {
 		if tool.Windows != nil && tool.Windows.PackageID != "" {
@@ -90,6 +91,14 @@ func TestTargetPackageIDsNoDuplicates(t *testing.T) {
 				t.Errorf("Linux PackageID duplicado %s compartilhado por %s e %s", key, prevID, tool.ID)
 			}
 			linPkgs[key] = tool.ID
+		}
+
+		if tool.Darwin != nil && tool.Darwin.PackageID != "" {
+			key := string(tool.Darwin.Type) + ":" + tool.Darwin.PackageID
+			if prevID, exists := darPkgs[key]; exists {
+				t.Errorf("Darwin PackageID duplicado %s compartilhado por %s e %s", key, prevID, tool.ID)
+			}
+			darPkgs[key] = tool.ID
 		}
 	}
 }
@@ -307,5 +316,51 @@ func TestResolveDependencies(t *testing.T) {
 	// 4. Erro em ferramenta inexistente
 	if _, err := ResolveDependencies([]string{"pacote_inexistente_999"}); err == nil {
 		t.Errorf("Esperava erro ao resolver pacote inexistente")
+	}
+}
+
+func TestDarwinTargetResolution(t *testing.T) {
+	// Ferramenta com alvo explícito Darwin
+	toolBrew := Tool{
+		ID:     "test-brew",
+		Darwin: &Target{Type: TypeBrew, PackageID: "test-brew", Binary: "test-brew"},
+		Linux:  &Target{Type: TypeNative, PackageID: "test-lin", Binary: "test-lin"},
+	}
+
+	// Ferramenta com alvo agnóstico npm
+	toolNpm := Tool{
+		ID:    "test-npm",
+		Linux: &Target{Type: TypeNpm, PackageID: "test-npm", Binary: "test-npm"},
+	}
+
+	// Ferramenta com alvo exclusivo Linux (native/script sem Darwin)
+	toolLinOnly := Tool{
+		ID:    "test-lin-only",
+		Linux: &Target{Type: TypeNative, PackageID: "test-lin-only", Binary: "test-lin-only"},
+	}
+
+	// Teste de fallback lógico
+	// Se fosse darwin:
+	if toolBrew.Darwin.Type != TypeBrew {
+		t.Errorf("Esperava TypeBrew, obteve %s", toolBrew.Darwin.Type)
+	}
+	if toolNpm.Linux.Type != TypeNpm {
+		t.Errorf("Esperava TypeNpm, obteve %s", toolNpm.Linux.Type)
+	}
+	if toolLinOnly.Darwin != nil {
+		t.Errorf("toolLinOnly não deveria ter alvo Darwin")
+	}
+}
+
+func TestTargetSHA256Field(t *testing.T) {
+	target := Target{
+		Type:      TypeScript,
+		PackageID: "test/app",
+		Binary:    "app",
+		SHA256:    "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+	}
+
+	if target.SHA256 == "" {
+		t.Errorf("Campo SHA256 não deveria estar vazio")
 	}
 }

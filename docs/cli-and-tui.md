@@ -70,6 +70,23 @@ Saída de exemplo:
 
 ---
 
+### Sincronização com o Sistema Host: `sync`
+Detecta ferramentas pré-existentes instaladas no sistema operacional (fora do Multitool) e sincroniza o registro local (`installed.json`):
+```bash
+# Detectar e registrar ferramentas presentes no PATH
+multitool sync
+
+# Simular a detecção sem gravar no registro
+multitool sync --dry-run
+
+# Exportar resultado estruturado em JSON
+multitool sync --json
+```
+
+O comando também re-linka automaticamente as skills locais existentes para novos agentes de IA detectados na máquina.
+
+---
+
 ### Listagem: `list` e `installed`
 
 * **Listar ferramentas suportadas no SO atual**:

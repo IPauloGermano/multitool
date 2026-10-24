@@ -22,9 +22,15 @@ Unificação e evolução integrada dos projetos `linux-multitool` e `windows-mu
   - Busca difusa em tempo real com `/`.
   - Carrinho persistente de compras para execução em lote (`Espaço` marca/desmarca, `Enter` executa).
 - **CLI Moderna com Cobra**:
-  - Subcomandos completos: `install`, `uninstall`, `update`, `list`, `installed`, `search`, `info` (ou `docs`), `suites`, `system`, `version`.
+  - Subcomandos completos: `install`, `uninstall`, `update`, `list`, `installed`, `search`, `info` (ou `docs`), `suites`, `system`, `sync`, `version`.
   - Flag `--dry-run` para simulação segura sem alterar o sistema.
   - Flag `--json` para automações em scripts, CI e pipelines.
+- **Sincronização e Auto-descoberta no Host (`multitool sync`)**:
+  - Varre o `$PATH` do sistema e auto-detecta ferramentas do catálogo instaladas previamente fora do Multitool, sincronizando o registro e re-linkando skills existentes para novos agentes.
+- **Paralelismo Inteligente no Clone de `@skills`**:
+  - Processamento concorrente de skills via worker pool limitado (4 goroutines), acelerando drasticamente o provisionamento em lote.
+- **Validação de Integridade Criptográfica (SHA-256)**:
+  - Verificação de hash SHA-256 para binários diretos e AppImages contra corrupção e supply-chain tampering.
 - **Suítes Integradas (@pacotes)**:
   - `@vibecode`: Aider, Repomix, ast-grep, Ollama, Ripgrep, jq, LLM CLI, Goose, Claude Code, OpenCode, Oh My Pi, 9Router, OmniRoute, Hermes Agent, Orca.
   - `@mcp`: MCPM, MCP Inspector, Supergateway, Codebase Memory, Repomix, Context7, REA.
@@ -77,6 +83,10 @@ multitool.exe
 ```bash
 # Diagnóstico do sistema operacional e runtimes detectados
 multitool system
+
+# Auto-detectar e sincronizar ferramentas pré-existentes no sistema host
+multitool sync
+multitool sync --dry-run
 
 # Listar ferramentas disponíveis na plataforma atual
 multitool list

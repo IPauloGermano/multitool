@@ -127,4 +127,40 @@ func TestRootCommands(t *testing.T) {
 	if !reg.IsInstalled("temurin") {
 		t.Errorf("dependência temurin deveria estar registrada após install dry-run de ghidra")
 	}
+
+	// 10. Teste 'info git' com alvo macOS
+	buf.Reset()
+	rootCmd = NewRootCmd(reg)
+	rootCmd.SetOut(buf)
+	rootCmd.SetArgs([]string{"info", "git"})
+	if err := rootCmd.Execute(); err != nil {
+		t.Fatalf("Erro no info git: %v", err)
+	}
+	if !strings.Contains(buf.String(), "macOS:") {
+		t.Errorf("Esperava exibição do alvo macOS no info git: %s", buf.String())
+	}
+
+	// 11. Teste 'sync --dry-run'
+	buf.Reset()
+	rootCmd = NewRootCmd(reg)
+	rootCmd.SetOut(buf)
+	rootCmd.SetArgs([]string{"sync", "--dry-run"})
+	if err := rootCmd.Execute(); err != nil {
+		t.Fatalf("Erro no sync dry-run: %v", err)
+	}
+	if !strings.Contains(buf.String(), "SINCRONIZAÇÃO") {
+		t.Errorf("Esperava cabeçalho de sincronização: %s", buf.String())
+	}
+
+	// 12. Teste 'sync --json'
+	buf.Reset()
+	rootCmd = NewRootCmd(reg)
+	rootCmd.SetOut(buf)
+	rootCmd.SetArgs([]string{"sync", "--json"})
+	if err := rootCmd.Execute(); err != nil {
+		t.Fatalf("Erro no sync json: %v", err)
+	}
+	if !strings.Contains(buf.String(), "synced") {
+		t.Errorf("Esperava formato JSON no sync --json: %s", buf.String())
+	}
 }

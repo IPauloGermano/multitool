@@ -1,6 +1,7 @@
 package runner
 
 import (
+	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
@@ -200,5 +201,138 @@ func TestSoftwareDependencySkippedWhenSatisfied(t *testing.T) {
 		if strings.Contains(cmdStr, "temurin") && !strings.Contains(cmdStr, "ghidra") {
 			t.Errorf("Comando inesperado instalando temurin mesmo com java satisfeito: %s", cmdStr)
 		}
+	}
+}
+
+func TestVerifyFileSHA256(t *testing.T) {
+	tempDir := t.TempDir()
+	testFile := filepath.Join(tempDir, "sample.txt")
+	content := []byte("antigravity multitool test payload")
+	if err := os.WriteFile(testFile, content, 0644); err != nil {
+		t.Fatalf("Erro ao criar arquivo de teste: %v", err)
+	}
+
+	// echo -n "antigravity multitool test payload" | sha256sum
+	// 5c41cae6db3f886d912ceba281895a9d8fa176df2c70030c23f2fbe317bc224d
+	expectedSHA := "a70c58fa1fcda3235b5a9f9c38e9fd20c9b5b413d4ca48246f26b4af0b66c2c6"
+
+	// 1. Sucesso com hash correto
+	if err := VerifyFileSHA256(testFile, expectedSHA); err != nil {
+		t.Errorf("Esperava validação bem sucedida, obteve erro: %v", err)
+	}
+
+	// 2. Falha com hash adulterado
+	wrongSHA := "0000000000000000000000000000000000000000000000000000000000000000"
+	if err := VerifyFileSHA256(testFile, wrongSHA); err == nil {
+		t.Errorf("Esperava erro de mismatch com hash incorreto")
+	}
+
+	// 3. Falha com arquivo inexistente
+	if err := VerifyFileSHA256(filepath.Join(tempDir, "nao_existe.txt"), expectedSHA); err == nil {
+		t.Errorf("Esperava erro com arquivo inexistente")
+	}
+}
+
+func TestSyncInstalled(t *testing.T) {
+	tempDir := t.TempDir()
+	regPath := filepath.Join(tempDir, "installed.json")
+	reg, _ := registry.New(regPath)
+
+	// Mock onde apenas 'git' e 'btop' existem no PATH
+	mock := &MockExecutor{
+		missing: map[string]bool{
+			"ripgrep": true,
+			"jq":      true,
+			"bat":     true,
+		},
+	}
+
+	// 1. Teste em modo DryRun
+	rDry := NewWithExecutor(reg, mock, true)
+	results, already, err := rDry.SyncInstalled()
+	if err != nil {
+		t.Fatalf("Erro no SyncInstalled dry-run: %v", err)
+	}
+	if already != 0 {
+		t.Errorf("Esperava 0 ferramentas já registradas, obteve %d", already)
+	}
+	if len(results) == 0 {
+		t.Errorf("Esperava ferramentas detectadas via LookPath")
+	}
+	if reg.IsInstalled("git") {
+		t.Errorf("Dry-run não deveria registrar 'git' em installed.json")
+	}
+
+	// 2. Teste em modo Real
+	rReal := NewWithExecutor(reg, mock, false)
+	resultsReal, _, err := rReal.SyncInstalled()
+	if err != nil {
+		t.Fatalf("Erro no SyncInstalled real: %v", err)
+	}
+	if len(resultsReal) == 0 {
+		t.Errorf("Esperava ferramentas detectadas")
+	}
+	if !reg.IsInstalled("git") {
+		t.Errorf("Modo real deveria registrar 'git' no installed.json")
+	}
+
+	// 3. Segunda execução: ferramentas devem constar como already
+	_, alreadySecond, _ := rReal.SyncInstalled()
+	if alreadySecond == 0 {
+		t.Errorf("Segunda execução deveria contabilizar ferramentas já instaladas")
+	}
+}
+
+func TestParallelSkillsInstall(t *testing.T) {
+	tempDir := t.TempDir()
+	regPath := filepath.Join(tempDir, "installed.json")
+	reg, _ := registry.New(regPath)
+
+	mock := &MockExecutor{}
+	r := NewWithExecutor(reg, mock, true) // dry-run
+
+	skill1 := catalog.FindTool("superpowers")
+	skill2 := catalog.FindTool("impeccable")
+	skill3 := catalog.FindTool("archify")
+
+	if skill1 == nil || skill2 == nil || skill3 == nil {
+		t.Fatalf("Skills de teste não encontradas no catálogo")
+	}
+
+	tools := []catalog.Tool{*skill1, *skill2, *skill3}
+	ok, fail := r.RunBatchInstall(tools)
+	if ok != 3 || fail != 0 {
+		t.Errorf("Esperava 3 sucessos em paralelo e 0 falhas, obteve ok=%d, fail=%d", ok, fail)
+	}
+	if !reg.IsInstalled("superpowers") || !reg.IsInstalled("impeccable") || !reg.IsInstalled("archify") {
+		t.Errorf("Todas as skills deveriam estar marcadas no registro")
+	}
+}
+
+func TestTypeBrewExecution(t *testing.T) {
+	tempDir := t.TempDir()
+	regPath := filepath.Join(tempDir, "installed.json")
+	reg, _ := registry.New(regPath)
+
+	mock := &MockExecutor{}
+	r := NewWithExecutor(reg, mock, false)
+
+	brewTool := catalog.Tool{
+		ID:       "formula-test",
+		Name:     "Formula Test",
+		Category: "Infraestrutura",
+		Linux:    &catalog.Target{Type: catalog.TypeBrew, PackageID: "formula-test", Binary: "formula-test"},
+	}
+
+	if err := r.Install(brewTool); err != nil {
+		t.Fatalf("Erro ao instalar ferramenta TypeBrew: %v", err)
+	}
+
+	if len(mock.executed) == 0 {
+		t.Fatalf("Nenhum comando foi executado")
+	}
+	lastCmd := strings.Join(mock.executed[len(mock.executed)-1], " ")
+	if !strings.Contains(lastCmd, "brew install formula-test") {
+		t.Errorf("Comando inesperado para brew install: %s", lastCmd)
 	}
 }

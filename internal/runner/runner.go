@@ -1,11 +1,15 @@
 package runner
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"sync"
 	"time"
 
@@ -13,6 +17,28 @@ import (
 	"github.com/IPauloGermano/multitool/internal/registry"
 	"github.com/IPauloGermano/multitool/internal/system"
 )
+
+// -------------------------------------------------------------
+// VERIFICAÇÃO DE INTEGRIDADE (SHA-256)
+// -------------------------------------------------------------
+func VerifyFileSHA256(filePath, expectedSHA string) error {
+	f, err := os.Open(filePath)
+	if err != nil {
+		return fmt.Errorf("falha ao abrir arquivo para verificação de SHA-256: %w", err)
+	}
+	defer f.Close()
+
+	hasher := sha256.New()
+	if _, err := io.Copy(hasher, f); err != nil {
+		return fmt.Errorf("falha ao calcular hash SHA-256: %w", err)
+	}
+
+	computed := hex.EncodeToString(hasher.Sum(nil))
+	if !strings.EqualFold(computed, expectedSHA) {
+		return fmt.Errorf("checksum mismatch: esperado %s, obtido %s", expectedSHA, computed)
+	}
+	return nil
+}
 
 type CommandExecutor interface {
 	Execute(name string, args ...string) error
@@ -136,6 +162,8 @@ type Runner struct {
 	sysInfo  *system.SystemInfo
 	executor CommandExecutor
 	dryRun   bool
+	cacheMu  sync.RWMutex
+	cmdCache map[string]bool
 }
 
 func New(reg *registry.Registry, dryRun bool) *Runner {
@@ -144,6 +172,7 @@ func New(reg *registry.Registry, dryRun bool) *Runner {
 		sysInfo:  system.GetSystemInfo(),
 		executor: &OSExecutor{},
 		dryRun:   dryRun,
+		cmdCache: make(map[string]bool),
 	}
 }
 
@@ -153,6 +182,7 @@ func NewWithExecutor(reg *registry.Registry, executor CommandExecutor, dryRun bo
 		sysInfo:  system.GetSystemInfo(),
 		executor: executor,
 		dryRun:   dryRun,
+		cmdCache: make(map[string]bool),
 	}
 }
 
@@ -165,8 +195,26 @@ func (r *Runner) execWithSudoIfNeeded(cmdName string, args ...string) error {
 }
 
 func (r *Runner) haveCommand(cmd string) bool {
+	r.cacheMu.RLock()
+	if r.cmdCache != nil {
+		if val, ok := r.cmdCache[cmd]; ok {
+			r.cacheMu.RUnlock()
+			return val
+		}
+	}
+	r.cacheMu.RUnlock()
+
 	_, err := r.executor.LookPath(cmd)
-	return err == nil
+	found := err == nil
+
+	r.cacheMu.Lock()
+	if r.cmdCache == nil {
+		r.cmdCache = make(map[string]bool)
+	}
+	r.cmdCache[cmd] = found
+	r.cacheMu.Unlock()
+
+	return found
 }
 
 func (r *Runner) IsDependencySatisfied(depTool *catalog.Tool) bool {
@@ -441,6 +489,9 @@ func (r *Runner) Install(tool catalog.Tool) error {
 	case catalog.TypeScript:
 		err = r.installScript(tool.ID, target)
 
+	case catalog.TypeBrew:
+		err = r.executor.Execute("brew", "install", target.PackageID)
+
 	default:
 		err = fmt.Errorf("método de instalação não suportado: %s", target.Type)
 	}
@@ -453,9 +504,45 @@ func (r *Runner) Install(tool catalog.Tool) error {
 		return err
 	}
 
+	// Validação de integridade SHA-256 opcional pós-instalação
+	if target.SHA256 != "" {
+		binPath := r.findTargetBinaryPath(tool, target)
+		if binPath != "" {
+			if vErr := VerifyFileSHA256(binPath, target.SHA256); vErr != nil {
+				_ = os.Remove(binPath)
+				LogOp("install %s fim rc=1 erro_sha256=%v", tool.ID, vErr)
+				return fmt.Errorf("falha na integridade SHA-256 de %s: %w", tool.Name, vErr)
+			}
+			fmt.Printf("✔ Integridade SHA-256 verificada com sucesso para %s.\n", tool.Name)
+		}
+	}
+
 	fmt.Printf("✔ %s instalado com sucesso em %s.\n", tool.Name, elapsed)
 	LogOp("install %s fim rc=0 duracao=%s", tool.ID, elapsed)
 	return r.reg.MarkInstalled(tool.ID)
+}
+
+func (r *Runner) findTargetBinaryPath(tool catalog.Tool, target *catalog.Target) string {
+	if target == nil {
+		return ""
+	}
+	home, _ := os.UserHomeDir()
+	if target.Binary != "" && home != "" {
+		p1 := filepath.Join(home, ".local", "bin", target.Binary)
+		if _, err := os.Stat(p1); err == nil {
+			return p1
+		}
+		p2 := filepath.Join(home, ".local", "bin", tool.ID)
+		if _, err := os.Stat(p2); err == nil {
+			return p2
+		}
+	}
+	if target.Binary != "" {
+		if p, err := r.executor.LookPath(target.Binary); err == nil {
+			return p
+		}
+	}
+	return ""
 }
 
 func (r *Runner) installNative(packageID string) error {
@@ -618,6 +705,9 @@ func (r *Runner) Uninstall(tool catalog.Tool) error {
 		}
 		err = r.reg.MarkUninstalled(tool.ID)
 
+	case catalog.TypeBrew:
+		err = r.executor.Execute("brew", "uninstall", target.PackageID)
+
 	default:
 		err = fmt.Errorf("método de desinstalação não suportado: %s", target.Type)
 	}
@@ -693,6 +783,9 @@ func (r *Runner) Update(tool catalog.Tool) error {
 	case catalog.TypeScript:
 		err = r.installScript(tool.ID, target)
 
+	case catalog.TypeBrew:
+		err = r.executor.Execute("brew", "upgrade", target.PackageID)
+
 	default:
 		err = fmt.Errorf("método de atualização não suportado: %s", target.Type)
 	}
@@ -754,18 +847,120 @@ func (r *Runner) uninstallGitSkill(id string) error {
 }
 
 func (r *Runner) RunBatchInstall(tools []catalog.Tool) (int, int) {
+	total := len(tools)
+	if total == 0 {
+		return 0, 0
+	}
+
+	// Se o lote consistir puramente de ferramentas TypeSkill e total > 1: executa em pool concorrente
+	allSkills := true
+	for _, t := range tools {
+		tgt := t.TargetForCurrentOS()
+		if tgt == nil || tgt.Type != catalog.TypeSkill {
+			allSkills = false
+			break
+		}
+	}
+
+	if allSkills && total > 1 {
+		return r.runBatchInstallSkillsParallel(tools)
+	}
+
+	return r.runBatchInstallPartitioned(tools)
+}
+
+func (r *Runner) runBatchInstallSkillsParallel(tools []catalog.Tool) (int, int) {
+	total := len(tools)
+	overallStart := time.Now()
+	fmt.Printf("\n⚡ Executando clone concorrente de %d skills (worker pool de 4)...\n", total)
+
+	type skillResult struct {
+		tool catalog.Tool
+		err  error
+		dur  time.Duration
+	}
+
+	results := make(chan skillResult, total)
+	sem := make(chan struct{}, 4)
+	var wg sync.WaitGroup
+
+	for _, t := range tools {
+		wg.Add(1)
+		go func(tool catalog.Tool) {
+			defer wg.Done()
+			sem <- struct{}{}
+			defer func() { <-sem }()
+
+			start := time.Now()
+			err := r.Install(tool)
+			results <- skillResult{
+				tool: tool,
+				err:  err,
+				dur:  time.Since(start).Round(time.Millisecond),
+			}
+		}(t)
+	}
+
+	go func() {
+		wg.Wait()
+		close(results)
+	}()
+
+	ok, fail := 0, 0
+	count := 0
+	for res := range results {
+		count++
+		if res.err != nil {
+			fail++
+		} else {
+			ok++
+		}
+	}
+
+	fmt.Printf("\nResumo das Skills: %d instalada(s), %d falha(s) em %s.\n", ok, fail, time.Since(overallStart).Round(time.Millisecond))
+	return ok, fail
+}
+
+func (r *Runner) runBatchInstallPartitioned(tools []catalog.Tool) (int, int) {
 	ok, fail := 0, 0
 	total := len(tools)
 	overallStart := time.Now()
 
-	for i, t := range tools {
+	i := 0
+	for i < total {
+		t := tools[i]
+		tgt := t.TargetForCurrentOS()
+
+		// Se encontrar um bloco contíguo de skills > 1
+		if tgt != nil && tgt.Type == catalog.TypeSkill {
+			j := i
+			for j < total {
+				curTgt := tools[j].TargetForCurrentOS()
+				if curTgt == nil || curTgt.Type != catalog.TypeSkill {
+					break
+				}
+				j++
+			}
+
+			skillChunk := tools[i:j]
+			if len(skillChunk) > 1 {
+				chunkOk, chunkFail := r.runBatchInstallSkillsParallel(skillChunk)
+				ok += chunkOk
+				fail += chunkFail
+				i = j
+				continue
+			}
+		}
+
 		fmt.Printf("\n--- [%d/%d] ---\n", i+1, total)
 		if err := r.Install(t); err != nil {
 			fail++
 		} else {
 			ok++
 		}
+		i++
 	}
+
 	fmt.Printf("\nResumo: %d instalado(s), %d falha(s) em %s.\n", ok, fail, time.Since(overallStart).Round(time.Millisecond))
 	return ok, fail
 }
@@ -802,4 +997,91 @@ func (r *Runner) RunBatchUpdate(tools []catalog.Tool) (int, int) {
 	}
 	fmt.Printf("\nResumo: %d atualizado(s), %d falha(s) em %s.\n", ok, fail, time.Since(overallStart).Round(time.Millisecond))
 	return ok, fail
+}
+
+// -------------------------------------------------------------
+// SINCRONIZAÇÃO E DETECÇÃO DE FERRAMENTAS DO HOST
+// -------------------------------------------------------------
+type SyncResult struct {
+	ToolID   string `json:"id"`
+	ToolName string `json:"name"`
+	Binary   string `json:"binary,omitempty"`
+	Method   string `json:"method"`
+}
+
+func (r *Runner) SyncInstalled() ([]SyncResult, int, error) {
+	supported := catalog.SupportedCatalog()
+	var newlyDetected []SyncResult
+	alreadyCount := 0
+
+	for _, tool := range supported {
+		if r.reg.IsInstalled(tool.ID) {
+			alreadyCount++
+			continue
+		}
+
+		target := tool.TargetForCurrentOS()
+		if target == nil {
+			continue
+		}
+
+		detected := false
+		detectMethod := ""
+
+		if tool.ID == "temurin" && r.haveCommand("java") {
+			detected = true
+			detectMethod = "PATH (java)"
+		} else if target.Binary != "" && r.haveCommand(target.Binary) {
+			detected = true
+			detectMethod = fmt.Sprintf("PATH (%s)", target.Binary)
+		} else if target.Type == catalog.TypeSkill {
+			skillDir := r.getSkillDir(tool.ID)
+			if fi, err := os.Stat(skillDir); err == nil && fi.IsDir() {
+				detected = true
+				detectMethod = "diretório local de skills"
+			}
+		}
+
+		if detected {
+			newlyDetected = append(newlyDetected, SyncResult{
+				ToolID:   tool.ID,
+				ToolName: tool.Name,
+				Binary:   target.Binary,
+				Method:   detectMethod,
+			})
+
+			if !r.dryRun {
+				_ = r.reg.MarkInstalled(tool.ID)
+			}
+		}
+	}
+
+	if !r.dryRun {
+		r.RelinkAllSkills()
+	}
+
+	return newlyDetected, alreadyCount, nil
+}
+
+func (r *Runner) RelinkAllSkills() int {
+	targets := r.sysInfo.SkillDirs
+	if len(targets) == 0 {
+		return 0
+	}
+
+	relinked := 0
+	skillsBase := filepath.Dir(r.getSkillDir("dummy"))
+	entries, err := os.ReadDir(skillsBase)
+	if err != nil {
+		return 0
+	}
+
+	for _, entry := range entries {
+		if entry.IsDir() {
+			skillPath := filepath.Join(skillsBase, entry.Name())
+			n, _ := LinkSkillToTargets(skillPath, targets)
+			relinked += n
+		}
+	}
+	return relinked
 }

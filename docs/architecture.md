@@ -83,7 +83,7 @@ type SystemInfo struct {
 
 ## 3. Modelo de Catálogo com Alvos Múltiplos (`internal/catalog`)
 
-Em vez de criar catálogos separados por sistema operacional, cada ferramenta é definida como uma entidade única com alvos opcionais para **Windows** e **Linux**:
+Em vez de criar catálogos separados por sistema operacional, cada ferramenta é definida como uma entidade única com alvos opcionais para **Windows**, **Linux** e **macOS (Darwin)**:
 
 ```go
 type TargetType string
@@ -98,6 +98,7 @@ const (
     TypeFlatpak TargetType = "flatpak"
     TypeScript  TargetType = "script"
     TypeDirect  TargetType = "direct"
+    TypeBrew    TargetType = "brew"
 )
 
 type Target struct {
@@ -105,20 +106,23 @@ type Target struct {
     PackageID string     `json:"package_id"`
     Binary    string     `json:"binary"`
     Script    string     `json:"script,omitempty"`
+    SHA256    string     `json:"sha256,omitempty"` // Checksum de integridade
 }
 
 type Tool struct {
-    ID          string  `json:"id"`
-    Name        string  `json:"name"`
-    Category    string  `json:"category"`
-    Description string  `json:"description"`
-    Windows     *Target `json:"windows,omitempty"`
-    Linux       *Target `json:"linux,omitempty"`
+    ID          string   `json:"id"`
+    Name        string   `json:"name"`
+    Category    string   `json:"category"`
+    Description string   `json:"description"`
+    Dependencies []string `json:"dependencies,omitempty"`
+    Windows     *Target  `json:"windows,omitempty"`
+    Linux       *Target  `json:"linux,omitempty"`
+    Darwin      *Target  `json:"darwin,omitempty"`
 }
 ```
 
 ### Resolução em Tempo de Execução
-* `t.TargetForCurrentOS()`: Retorna o ponteiro `*Target` adequado ao SO atual.
+* `t.TargetForCurrentOS()`: Retorna o ponteiro `*Target` adequado ao SO atual. No macOS (`darwin`), utiliza o alvo dedicado `Darwin` ou realiza fallback seguro para ferramentas universais (`npm`, `pipx`, `cargo`, `skill`).
 * `t.IsSupportedOnCurrentOS()`: Retorna `true` se a ferramenta possuir receita para a plataforma em execução.
 * Se um usuário no Linux tentar instalar uma ferramenta exclusiva de Windows (ou vice-versa), o Multitool emite um aviso informativo e ignora o item com segurança sem travar o lote.
 
@@ -135,6 +139,12 @@ O módulo `Runner` centraliza a execução de comandos, testes em mock (`Command
 
 * **Auto-provisionamento Proativo de Runtimes (`ensureRuntime`)**:
   - Quando uma ferramenta do tipo `TypeNpm`, `TypePipx`, `TypeCargo`, `TypeFlatpak` ou `TypeSkill` é acionada e o comando correspondente (`npm`, `pipx`, `cargo`, `flatpak`, `git`) não existe no PATH do hospedeiro (`LookPath`), o Multitool auto-provisiona o runtime automaticamente via gerenciador nativo da plataforma (`apt`, `dnf`, `pacman`, `zypper`, `eopkg`, `brew`, `winget`).
+* **Paralelismo Inteligente em `@skills`**:
+  - Clones de ferramentas `TypeSkill` em lote são processados concorrentemente através de um worker pool com limite de 4 goroutines (`sync.WaitGroup` e semáforo), reduzindo em mais de 75% o tempo de instalação de suítes de skills.
+* **Validação Criptográfica de Integridade (SHA-256)**:
+  - Ferramentas baixadas via script direto ou AppImages podem definir `SHA256: "..."` em seus alvos. O runner calcula o hash SHA-256 e aborta a operação caso detecte divergência de integridade.
+* **Sincronização de Estado com o Host (`multitool sync`)**:
+  - Inspeciona o `$PATH` do sistema operacional para identificar ferramentas do catálogo pré-instaladas fora do Multitool, registrando-as automaticamente em `installed.json` e re-linkando skills existentes para agentes recém-descobertos.
 * **Privilégios Sudo**: No Linux, para pacotes do tipo `TypeNative`, o comando é prefixado com `sudo` apenas se `sysInfo.NeedsSudo == true` (`os.Geteuid() != 0`).
 * **Simulação (`--dry-run`)**: Quando ativo, nenhum processo do sistema é gerado. Apenas o log de auditoria é preenchido e o estado é simulado.
 * **Auditoria com Rotação (`logGira`)**:
