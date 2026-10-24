@@ -142,6 +142,23 @@ func TestFindToolAndAliases(t *testing.T) {
 		{"https://github.com/milind-soni/OpenMausBot.git", "openmausbot"},
 		{"mausbot", "openmausbot"},
 		{"opengrokbot", "openmausbot"},
+		{"openshell", "openshell"},
+		{"nvidia/openshell", "openshell"},
+		{"https://github.com/NVIDIA/OpenShell", "openshell"},
+		{"hallmark", "hallmark"},
+		{"nutlope/hallmark", "hallmark"},
+		{"https://github.com/Nutlope/hallmark", "hallmark"},
+		{"awsagenttoolkit", "awsagenttoolkit"},
+		{"aws/agent-toolkit-for-aws", "awsagenttoolkit"},
+		{"https://github.com/aws/agent-toolkit-for-aws", "awsagenttoolkit"},
+		{"androidstudio", "androidstudio"},
+		{"android-studio", "androidstudio"},
+		{"apktool", "apktool"},
+		{"ibotpeaches/apktool", "apktool"},
+		{"https://github.com/iBotPeaches/Apktool", "apktool"},
+		{"x64dbg", "x64dbg"},
+		{"x64dbg/x64dbg", "x64dbg"},
+		{"https://github.com/x64dbg/x64dbg", "x64dbg"},
 	}
 
 	for _, tc := range testCases {

@@ -1,6 +1,6 @@
 # Catálogo Universal e Suítes
 
-O **Multitool** consolida **147 ferramentas** rigorosamente curadas para engenharia de software moderna, agentes de inteligência artificial, segurança e produtividade.
+O **Multitool** consolida **153 ferramentas** rigorosamente curadas para engenharia de software moderna, agentes de inteligência artificial, segurança e produtividade.
 
 ---
 
@@ -49,6 +49,7 @@ Ferramentas e pontes do ecossistema MCP:
 - `context7`: Documentação atualizada de bibliotecas para LLMs via MCP.
 - `rea`: MCP e toolkit de engenharia reversa para agentes IA.
 - `repomix`: Empacotamento de contexto.
+- `awsagenttoolkit`: Servidores MCP, skills e plugins oficiais da AWS para agentes de IA.
 
 ### 3. `@agentstack` (Agent Engineering & Sandbox)
 Harnesses, frameworks e observabilidade para agentes autônomos:
@@ -65,11 +66,14 @@ Harnesses, frameworks e observabilidade para agentes autônomos:
 - `hyperframes`: Framework de vídeo programático para agentes.
 - `orca`: Orquestração de frotas de agentes IA em worktrees paralelos.
 - `openmausbot`: Alternativa open-source ao Grok Bot / Manus com equipe de agentes IA e VMs.
+- `openshell`: Runtime seguro e sandbox com governança para agentes de IA da NVIDIA.
 
-### 4. `@skills` (Coleção Curada de 20 Skills)
+### 4. `@skills` (Coleção Curada de 22 Skills)
 Coleção de metodologias e habilidades para agentes de código:
 - `superpowers`: Metodologia de desenvolvimento com TDD e planos.
 - `impeccable`: Design e frontend limpo sem slop.
+- `hallmark`: Design skill anti-AI-slop para Claude Code, OpenCode e Codex (Together AI).
+- `awsagenttoolkit`: Servidores MCP, skills e plugins oficiais da AWS para agentes de IA.
 - `tasteskill`: Regras de bom gosto estético para agentes.
 - `emilkowalski`: Microinterações e animações frontend.
 - `archify`: Geração de diagramas de arquitetura de software.
@@ -118,5 +122,11 @@ Abaixo estão alguns destaques da compatibilidade cruzada:
 | `hermes` | Hermes Agent | Agentes | `hermes-agent` (npm) | script (`hermes-agent.nousresearch.com`) |
 | `orca` | Orca | Agentes | `stablyai/orca` (direct) | script (`orca-linux.AppImage`) |
 | `universalmodder`| Universal Modder | Skills | `rehan-remade/universal-modder` (git) | `rehan-remade/universal-modder` (skill) |
+| `openshell` | OpenShell | Agentes | `openshell` (pipx) | `openshell` (pipx) |
+| `hallmark` | Hallmark | Skills | `Nutlope/hallmark` (direct) | `Nutlope/hallmark` (skill) |
+| `awsagenttoolkit` | Agent Toolkit for AWS | Skills | `aws/agent-toolkit-for-aws` (direct) | `aws/agent-toolkit-for-aws` (skill) |
+| `androidstudio` | Android Studio | Editores | `Google.AndroidStudio` (winget) | `com.google.AndroidStudio` (flatpak) |
+| `apktool` | Apktool | Análise | `iBotPeaches/Apktool` (direct) | `apktool` (native) |
+| `x64dbg` | x64dbg | Análise | `x64dbg.x64dbg` (winget) | *Não disponível* |
 | `waydroid` | Waydroid | Infraestrutura | *Não disponível* | script (`waydroid`) |
 | `atkinson` | Atkinson Hyperlegible | Fontes | `googlefonts/atkinson` (direct) | *Não disponível* |

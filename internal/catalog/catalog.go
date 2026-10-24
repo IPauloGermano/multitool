@@ -78,13 +78,13 @@ var packages = map[string][]string{
 		"aider", "repomix", "astgrep", "ollama", "ripgrep", "jq", "llm", "goose", "claudecode", "opencode", "ohmypi", "9router", "omniroute", "hermes", "orca",
 	},
 	"mcp": {
-		"mcpm", "mcpinspector", "supergateway", "codebase_memory", "repomix", "context7", "rea",
+		"mcpm", "mcpinspector", "supergateway", "codebase_memory", "repomix", "context7", "rea", "awsagenttoolkit",
 	},
 	"agentstack": {
-		"langgraph", "crewai", "ax", "bubblewrap", "promptfoo", "phoenix", "otelcol", "podman", "ecc", "paperclip", "hyperframes", "orca", "openmausbot",
+		"langgraph", "crewai", "ax", "bubblewrap", "promptfoo", "phoenix", "otelcol", "podman", "ecc", "paperclip", "hyperframes", "orca", "openmausbot", "openshell",
 	},
 	"skills": {
-		"superpowers", "impeccable", "tasteskill", "emilkowalski", "archify", "opencodereview", "securityaudit", "contextmode", "ponytail", "reverseskill", "pocockskills", "diagramdesign", "ihaveadhd", "addyosmani", "humanizer", "openmaic", "openseo", "linkedin", "universalmodder", "androidskills",
+		"superpowers", "impeccable", "tasteskill", "emilkowalski", "archify", "opencodereview", "securityaudit", "contextmode", "ponytail", "reverseskill", "pocockskills", "diagramdesign", "ihaveadhd", "addyosmani", "humanizer", "openmaic", "openseo", "linkedin", "universalmodder", "androidskills", "hallmark", "awsagenttoolkit",
 	},
 	"dev": {
 		"git", "gh", "fzf", "btop", "nodejs", "golang", "temurin", "docker", "vscode", "neovim", "waveterm", "ghostty", "jj", "uv", "rustup", "bat",
@@ -129,6 +129,20 @@ var toolAliases = map[string]string{
 	"milind-soni/openmausbot":       "openmausbot",
 	"mausbot":                       "openmausbot",
 	"opengrokbot":                   "openmausbot",
+	"nvidia/openshell":              "openshell",
+	"open-shell":                    "openshell",
+	"nvidia-openshell":              "openshell",
+	"nutlope/hallmark":              "hallmark",
+	"hallmark-skill":                "hallmark",
+	"aws/agent-toolkit-for-aws":     "awsagenttoolkit",
+	"agent-toolkit-for-aws":         "awsagenttoolkit",
+	"aws-agent-toolkit":             "awsagenttoolkit",
+	"android-studio":                "androidstudio",
+	"google/android-studio":         "androidstudio",
+	"ibotpeaches/apktool":           "apktool",
+	"iBotPeaches/Apktool":           "apktool",
+	"x64dbg/x64dbg":                 "x64dbg",
+	"x64-dbg":                       "x64dbg",
 }
 
 var catalogList = []Tool{
@@ -146,6 +160,19 @@ var catalogList = []Tool{
 		ID: "androidskills", Name: "Android Skills", Category: "Skills", Description: "Skills oficiais do Google para desenvolvimento Android com IA",
 		Windows: &Target{Type: TypeDirect, PackageID: "android/skills", Binary: "SKILL.md"},
 		Linux:   &Target{Type: TypeSkill, PackageID: "android/skills", Binary: "SKILL.md"},
+	},
+	{
+		ID: "androidstudio", Name: "Android Studio", Category: "Editores", Description: "IDE oficial do Google para desenvolvimento Android",
+		Windows: &Target{Type: TypeWinget, PackageID: "Google.AndroidStudio", Binary: "studio64.exe"},
+		Linux:   &Target{Type: TypeFlatpak, PackageID: "com.google.AndroidStudio", Binary: "androidstudio"},
+		Darwin:  &Target{Type: TypeBrew, PackageID: "android-studio", Binary: "studio"},
+	},
+	{
+		ID: "apktool", Name: "Apktool", Category: "Análise", Description: "Ferramenta de engenharia reversa para descompilar e reconstruir APKs Android",
+		Dependencies: []string{"temurin"},
+		Windows: &Target{Type: TypeDirect, PackageID: "iBotPeaches/Apktool", Binary: "apktool.bat"},
+		Linux:   &Target{Type: TypeNative, PackageID: "apktool", Binary: "apktool"},
+		Darwin:  &Target{Type: TypeBrew, PackageID: "apktool", Binary: "apktool"},
 	},
 	{
 		ID: "agy", Name: "Antigravity CLI", Category: "Agentes", Description: "Agente do Google no terminal (binário agy)",
@@ -181,6 +208,12 @@ var catalogList = []Tool{
 		ID: "ax", Name: "AX", Category: "Agentes", Description: "Orquestrador de agentes do Google (go install)",
 		Windows: nil,
 		Linux:   &Target{Type: TypeScript, PackageID: "ax", Binary: "ax"},
+	},
+	{
+		ID: "awsagenttoolkit", Name: "Agent Toolkit for AWS", Category: "Skills", Description: "Servidores MCP, skills e plugins oficiais da AWS para agentes de IA",
+		Windows: &Target{Type: TypeDirect, PackageID: "aws/agent-toolkit-for-aws", Binary: "SKILL.md"},
+		Linux:   &Target{Type: TypeSkill, PackageID: "aws/agent-toolkit-for-aws", Binary: "SKILL.md"},
+		Darwin:  &Target{Type: TypeSkill, PackageID: "aws/agent-toolkit-for-aws", Binary: "SKILL.md"},
 	},
 	{
 		ID: "bat", Name: "bat", Category: "Terminais", Description: "cat com syntax highlighting",
@@ -462,6 +495,12 @@ var catalogList = []Tool{
 		Linux:   &Target{Type: TypeNative, PackageID: "grafana", Binary: "grafana"},
 	},
 	{
+		ID: "hallmark", Name: "Hallmark", Category: "Skills", Description: "Design skill anti-AI-slop para Claude Code, OpenCode e Codex",
+		Windows: &Target{Type: TypeDirect, PackageID: "Nutlope/hallmark", Binary: "SKILL.md"},
+		Linux:   &Target{Type: TypeSkill, PackageID: "Nutlope/hallmark", Binary: "SKILL.md"},
+		Darwin:  &Target{Type: TypeSkill, PackageID: "Nutlope/hallmark", Binary: "SKILL.md"},
+	},
+	{
 		ID: "hermes", Name: "Hermes Agent", Category: "Agentes", Description: "Agente auto-evolutivo da Nous Research (TUI, gateway, skills e cron)",
 		Windows: &Target{Type: TypeNpm, PackageID: "hermes-agent", Binary: "hermes.cmd"},
 		Linux:   &Target{Type: TypeScript, PackageID: "hermes", Binary: "hermes"},
@@ -665,6 +704,12 @@ var catalogList = []Tool{
 		ID: "openseo", Name: "Open SEO", Category: "Skills", Description: "Skills de SEO e análise competitiva",
 		Windows: &Target{Type: TypeDirect, PackageID: "every-app/open-seo", Binary: "SKILL.md"},
 		Linux:   &Target{Type: TypeSkill, PackageID: "every-app/open-seo", Binary: "SKILL.md"},
+	},
+	{
+		ID: "openshell", Name: "OpenShell", Category: "Agentes", Description: "Runtime e sandbox seguro com governança para agentes de IA da NVIDIA",
+		Windows: &Target{Type: TypePipx, PackageID: "openshell", Binary: "openshell.exe"},
+		Linux:   &Target{Type: TypePipx, PackageID: "openshell", Binary: "openshell"},
+		Darwin:  &Target{Type: TypePipx, PackageID: "openshell", Binary: "openshell"},
 	},
 	{
 		ID: "openssh", Name: "OpenSSH", Category: "Infraestrutura", Description: "Cliente SSH para Windows",
@@ -885,6 +930,11 @@ var catalogList = []Tool{
 		ID: "waydroid", Name: "Waydroid", Category: "Infraestrutura", Description: "Android em container (init manual)",
 		Windows: nil,
 		Linux:   &Target{Type: TypeScript, PackageID: "waydroid", Binary: "waydroid"},
+	},
+	{
+		ID: "x64dbg", Name: "x64dbg", Category: "Análise", Description: "Depurador x64/x32 open-source para engenharia reversa e análise de malware",
+		Windows: &Target{Type: TypeWinget, PackageID: "x64dbg.x64dbg", Binary: "x64dbg.exe"},
+		Linux:   nil,
 	},
 	{
 		ID: "zed", Name: "Zed", Category: "Editores", Description: "Editor de alta performance com IA",

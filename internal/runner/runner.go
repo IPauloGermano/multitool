@@ -306,7 +306,7 @@ func (r *Runner) ensureRuntime(toolID string, target *catalog.Target) error {
 			wingetID: "Git.Git",
 		}
 	case catalog.TypeDirect:
-		if toolID != "orca" && toolID != "openmausbot" {
+		if toolID != "orca" && toolID != "openmausbot" && toolID != "apktool" {
 			req = &runtimePkg{
 				command:  "git",
 				apt:      []string{"git"},
@@ -482,6 +482,8 @@ func (r *Runner) Install(tool catalog.Tool) error {
 			err = r.executor.Execute("powershell", "-NoProfile", "-Command", "Invoke-WebRequest -Uri https://github.com/stablyai/orca/releases/latest/download/orca-windows-setup.exe -OutFile $env:TEMP\\orca-setup.exe; Start-Process -FilePath $env:TEMP\\orca-setup.exe -ArgumentList '/S' -Wait")
 		} else if tool.ID == "openmausbot" {
 			err = r.executor.Execute("powershell", "-NoProfile", "-Command", "Invoke-WebRequest -Uri https://github.com/milind-soni/OpenMausBot/releases/latest/download/OpenMausBot-setup.exe -OutFile $env:TEMP\\OpenMausBot-setup.exe; Start-Process -FilePath $env:TEMP\\OpenMausBot-setup.exe -ArgumentList '/S' -Wait")
+		} else if tool.ID == "apktool" {
+			err = r.executor.Execute("powershell", "-NoProfile", "-Command", "New-Item -ItemType Directory -Force -Path $env:LOCALAPPDATA\\multitool\\bin; Invoke-WebRequest -Uri https://raw.githubusercontent.com/iBotPeaches/Apktool/master/scripts/windows/apktool.bat -OutFile $env:LOCALAPPDATA\\multitool\\bin\\apktool.bat; Invoke-WebRequest -Uri https://github.com/iBotPeaches/Apktool/releases/latest/download/apktool.jar -OutFile $env:LOCALAPPDATA\\multitool\\bin\\apktool.jar")
 		} else {
 			err = r.installGitSkill(tool.ID, target.PackageID)
 		}
@@ -693,7 +695,16 @@ func (r *Runner) Uninstall(tool catalog.Tool) error {
 		err = r.executor.Execute("flatpak", "uninstall", "-y", target.PackageID)
 
 	case catalog.TypeSkill, catalog.TypeDirect:
-		err = r.uninstallGitSkill(tool.ID)
+		if tool.ID == "apktool" {
+			localApp := os.Getenv("LOCALAPPDATA")
+			if localApp != "" {
+				_ = os.Remove(filepath.Join(localApp, "multitool", "bin", "apktool.bat"))
+				_ = os.Remove(filepath.Join(localApp, "multitool", "bin", "apktool.jar"))
+			}
+			err = r.reg.MarkUninstalled(tool.ID)
+		} else {
+			err = r.uninstallGitSkill(tool.ID)
+		}
 
 	case catalog.TypeScript:
 		if tool.ID == "orca" {
@@ -776,6 +787,8 @@ func (r *Runner) Update(tool catalog.Tool) error {
 			err = r.executor.Execute("powershell", "-NoProfile", "-Command", "Invoke-WebRequest -Uri https://github.com/stablyai/orca/releases/latest/download/orca-windows-setup.exe -OutFile $env:TEMP\\orca-setup.exe; Start-Process -FilePath $env:TEMP\\orca-setup.exe -ArgumentList '/S' -Wait")
 		} else if tool.ID == "openmausbot" {
 			err = r.executor.Execute("powershell", "-NoProfile", "-Command", "Invoke-WebRequest -Uri https://github.com/milind-soni/OpenMausBot/releases/latest/download/OpenMausBot-setup.exe -OutFile $env:TEMP\\OpenMausBot-setup.exe; Start-Process -FilePath $env:TEMP\\OpenMausBot-setup.exe -ArgumentList '/S' -Wait")
+		} else if tool.ID == "apktool" {
+			err = r.executor.Execute("powershell", "-NoProfile", "-Command", "New-Item -ItemType Directory -Force -Path $env:LOCALAPPDATA\\multitool\\bin; Invoke-WebRequest -Uri https://raw.githubusercontent.com/iBotPeaches/Apktool/master/scripts/windows/apktool.bat -OutFile $env:LOCALAPPDATA\\multitool\\bin\\apktool.bat; Invoke-WebRequest -Uri https://github.com/iBotPeaches/Apktool/releases/latest/download/apktool.jar -OutFile $env:LOCALAPPDATA\\multitool\\bin\\apktool.jar")
 		} else {
 			err = r.installGitSkill(tool.ID, target.PackageID)
 		}
