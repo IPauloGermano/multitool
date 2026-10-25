@@ -288,6 +288,13 @@ func (r *Runner) haveCommand(cmd string) bool {
 	return found
 }
 
+func (r *Runner) targetForTool(tool catalog.Tool) *catalog.Target {
+	if r.sysInfo != nil && r.sysInfo.OS != "" {
+		return tool.TargetForOS(string(r.sysInfo.OS))
+	}
+	return tool.TargetForCurrentOS()
+}
+
 func (r *Runner) IsDependencySatisfied(depTool *catalog.Tool) bool {
 	if depTool == nil {
 		return true
@@ -295,7 +302,7 @@ func (r *Runner) IsDependencySatisfied(depTool *catalog.Tool) bool {
 	if r.reg.IsInstalled(depTool.ID) {
 		return true
 	}
-	target := depTool.TargetForCurrentOS()
+	target := r.targetForTool(*depTool)
 	if target == nil {
 		return true
 	}
@@ -377,7 +384,7 @@ func (r *Runner) ensureRuntime(toolID string, target *catalog.Target) error {
 			wingetID: "Git.Git",
 		}
 	case catalog.TypeDirect:
-		if toolID != "orca" && toolID != "openmausbot" && toolID != "apktool" {
+		if toolID != "orca" && toolID != "openmausbot" && toolID != "apktool" && toolID != "ghidra" {
 			req = &runtimePkg{
 				command:  "git",
 				apt:      []string{"git"},
@@ -509,7 +516,7 @@ func (r *Runner) Install(tool catalog.Tool) error {
 }
 
 func (r *Runner) installInternal(tool catalog.Tool, prefix string, showVisual bool) error {
-	target := tool.TargetForCurrentOS()
+	target := r.targetForTool(tool)
 	if target == nil {
 		return fmt.Errorf("ferramenta %s (%s) não é compatível com %s", tool.Name, tool.ID, r.sysInfo.OS)
 	}
@@ -612,6 +619,19 @@ func (r *Runner) installInternal(tool catalog.Tool, prefix string, showVisual bo
 			err = r.execWithActivity(actFn, "powershell", "-NoProfile", "-Command", "Invoke-WebRequest -Uri https://github.com/milind-soni/OpenMausBot/releases/latest/download/OpenMausBot-setup.exe -OutFile $env:TEMP\\OpenMausBot-setup.exe; Start-Process -FilePath $env:TEMP\\OpenMausBot-setup.exe -ArgumentList '/S' -Wait")
 		} else if tool.ID == "apktool" {
 			err = r.execWithActivity(actFn, "powershell", "-NoProfile", "-Command", "New-Item -ItemType Directory -Force -Path $env:LOCALAPPDATA\\multitool\\bin; Invoke-WebRequest -Uri https://raw.githubusercontent.com/iBotPeaches/Apktool/master/scripts/windows/apktool.bat -OutFile $env:LOCALAPPDATA\\multitool\\bin\\apktool.bat; Invoke-WebRequest -Uri https://github.com/iBotPeaches/Apktool/releases/latest/download/apktool.jar -OutFile $env:LOCALAPPDATA\\multitool\\bin\\apktool.jar")
+		} else if tool.ID == "ghidra" {
+			psCmd := "New-Item -ItemType Directory -Force -Path $env:LOCALAPPDATA\\multitool\\bin, $env:LOCALAPPDATA\\multitool\\ghidra | Out-Null; " +
+				"$zip = \"$env:TEMP\\ghidra.zip\"; " +
+				"$ext = \"$env:TEMP\\ghidra_ext\"; " +
+				"Invoke-WebRequest -Uri 'https://github.com/NationalSecurityAgency/ghidra/releases/download/Ghidra_11.1.2_build/ghidra_11.1.2_PUBLIC_20240709.zip' -OutFile $zip; " +
+				"Expand-Archive -Path $zip -DestinationPath $ext -Force; " +
+				"$dir = Get-ChildItem -Path \"$ext\\ghidra_*\" | Select-Object -First 1; " +
+				"Copy-Item -Path \"$($dir.FullName)\\*\" -Destination \"$env:LOCALAPPDATA\\multitool\\ghidra\" -Recurse -Force; " +
+				"Remove-Item -Path $zip, $ext -Recurse -Force; " +
+				"Set-Content -Path \"$env:LOCALAPPDATA\\multitool\\bin\\ghidraRun.bat\" -Value \"@echo off`r`ncall `\"$env:LOCALAPPDATA\\multitool\\ghidra\\ghidraRun.bat`\" %*\"; " +
+				"Set-Content -Path \"$env:LOCALAPPDATA\\multitool\\bin\\ghidra.bat\" -Value \"@echo off`r`ncall `\"$env:LOCALAPPDATA\\multitool\\ghidra\\ghidraRun.bat`\" %*\"; " +
+				"$bin = \"$env:LOCALAPPDATA\\multitool\\bin\"; $p = [Environment]::GetEnvironmentVariable('Path', 'User'); if ($p -notlike \"*$bin*\") { [Environment]::SetEnvironmentVariable('Path', \"$bin;$p\", 'User') }"
+			err = r.execWithActivity(actFn, "powershell", "-NoProfile", "-Command", psCmd)
 		} else {
 			err = r.installGitSkillWithActivity(actFn, tool.ID, target.PackageID)
 		}
@@ -681,6 +701,16 @@ func (r *Runner) findTargetBinaryPath(tool catalog.Tool, target *catalog.Target)
 		p2 := filepath.Join(home, ".local", "bin", tool.ID)
 		if _, err := os.Stat(p2); err == nil {
 			return p2
+		}
+	}
+	if localApp := os.Getenv("LOCALAPPDATA"); localApp != "" && target.Binary != "" {
+		pWin1 := filepath.Join(localApp, "multitool", "bin", target.Binary)
+		if _, err := os.Stat(pWin1); err == nil {
+			return pWin1
+		}
+		pWin2 := filepath.Join(localApp, "multitool", "bin", tool.ID+".bat")
+		if _, err := os.Stat(pWin2); err == nil {
+			return pWin2
 		}
 	}
 	if target.Binary != "" {
@@ -1002,7 +1032,7 @@ func (r *Runner) Uninstall(tool catalog.Tool) error {
 }
 
 func (r *Runner) uninstallInternal(tool catalog.Tool, prefix string, showVisual bool) error {
-	target := tool.TargetForCurrentOS()
+	target := r.targetForTool(tool)
 	if target == nil {
 		return fmt.Errorf("ferramenta %s (%s) não é compatível com %s", tool.Name, tool.ID, r.sysInfo.OS)
 	}
@@ -1054,6 +1084,14 @@ func (r *Runner) uninstallInternal(tool catalog.Tool, prefix string, showVisual 
 				_ = os.Remove(filepath.Join(localApp, "multitool", "bin", "apktool.jar"))
 			}
 			err = r.reg.MarkUninstalled(tool.ID)
+		} else if tool.ID == "ghidra" {
+			localApp := os.Getenv("LOCALAPPDATA")
+			if localApp != "" {
+				_ = os.RemoveAll(filepath.Join(localApp, "multitool", "ghidra"))
+				_ = os.Remove(filepath.Join(localApp, "multitool", "bin", "ghidra.bat"))
+				_ = os.Remove(filepath.Join(localApp, "multitool", "bin", "ghidraRun.bat"))
+			}
+			err = r.reg.MarkUninstalled(tool.ID)
 		} else {
 			err = r.uninstallGitSkill(tool.ID)
 		}
@@ -1097,7 +1135,7 @@ func (r *Runner) Update(tool catalog.Tool) error {
 }
 
 func (r *Runner) updateInternal(tool catalog.Tool, prefix string, showVisual bool) error {
-	target := tool.TargetForCurrentOS()
+	target := r.targetForTool(tool)
 	if target == nil {
 		return fmt.Errorf("ferramenta %s (%s) não é compatível com %s", tool.Name, tool.ID, r.sysInfo.OS)
 	}
@@ -1169,6 +1207,19 @@ func (r *Runner) updateInternal(tool catalog.Tool, prefix string, showVisual boo
 			err = r.executor.Execute("powershell", "-NoProfile", "-Command", "Invoke-WebRequest -Uri https://github.com/milind-soni/OpenMausBot/releases/latest/download/OpenMausBot-setup.exe -OutFile $env:TEMP\\OpenMausBot-setup.exe; Start-Process -FilePath $env:TEMP\\OpenMausBot-setup.exe -ArgumentList '/S' -Wait")
 		} else if tool.ID == "apktool" {
 			err = r.executor.Execute("powershell", "-NoProfile", "-Command", "New-Item -ItemType Directory -Force -Path $env:LOCALAPPDATA\\multitool\\bin; Invoke-WebRequest -Uri https://raw.githubusercontent.com/iBotPeaches/Apktool/master/scripts/windows/apktool.bat -OutFile $env:LOCALAPPDATA\\multitool\\bin\\apktool.bat; Invoke-WebRequest -Uri https://github.com/iBotPeaches/Apktool/releases/latest/download/apktool.jar -OutFile $env:LOCALAPPDATA\\multitool\\bin\\apktool.jar")
+		} else if tool.ID == "ghidra" {
+			psCmd := "New-Item -ItemType Directory -Force -Path $env:LOCALAPPDATA\\multitool\\bin, $env:LOCALAPPDATA\\multitool\\ghidra | Out-Null; " +
+				"$zip = \"$env:TEMP\\ghidra.zip\"; " +
+				"$ext = \"$env:TEMP\\ghidra_ext\"; " +
+				"Invoke-WebRequest -Uri 'https://github.com/NationalSecurityAgency/ghidra/releases/download/Ghidra_11.1.2_build/ghidra_11.1.2_PUBLIC_20240709.zip' -OutFile $zip; " +
+				"Expand-Archive -Path $zip -DestinationPath $ext -Force; " +
+				"$dir = Get-ChildItem -Path \"$ext\\ghidra_*\" | Select-Object -First 1; " +
+				"Copy-Item -Path \"$($dir.FullName)\\*\" -Destination \"$env:LOCALAPPDATA\\multitool\\ghidra\" -Recurse -Force; " +
+				"Remove-Item -Path $zip, $ext -Recurse -Force; " +
+				"Set-Content -Path \"$env:LOCALAPPDATA\\multitool\\bin\\ghidraRun.bat\" -Value \"@echo off`r`ncall `\"$env:LOCALAPPDATA\\multitool\\ghidra\\ghidraRun.bat`\" %*\"; " +
+				"Set-Content -Path \"$env:LOCALAPPDATA\\multitool\\bin\\ghidra.bat\" -Value \"@echo off`r`ncall `\"$env:LOCALAPPDATA\\multitool\\ghidra\\ghidraRun.bat`\" %*\"; " +
+				"$bin = \"$env:LOCALAPPDATA\\multitool\\bin\"; $p = [Environment]::GetEnvironmentVariable('Path', 'User'); if ($p -notlike \"*$bin*\") { [Environment]::SetEnvironmentVariable('Path', \"$bin;$p\", 'User') }"
+			err = r.executor.Execute("powershell", "-NoProfile", "-Command", psCmd)
 		} else {
 			err = r.installGitSkill(tool.ID, target.PackageID)
 		}
@@ -1260,7 +1311,7 @@ func (r *Runner) RunBatchInstall(tools []catalog.Tool) (int, int) {
 	// Se o lote consistir puramente de ferramentas TypeSkill e total > 1: executa em pool concorrente
 	allSkills := true
 	for _, t := range tools {
-		tgt := t.TargetForCurrentOS()
+		tgt := r.targetForTool(t)
 		if tgt == nil || tgt.Type != catalog.TypeSkill {
 			allSkills = false
 			break
@@ -1349,13 +1400,13 @@ func (r *Runner) runBatchInstallPartitioned(tools []catalog.Tool) (int, int) {
 	i := 0
 	for i < total {
 		t := tools[i]
-		tgt := t.TargetForCurrentOS()
+		tgt := r.targetForTool(t)
 
 		// Se encontrar um bloco contíguo de skills > 1
 		if tgt != nil && tgt.Type == catalog.TypeSkill {
 			j := i
 			for j < total {
-				curTgt := tools[j].TargetForCurrentOS()
+				curTgt := r.targetForTool(tools[j])
 				if curTgt == nil || curTgt.Type != catalog.TypeSkill {
 					break
 				}
@@ -1449,7 +1500,7 @@ func (r *Runner) SyncInstalled() ([]SyncResult, int, error) {
 			continue
 		}
 
-		target := tool.TargetForCurrentOS()
+		target := r.targetForTool(tool)
 		if target == nil {
 			continue
 		}
@@ -1460,6 +1511,13 @@ func (r *Runner) SyncInstalled() ([]SyncResult, int, error) {
 		if tool.ID == "temurin" && r.haveCommand("java") {
 			detected = true
 			detectMethod = "PATH (java)"
+		} else if localApp := os.Getenv("LOCALAPPDATA"); localApp != "" && target.Binary != "" && (func() bool {
+			_, err1 := os.Stat(filepath.Join(localApp, "multitool", "bin", target.Binary))
+			_, err2 := os.Stat(filepath.Join(localApp, "multitool", "bin", tool.ID+".bat"))
+			return err1 == nil || err2 == nil
+		})() {
+			detected = true
+			detectMethod = "LOCALAPPDATA/multitool/bin"
 		} else if target.Binary != "" && r.haveCommand(target.Binary) {
 			detected = true
 			detectMethod = fmt.Sprintf("PATH (%s)", target.Binary)

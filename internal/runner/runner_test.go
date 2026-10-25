@@ -518,3 +518,68 @@ func TestGhidraInstallScriptResilience(t *testing.T) {
 		t.Errorf("Comando de instalação do ghidra deve verificar command -v unzip: %s", cmdStr)
 	}
 }
+
+func TestGhidraWindowsInstallAndUninstall(t *testing.T) {
+	tempDir := t.TempDir()
+	regPath := filepath.Join(tempDir, "installed.json")
+	reg, _ := registry.New(regPath)
+
+	tool := catalog.FindTool("ghidra")
+	if tool == nil {
+		t.Fatalf("Ferramenta 'ghidra' não encontrada")
+	}
+
+	mock := &MockExecutor{
+		missing: map[string]bool{"java": false},
+	}
+	r := NewWithExecutor(reg, mock, false)
+	r.sysInfo.OS = system.OSWindows
+
+	// Configura LOCALAPPDATA temporário para testes
+	localApp := filepath.Join(tempDir, "AppData", "Local")
+	t.Setenv("LOCALAPPDATA", localApp)
+
+	// Simula diretórios e wrappers de ghidra para desinstalação
+	ghidraDir := filepath.Join(localApp, "multitool", "ghidra")
+	binDir := filepath.Join(localApp, "multitool", "bin")
+	_ = os.MkdirAll(ghidraDir, 0755)
+	_ = os.MkdirAll(binDir, 0755)
+	ghidraBat := filepath.Join(binDir, "ghidra.bat")
+	ghidraRunBat := filepath.Join(binDir, "ghidraRun.bat")
+	_ = os.WriteFile(ghidraBat, []byte("@echo off"), 0755)
+	_ = os.WriteFile(ghidraRunBat, []byte("@echo off"), 0755)
+
+	// 1. Instalação no Windows
+	if err := r.Install(*tool); err != nil {
+		t.Fatalf("Erro ao instalar ghidra no Windows: %v", err)
+	}
+
+	if len(mock.executed) == 0 {
+		t.Fatalf("Nenhum comando executado na instalação do Ghidra no Windows")
+	}
+	lastCmd := strings.Join(mock.executed[len(mock.executed)-1], " ")
+	if !strings.Contains(lastCmd, "powershell") || !strings.Contains(lastCmd, "Invoke-WebRequest") || !strings.Contains(lastCmd, "ghidraRun.bat") {
+		t.Errorf("Comando PowerShell inesperado para Ghidra no Windows: %s", lastCmd)
+	}
+	if !reg.IsInstalled("ghidra") {
+		t.Errorf("Ghidra deveria estar registrado como instalado")
+	}
+
+	// 2. Desinstalação no Windows
+	if err := r.Uninstall(*tool); err != nil {
+		t.Fatalf("Erro ao desinstalar ghidra no Windows: %v", err)
+	}
+
+	if _, err := os.Stat(ghidraDir); !os.IsNotExist(err) {
+		t.Errorf("Diretório %s ainda existe após uninstall de ghidra no Windows", ghidraDir)
+	}
+	if _, err := os.Stat(ghidraBat); !os.IsNotExist(err) {
+		t.Errorf("Arquivo %s ainda existe após uninstall de ghidra no Windows", ghidraBat)
+	}
+	if _, err := os.Stat(ghidraRunBat); !os.IsNotExist(err) {
+		t.Errorf("Arquivo %s ainda existe após uninstall de ghidra no Windows", ghidraRunBat)
+	}
+	if reg.IsInstalled("ghidra") {
+		t.Errorf("Ghidra não deveria mais estar marcado como instalado no registro")
+	}
+}

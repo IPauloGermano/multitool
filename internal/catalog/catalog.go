@@ -47,11 +47,11 @@ type Suite struct {
 	Tools       []string `json:"tools"`
 }
 
-func (t Tool) TargetForCurrentOS() *Target {
-	switch runtime.GOOS {
+func (t Tool) TargetForOS(targetOS string) *Target {
+	switch strings.ToLower(targetOS) {
 	case "windows":
 		return t.Windows
-	case "darwin":
+	case "darwin", "macos":
 		if t.Darwin != nil {
 			return t.Darwin
 		}
@@ -66,6 +66,10 @@ func (t Tool) TargetForCurrentOS() *Target {
 	default:
 		return t.Linux
 	}
+}
+
+func (t Tool) TargetForCurrentOS() *Target {
+	return t.TargetForOS(runtime.GOOS)
 }
 
 func (t Tool) IsSupportedOnCurrentOS() bool {
@@ -134,6 +138,9 @@ var toolAliases = map[string]string{
 	"google/android-studio":         "androidstudio",
 	"ibotpeaches/apktool":           "apktool",
 	"iBotPeaches/Apktool":           "apktool",
+	"NationalSecurityAgency/ghidra": "ghidra",
+	"nationalsecurityagency/ghidra": "ghidra",
+	"nsa/ghidra":                    "ghidra",
 	"x64dbg/x64dbg":                 "x64dbg",
 	"x64-dbg":                       "x64dbg",
 	"aider-ai/aider":                "aider",
@@ -458,7 +465,7 @@ var catalogList = []Tool{
 	{
 		ID: "ghidra", Name: "Ghidra", Category: "Análise", Description: "Framework de engenharia reversa da NSA",
 		Dependencies: []string{"temurin"},
-		Windows: &Target{Type: TypeWinget, PackageID: "NationalSecurityAgency.Ghidra", Binary: "ghidraRun.bat"},
+		Windows: &Target{Type: TypeDirect, PackageID: "NationalSecurityAgency/ghidra", Binary: "ghidraRun.bat"},
 		Linux:   &Target{Type: TypeScript, PackageID: "ghidra", Binary: "ghidra"},
 	},
 	{
