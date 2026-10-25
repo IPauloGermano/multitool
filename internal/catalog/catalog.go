@@ -161,6 +161,12 @@ var toolAliases = map[string]string{
 	"pathwaycom/mcpm":               "mcpm",
 	"superinterface/supergateway":   "supergateway",
 	"upstash/context7":              "context7",
+	"mendableai/firecrawl":          "firecrawl",
+	"dbeaver/dbeaver":               "dbeaver",
+	"kangfenmao/cherrystudio":       "cherrystudio",
+	"jj-vcs/jj":                     "jj",
+	"warpdotdev/warp":               "warp",
+	"wavetermdev/waveterm":          "waveterm",
 	"codebase-memory/codebase-memory": "codebase_memory",
 	"modelcontextprotocol/inspector": "mcpinspector",
 	"crewAIInc/crewAI":              "crewai",
@@ -276,7 +282,7 @@ var catalogList = []Tool{
 	},
 	{
 		ID: "cherrystudio", Name: "Cherry Studio", Category: "Agentes", Description: "Chat IA desktop multiplataforma",
-		Windows: &Target{Type: TypeWinget, PackageID: "Kangfenfei.CherryStudio", Binary: "Cherry Studio.exe"},
+		Windows: &Target{Type: TypeWinget, PackageID: "kangfenmao.CherryStudio", Binary: "Cherry Studio.exe"},
 		Linux:   &Target{Type: TypeScript, PackageID: "cherrystudio", Binary: "cherrystudio"},
 	},
 	{
@@ -327,7 +333,7 @@ var catalogList = []Tool{
 	},
 	{
 		ID: "context7", Name: "Context7", Category: "Agentes", Description: "Docs atualizadas para LLMs via MCP",
-		Windows: &Target{Type: TypeNpm, PackageID: "@upstash/context7", Binary: "ctx7.cmd"},
+		Windows: &Target{Type: TypeNpm, PackageID: "ctx7", Binary: "ctx7.cmd"},
 		Linux:   &Target{Type: TypeNpm, PackageID: "ctx7", Binary: "context7"},
 	},
 	{
@@ -347,7 +353,7 @@ var catalogList = []Tool{
 	},
 	{
 		ID: "dbeaver", Name: "DBeaver Community", Category: "Desktop", Description: "IDE universal de banco de dados",
-		Windows: &Target{Type: TypeWinget, PackageID: "dbeaver.dbeaver", Binary: "dbeaver.exe"},
+		Windows: &Target{Type: TypeWinget, PackageID: "DBeaver.DBeaver.Community", Binary: "dbeaver.exe"},
 		Linux:   &Target{Type: TypeFlatpak, PackageID: "io.dbeaver.DBeaverCommunity", Binary: "dbeaver"},
 	},
 	{
@@ -403,7 +409,7 @@ var catalogList = []Tool{
 	},
 	{
 		ID: "firecrawl", Name: "Firecrawl CLI", Category: "Infraestrutura", Description: "Scraping web via CLI",
-		Windows: &Target{Type: TypeNpm, PackageID: "@mendable/firecrawl-cli", Binary: "firecrawl.cmd"},
+		Windows: &Target{Type: TypeNpm, PackageID: "firecrawl-cli", Binary: "firecrawl.cmd"},
 		Linux:   &Target{Type: TypeNpm, PackageID: "firecrawl-cli", Binary: "firecrawl"},
 	},
 	{
@@ -554,7 +560,7 @@ var catalogList = []Tool{
 	},
 	{
 		ID: "jetbrainsmono", Name: "JetBrains Mono", Category: "Fontes", Description: "Fonte monoespaçada da JetBrains",
-		Windows: &Target{Type: TypeWinget, PackageID: "JetBrains.JetBrainsMono", Binary: "JetBrainsMono.ttf"},
+		Windows: &Target{Type: TypeWinget, PackageID: "DEVCOM.JetBrainsMonoNerdFont", Binary: "JetBrainsMono.ttf"},
 		Linux:   &Target{Type: TypeNative, PackageID: "fonts-jetbrains-mono", Binary: "JetBrainsMono-Regular.ttf"},
 	},
 	{
@@ -564,7 +570,7 @@ var catalogList = []Tool{
 	},
 	{
 		ID: "jj", Name: "Jujutsu", Category: "Versionamento", Description: "VCS compatível com Git, fluxo simples",
-		Windows: &Target{Type: TypeWinget, PackageID: "martinvonz.jj", Binary: "jj.exe"},
+		Windows: &Target{Type: TypeWinget, PackageID: "jj-vcs.jj", Binary: "jj.exe"},
 		Linux:   &Target{Type: TypeCargo, PackageID: "jj-cli", Binary: "jj"},
 		Darwin:  &Target{Type: TypeBrew, PackageID: "jj", Binary: "jj"},
 	},
@@ -730,7 +736,7 @@ var catalogList = []Tool{
 	},
 	{
 		ID: "openssh", Name: "OpenSSH", Category: "Infraestrutura", Description: "Cliente SSH para Windows",
-		Windows: &Target{Type: TypeWinget, PackageID: "Microsoft.OpenSSH.Beta", Binary: "ssh.exe"},
+		Windows: &Target{Type: TypeWinget, PackageID: "Microsoft.OpenSSH.Preview", Binary: "ssh.exe"},
 		Linux:   &Target{Type: TypeNative, PackageID: "openssh-client", Binary: "openssh"},
 	},
 	{
@@ -934,14 +940,14 @@ var catalogList = []Tool{
 	},
 	{
 		ID: "warp", Name: "Warp", Category: "Terminais", Description: "Terminal moderno com IA",
-		Windows: &Target{Type: TypeWinget, PackageID: "WarpDotDev.Warp", Binary: "warp.exe"},
+		Windows: &Target{Type: TypeWinget, PackageID: "Warp.Warp", Binary: "warp.exe"},
 		Linux:   &Target{Type: TypeScript, PackageID: "warp", Binary: "warp"},
 	},
 	{
 		ID: "waveterm", Name: "Wave Terminal", Category: "Terminais", Description: "Terminal com IA e sessões persistentes",
-		Windows: &Target{Type: TypeWinget, PackageID: "wavetermdev.waveterm", Binary: "waveterm.exe"},
+		Windows: &Target{Type: TypeWinget, PackageID: "CommandLine.Wave", Binary: "waveterm.exe"},
 		Linux:   &Target{Type: TypeScript, PackageID: "waveterm", Binary: "waveterm"},
-		Darwin:  &Target{Type: TypeBrew, PackageID: "waveterm", Binary: "waveterm"},
+		Darwin:  &Target{Type: TypeBrew, PackageID: "wave", Binary: "wave"},
 	},
 	{
 		ID: "waydroid", Name: "Waydroid", Category: "Infraestrutura", Description: "Android em container (init manual)",
