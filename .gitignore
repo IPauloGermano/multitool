@@ -12,6 +12,9 @@ dist/
 # Logs e arquivos de auditoria locais
 multitool.log
 *.log
+installed.json
+*.env
+.env*
 
 # Arquivos temporários e testes
 *.out

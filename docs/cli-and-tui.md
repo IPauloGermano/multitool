@@ -65,11 +65,11 @@ Saída de exemplo:
 ```text
  DIAGNÓSTICO DO SISTEMA 
 • Sistema Operacional:  linux (amd64)
-• Distribuição Linux:   Ubuntu 26.04.1 LTS (ID: ubuntu)
+• Distribuição Linux:   Ubuntu 24.04 LTS (ID: ubuntu)
 • Gerenciador Nativo:   apt
 • Privilégios Sudo:     requer sudo=true, possui sudo=true
 • Runtimes Detectados:  apt-get, cargo, curl, git, npm, sudo
-• Diretórios de Skills: /home/ubuntu/.config/opencode/skills, /home/ubuntu/.gemini/skills
+• Diretórios de Skills: /home/user/.config/opencode/skills, /home/user/.gemini/skills
 ```
 
 ---
