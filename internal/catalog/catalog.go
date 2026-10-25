@@ -87,7 +87,7 @@ var packages = map[string][]string{
 		"langgraph", "crewai", "ax", "bubblewrap", "promptfoo", "phoenix", "otelcol", "podman", "ecc", "paperclip", "hyperframes", "orca", "openmausbot", "openshell",
 	},
 	"skills": {
-		"superpowers", "impeccable", "tasteskill", "emilkowalski", "archify", "opencodereview", "securityaudit", "contextmode", "ponytail", "reverseskill", "pocockskills", "diagramdesign", "ihaveadhd", "addyosmani", "humanizer", "openmaic", "openseo", "linkedin", "universalmodder", "androidskills", "hallmark", "awsagenttoolkit",
+		"superpowers", "impeccable", "tasteskill", "emilkowalski", "archify", "opencodereview", "securityaudit", "contextmode", "ponytail", "reverseskill", "pocockskills", "diagramdesign", "ihaveadhd", "addyosmani", "humanizer", "openmaic", "openseo", "linkedin", "universalmodder", "androidskills", "hallmark", "awsagenttoolkit", "egm",
 	},
 	"dev": {
 		"git", "gh", "fzf", "btop", "nodejs", "golang", "temurin", "docker", "vscode", "neovim", "waveterm", "ghostty", "jj", "uv", "rustup", "bat",
@@ -115,8 +115,12 @@ var toolAliases = map[string]string{
 	"diegosouzapw/omniroute":        "omniroute",
 	"heygen-com/hyperframes":        "hyperframes",
 	"universal-modder":              "universalmodder",
-	"rehan-remade/universal-modder": "universalmodder",
-	"qbittorrent/qbittorrent":       "qbittorrent",
+	"rehan-remade/universal-modder":  "universalmodder",
+	"google/elephant-goldfish-model": "egm",
+	"elephant-goldfish-model":        "egm",
+	"elephantgoldfish":               "egm",
+	"google-elephant-goldfish-model": "egm",
+	"qbittorrent/qbittorrent":        "qbittorrent",
 	"qbit":                          "qbittorrent",
 	"q-bittorrent":                  "qbittorrent",
 	"nousresearch/hermes":           "hermes",
@@ -402,6 +406,12 @@ var catalogList = []Tool{
 		ID: "effect", Name: "Effect App", Category: "Infraestrutura", Description: "Scaffolding oficial de projetos Effect TypeScript",
 		Windows: &Target{Type: TypeNpm, PackageID: "create-effect-app", Binary: "create-effect-app.cmd"},
 		Linux:   &Target{Type: TypeNpm, PackageID: "create-effect-app", Binary: "create-effect-app"},
+	},
+	{
+		ID: "egm", Name: "Elephant-Goldfish Model (EGM)", Category: "Skills", Description: "Framework de Spec-Driven Development com agentes IA (Elephant & Goldfish)",
+		Windows: &Target{Type: TypeDirect, PackageID: "google/elephant-goldfish-model", Binary: "SKILL.md"},
+		Linux:   &Target{Type: TypeSkill, PackageID: "google/elephant-goldfish-model", Binary: "SKILL.md"},
+		Darwin:  &Target{Type: TypeSkill, PackageID: "google/elephant-goldfish-model", Binary: "SKILL.md"},
 	},
 	{
 		ID: "emilkowalski", Name: "Emilkowalski Skills", Category: "Skills", Description: "Skills de animação e microinterações",

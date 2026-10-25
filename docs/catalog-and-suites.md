@@ -1,6 +1,6 @@
 # Catálogo Universal e Suítes
 
-O **Multitool** consolida **154 ferramentas** rigorosamente curadas para engenharia de software moderna, agentes de inteligência artificial, segurança e produtividade.
+O **Multitool** consolida **155 ferramentas** rigorosamente curadas para engenharia de software moderna, agentes de inteligência artificial, segurança e produtividade.
 
 ---
 
@@ -68,7 +68,7 @@ Harnesses, frameworks e observabilidade para agentes autônomos:
 - `openmausbot`: Alternativa open-source ao Grok Bot / Manus com equipe de agentes IA e VMs.
 - `openshell`: Runtime seguro e sandbox com governança para agentes de IA da NVIDIA.
 
-### 4. `@skills` (Coleção Curada de 22 Skills)
+### 4. `@skills` (Coleção Curada de 23 Skills)
 Coleção de metodologias e habilidades para agentes de código:
 - `superpowers`: Metodologia de desenvolvimento com TDD e planos.
 - `impeccable`: Design e frontend limpo sem slop.
@@ -92,6 +92,7 @@ Coleção de metodologias e habilidades para agentes de código:
 - `linkedin`: Escrita e formatação de artigos técnicos.
 - `universalmodder`: Modding e instrumentação de jogos de PC para agentes IA.
 - `androidskills`: Skills oficiais do Google para agentes de IA no desenvolvimento Android.
+- `egm`: Framework de Spec-Driven Development com agentes IA (Elephant & Goldfish) do Google.
 
 ### 5. `@dev` (Ferramentas Essenciais de Desenvolvimento)
 - `git`, `gh`, `fzf`, `btop`, `nodejs`, `golang`, `temurin`, `docker`, `vscode`, `neovim`, `waveterm`, `ghostty`, `jj`, `uv`, `rustup`, `bat`.
@@ -121,6 +122,7 @@ Abaixo estão alguns destaques da compatibilidade cruzada:
 | `orca` | Orca | Agentes | `stablyai/orca` (direct) | script (`orca-linux.AppImage`) |
 | `artcraft` | ArtCraft | Desktop | `storytold/artcraft` (direct) | script (`storytold/artcraft`) |
 | `qbittorrent` | qBittorrent | Desktop | `qBittorrent.qBittorrent` (winget) | `qbittorrent` (native) |
+| `egm` | Elephant-Goldfish Model (EGM) | Skills | `google/elephant-goldfish-model` (direct) | `google/elephant-goldfish-model` (skill) |
 | `universalmodder`| Universal Modder | Skills | `rehan-remade/universal-modder` (git) | `rehan-remade/universal-modder` (skill) |
 | `openshell` | OpenShell | Agentes | `openshell` (pipx) | `openshell` (pipx) |
 | `hallmark` | Hallmark | Skills | `Nutlope/hallmark` (direct) | `Nutlope/hallmark` (skill) |

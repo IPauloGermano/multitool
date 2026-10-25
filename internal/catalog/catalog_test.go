@@ -167,6 +167,12 @@ func TestFindToolAndAliases(t *testing.T) {
 		{"q-bittorrent", "qbittorrent"},
 		{"qbittorrent/qbittorrent", "qbittorrent"},
 		{"https://github.com/qbittorrent/qBittorrent", "qbittorrent"},
+		{"egm", "egm"},
+		{"elephant-goldfish-model", "egm"},
+		{"elephantgoldfish", "egm"},
+		{"google/elephant-goldfish-model", "egm"},
+		{"https://github.com/google/elephant-goldfish-model", "egm"},
+		{"https://github.com/google/elephant-goldfish-model.git", "egm"},
 	}
 
 	for _, tc := range testCases {
