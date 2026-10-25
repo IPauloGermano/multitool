@@ -234,8 +234,8 @@ func TestSearch(t *testing.T) {
 
 func TestSuitesStruct(t *testing.T) {
 	suites := AllSuites()
-	if len(suites) != 10 {
-		t.Errorf("Esperava 10 suítes, obteve %d", len(suites))
+	if len(suites) != 8 {
+		t.Errorf("Esperava 8 suítes, obteve %d", len(suites))
 	}
 
 	for _, s := range suites {
@@ -258,8 +258,8 @@ func TestSuitesStruct(t *testing.T) {
 	}
 
 	supp := SupportedSuites()
-	if len(supp) != 10 {
-		t.Errorf("Esperava 10 suítes suportadas, obteve %d", len(supp))
+	if len(supp) != 8 {
+		t.Errorf("Esperava 8 suítes suportadas, obteve %d", len(supp))
 	}
 }
 

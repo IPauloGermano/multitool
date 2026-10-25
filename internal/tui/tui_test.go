@@ -303,7 +303,7 @@ func TestTUINoLineOverflow(t *testing.T) {
 	// Marca ferramentas com nomes/descrições longas como instaladas para testar o tag [instalado]
 	_ = reg.MarkInstalled("apktool")
 	_ = reg.MarkInstalled("awsagenttoolkit")
-	_ = reg.MarkInstalled("boltdiy")
+	_ = reg.MarkInstalled("aider")
 	_ = reg.MarkInstalled("androidstudio")
 
 	widths := []int{80, 95, 105, 110, 120}

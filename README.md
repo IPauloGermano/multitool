@@ -12,7 +12,7 @@ Unificação e evolução integrada dos projetos `linux-multitool` e `windows-mu
   - **Linux**: Lê `/etc/os-release` e identifica automaticamente se a distro é Ubuntu, Debian, Fedora, Arch, openSUSE ou Solus, mapeando o gerenciador nativo (`apt`, `dnf`, `pacman`, `zypper`, `eopkg`).
   - **Windows**: Identifica x64 e ARM64 (Snapdragon X / Copilot+ PCs) utilizando `winget`.
   - **macOS**: Suporta Apple Silicon e Intel utilizando `brew`.
-- **Catálogo Unificado de 153 Ferramentas**:
+- **Catálogo Unificado de 152 Ferramentas**:
   - Mapeamento granular com alvos específicos por plataforma (`winget`, `native`, `npm`, `pipx`, `cargo`, `flatpak`, `git skill`, `script`).
   - Filtro contextual: exibe e instala apenas ferramentas compatíveis com o SO atual.
 - **TUI Interativa Avançada com Bubble Tea**:
@@ -39,7 +39,7 @@ Unificação e evolução integrada dos projetos `linux-multitool` e `windows-mu
   - `@dev`: Git, GitHub CLI, fzf, Btop, Node.js, Go, Temurin JDK, Docker, VS Code, Neovim, Wave Terminal, Ghostty, Jujutsu, uv, Rustup, bat.
   - `@toolchain`: GCC, Make, GDB, CMake.
   - `@termstack`: Wave Terminal, Ghostty, bat, fzf, Zsh, Oh My Zsh.
-  - `@flatpakfull`, `@ghidrajdk`, `@keepdocker`.
+  - `@flatpakfull`.
 - **Resolução de Dependências em Grafo (DAG)**:
   - Ordenação topológica e detecção de ciclos automática (`Dependencies: []string`).
   - Instalação inteligente de softwares base antes dos dependentes (ex: `Ghidra` ➔ `Temurin JDK`, `Keep`/`OpenGym` ➔ `Docker`, `Oh My Zsh` ➔ `Zsh`, `Flathub` ➔ `Flatpak`).
@@ -94,7 +94,7 @@ multitool sync --dry-run
 # Listar ferramentas disponíveis na plataforma atual
 multitool list
 
-# Listar todas as 153 ferramentas de todas as plataformas
+# Listar todas as 152 ferramentas de todas as plataformas
 multitool list --all-platforms
 
 # Listar em formato JSON para automação

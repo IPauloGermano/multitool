@@ -1,6 +1,6 @@
 # Catálogo Universal e Suítes
 
-O **Multitool** consolida **153 ferramentas** rigorosamente curadas para engenharia de software moderna, agentes de inteligência artificial, segurança e produtividade.
+O **Multitool** consolida **152 ferramentas** rigorosamente curadas para engenharia de software moderna, agentes de inteligência artificial, segurança e produtividade.
 
 ---
 
@@ -102,10 +102,8 @@ Coleção de metodologias e habilidades para agentes de código:
 ### 7. `@termstack` (Stack Moderna de Terminal)
 - `waveterm`, `ghostty`, `bat`, `fzf`, `zsh`, `ohmyzsh`.
 
-### 8. Conjuntos Adicionais
+### 8. Conjunto Flatpak
 - `@flatpakfull`: `flatpak`, `flathub`.
-- `@ghidrajdk`: `ghidra`, `temurin` (JDK 21).
-- `@keepdocker`: `keep`, `docker`.
 
 ---
 

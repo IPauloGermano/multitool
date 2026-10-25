@@ -25,7 +25,6 @@ type Target struct {
 	Type      TargetType `json:"type"`
 	PackageID string     `json:"package_id"`
 	Binary    string     `json:"binary"`
-	Script    string     `json:"script,omitempty"`
 	SHA256    string     `json:"sha256,omitempty"`
 }
 
@@ -97,12 +96,6 @@ var packages = map[string][]string{
 	},
 	"flatpakfull": {
 		"flatpak", "flathub",
-	},
-	"ghidrajdk": {
-		"ghidra", "temurin",
-	},
-	"keepdocker": {
-		"keep", "docker",
 	},
 }
 
@@ -204,7 +197,7 @@ var catalogList = []Tool{
 	{
 		ID: "aider", Name: "Aider", Category: "Agentes", Description: "Programação em par com IA no terminal",
 		Windows: &Target{Type: TypePipx, PackageID: "aider-chat", Binary: "aider.exe"},
-		Linux:   &Target{Type: TypeScript, PackageID: "aider", Binary: "aider"},
+		Linux:   &Target{Type: TypePipx, PackageID: "aider-chat", Binary: "aider"},
 	},
 	{
 		ID: "antigravity", Name: "Antigravity IDE", Category: "Editores", Description: "IDE agent-first do Google",
@@ -249,11 +242,6 @@ var catalogList = []Tool{
 		Linux:   &Target{Type: TypeScript, PackageID: "binaryninja", Binary: "binaryninja"},
 	},
 	{
-		ID: "boltdiy", Name: "Bolt.diy", Category: "Agentes", Description: "Construtor full-stack com IA (instalação manual; sem build publicado)",
-		Windows: nil,
-		Linux:   &Target{Type: TypeScript, PackageID: "boltdiy", Binary: "boltdiy"},
-	},
-	{
 		ID: "bottles", Name: "Bottles", Category: "Desktop", Description: "Apps Windows via Wine (flatpak)",
 		Windows: nil,
 		Linux:   &Target{Type: TypeFlatpak, PackageID: "com.usebottles.bottles", Binary: "bottles"},
@@ -266,7 +254,7 @@ var catalogList = []Tool{
 	{
 		ID: "browseruse", Name: "Browser Use", Category: "Agentes", Description: "Agente IA que opera o navegador",
 		Windows: &Target{Type: TypePipx, PackageID: "browser-use", Binary: "browser-use.exe"},
-		Linux:   &Target{Type: TypeScript, PackageID: "browseruse", Binary: "browseruse"},
+		Linux:   &Target{Type: TypePipx, PackageID: "browser-use", Binary: "browser-use"},
 	},
 	{
 		ID: "btop", Name: "Btop", Category: "Infraestrutura", Description: "Monitor de recursos no terminal",
@@ -302,7 +290,7 @@ var catalogList = []Tool{
 	{
 		ID: "claudecode", Name: "Claude Code", Category: "Agentes", Description: "Agente de código CLI da Anthropic",
 		Windows: &Target{Type: TypeNpm, PackageID: "@anthropic-ai/claude-code", Binary: "claude.cmd"},
-		Linux:   &Target{Type: TypeScript, PackageID: "claudecode", Binary: "claudecode"},
+		Linux:   &Target{Type: TypeNpm, PackageID: "@anthropic-ai/claude-code", Binary: "claude"},
 	},
 	{
 		ID: "cmake", Name: "CMake", Category: "Infraestrutura", Description: "Build multiplataforma",
@@ -343,12 +331,12 @@ var catalogList = []Tool{
 	{
 		ID: "crewai", Name: "CrewAI", Category: "Agentes", Description: "Orquestração multi-agentes",
 		Windows: &Target{Type: TypePipx, PackageID: "crewai", Binary: "crewai.exe"},
-		Linux:   &Target{Type: TypeScript, PackageID: "crewai", Binary: "crewai"},
+		Linux:   &Target{Type: TypePipx, PackageID: "crewai", Binary: "crewai"},
 	},
 	{
 		ID: "danger", Name: "Danger", Category: "Análise", Description: "Automação de regras de code review",
 		Windows: &Target{Type: TypeNpm, PackageID: "danger", Binary: "danger.cmd"},
-		Linux:   &Target{Type: TypeScript, PackageID: "danger", Binary: "danger"},
+		Linux:   &Target{Type: TypeNpm, PackageID: "danger", Binary: "danger"},
 	},
 	{
 		ID: "dbeaver", Name: "DBeaver Community", Category: "Desktop", Description: "IDE universal de banco de dados",
@@ -593,7 +581,7 @@ var catalogList = []Tool{
 	{
 		ID: "langgraph", Name: "LangGraph CLI", Category: "Agentes", Description: "Framework de grafos de agentes",
 		Windows: &Target{Type: TypePipx, PackageID: "langgraph-cli", Binary: "langgraph.exe"},
-		Linux:   &Target{Type: TypeScript, PackageID: "langgraph", Binary: "langgraph"},
+		Linux:   &Target{Type: TypePipx, PackageID: "langgraph-cli", Binary: "langgraph"},
 	},
 	{
 		ID: "linkedin", Name: "LinkedIn Skills", Category: "Skills", Description: "Skills de escrita técnica e publicação",
@@ -603,7 +591,7 @@ var catalogList = []Tool{
 	{
 		ID: "llm", Name: "LLM CLI", Category: "Agentes", Description: "CLI universal para LLMs (Simon Willison)",
 		Windows: &Target{Type: TypePipx, PackageID: "llm", Binary: "llm.exe"},
-		Linux:   &Target{Type: TypeScript, PackageID: "llm", Binary: "llm"},
+		Linux:   &Target{Type: TypePipx, PackageID: "llm", Binary: "llm"},
 	},
 	{
 		ID: "lmstudio", Name: "LM Studio", Category: "Agentes", Description: "Interface gráfica para LLMs locais",
@@ -634,7 +622,7 @@ var catalogList = []Tool{
 	{
 		ID: "mcpm", Name: "MCPM", Category: "Agentes", Description: "Gerenciador de servidores MCP",
 		Windows: &Target{Type: TypeNpm, PackageID: "mcpm", Binary: "mcpm.cmd"},
-		Linux:   &Target{Type: TypeScript, PackageID: "mcpm", Binary: "mcpm"},
+		Linux:   &Target{Type: TypeNpm, PackageID: "mcpm", Binary: "mcpm"},
 	},
 	{
 		ID: "moonlight", Name: "Moonlight", Category: "Desktop", Description: "Streaming de jogos de alta performance",
@@ -688,7 +676,7 @@ var catalogList = []Tool{
 	{
 		ID: "opencode", Name: "OpenCode", Category: "Agentes", Description: "Agente de código open-source no terminal",
 		Windows: &Target{Type: TypeNpm, PackageID: "opencode-ai", Binary: "opencode.cmd"},
-		Linux:   &Target{Type: TypeScript, PackageID: "opencode", Binary: "opencode"},
+		Linux:   &Target{Type: TypeNpm, PackageID: "opencode-ai", Binary: "opencode"},
 	},
 	{
 		ID: "opencodereview", Name: "Open Code Review", Category: "Skills", Description: "Skills de code review (Alibaba)",
@@ -1212,18 +1200,6 @@ var suiteMetadata = []Suite{
 		Description: "Empacotamento sandbox universal no Linux",
 		Category:    "Conjuntos Integrados",
 	},
-	{
-		ID:          "ghidrajdk",
-		Name:        "Ghidra + Temurin JDK",
-		Description: "Framework de reversing emparelhado com Temurin JDK 21",
-		Category:    "Conjuntos Integrados",
-	},
-	{
-		ID:          "keepdocker",
-		Name:        "Keep + Docker",
-		Description: "Orquestração e deploy integrado para containers Docker",
-		Category:    "Conjuntos Integrados",
-	},
 }
 
 func AllSuites() []Suite {
@@ -1317,19 +1293,11 @@ func GetUpstreamRepo(toolID string) string {
 		}
 	}
 
-	// 3. Procura por links do GitHub no PackageID ou Script de qualquer plataforma
+	// 3. Procura por links do GitHub no PackageID de qualquer plataforma
 	for _, target := range []*Target{tool.Linux, tool.Windows, tool.Darwin} {
 		if target != nil {
 			if strings.HasPrefix(target.PackageID, "https://github.com/") {
 				return target.PackageID
-			}
-			if target.Script != "" && strings.Contains(target.Script, "https://github.com/") {
-				idx := strings.Index(target.Script, "https://github.com/")
-				sub := target.Script[idx:]
-				fields := strings.Fields(sub)
-				if len(fields) > 0 {
-					return strings.Trim(fields[0], `"'`)
-				}
 			}
 		}
 	}
