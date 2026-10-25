@@ -1,6 +1,6 @@
 BINARY_NAME=multitool
 DIST_DIR=dist
-LDFLAGS=-s -w -X 'github.com/IPauloGermano/multitool/cmd.Version=2.1.0' -X 'github.com/IPauloGermano/multitool/cmd.BuildDate=$(shell date +%Y-%m-%d)'
+LDFLAGS=-s -w -X 'github.com/IPauloGermano/multitool/cmd.Version=2.2.0' -X 'github.com/IPauloGermano/multitool/cmd.BuildDate=$(shell date +%Y-%m-%d)'
 
 .PHONY: all test build build-linux build-windows build-all clean
 
