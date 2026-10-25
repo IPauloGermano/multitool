@@ -75,6 +75,7 @@ multitool.exe
 > - `Espaço`: Marca/desmarca do carrinho.
 > - `a`: Marca todas as ferramentas da aba atual no carrinho.
 > - `A`: Limpa completamente o carrinho.
+> - `d`: Abre o modal de detalhes da ferramenta ou pacote no cursor (sempre acessível, mesmo com itens no carrinho).
 > - `Enter`: Se houver itens no carrinho, executa o lote; se o carrinho estiver vazio, abre modal de detalhes da ferramenta ou pacote.
 > - `q` ou `Esc`: Fecha o modal ou sai do programa.
 

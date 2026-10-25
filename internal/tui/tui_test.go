@@ -172,6 +172,24 @@ func TestTUIModalDetails(t *testing.T) {
 	if cmd == nil {
 		t.Errorf("Esperava tea.Quit cmd após Enter com itens no carrinho")
 	}
+
+	// 7. Teste tecla 'd' para abrir modal mesmo com itens no carrinho
+	m.executed = false
+	updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'d'}})
+	m = updated.(Model)
+	if !m.IsModalOpen() {
+		t.Errorf("Esperava modal aberto via 'd' mesmo com itens no carrinho")
+	}
+	if m.executed {
+		t.Errorf("Tecla 'd' não deve disparar execução mesmo com itens no carrinho")
+	}
+
+	// 8. Pressionar 'd' novamente dentro do modal deve fechá-lo
+	updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'d'}})
+	m = updated.(Model)
+	if m.IsModalOpen() {
+		t.Errorf("Esperava modal fechado após pressionar 'd' novamente")
+	}
 }
 
 func TestTUISuiteModalDetails(t *testing.T) {

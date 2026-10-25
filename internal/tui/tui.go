@@ -682,7 +682,7 @@ func (m *Model) renderToolModalContent(tool catalog.Tool) string {
 		b.WriteString(fmt.Sprintf("  • macOS:   %s\n", dimStyle.Render("não suportado")))
 	}
 
-	b.WriteString("\n" + dimStyle.Render("Ações: [Espaço] Alternar Carrinho • [Esc/Enter/q] Fechar Detalhes"))
+	b.WriteString("\n" + dimStyle.Render("Ações: [Espaço] Alternar Carrinho • [Esc/Enter/q/d] Fechar Detalhes"))
 
 	return b.String()
 }
@@ -738,7 +738,7 @@ func (m *Model) renderSuiteModalContent(suite catalog.Suite) string {
 		b.WriteString(fmt.Sprintf("  %s %-16s%s\n", status, tid, desc))
 	}
 
-	b.WriteString("\n" + dimStyle.Render("Ações: [Espaço] Marcar/Desmarcar Pacote • [Esc/Enter/q] Fechar Detalhes"))
+	b.WriteString("\n" + dimStyle.Render("Ações: [Espaço] Marcar/Desmarcar Pacote • [Esc/Enter/q/d] Fechar Detalhes"))
 
 	return b.String()
 }
@@ -766,7 +766,7 @@ func (m Model) renderModalView() string {
 
 	b.WriteString(box)
 	b.WriteString("\n")
-	b.WriteString(dimStyle.Render("Dica: [Esc/Enter/q] Fechar • [Espaço] Alternar Carrinho • [↑/↓/j/k] Rolar\n"))
+	b.WriteString(dimStyle.Render("Dica: [Esc/Enter/q/d] Fechar • [Espaço] Alternar Carrinho • [↑/↓/j/k] Rolar\n"))
 	return b.String()
 }
 
@@ -810,6 +810,26 @@ func (m Model) GetViewportHeight() int {
 	return m.viewport.Height
 }
 
+func (m *Model) openDetailsModal() {
+	if m.tab == TabPackages {
+		if len(m.visibleSuites) > 0 && m.cursor >= 0 && m.cursor < len(m.visibleSuites) {
+			suite := m.visibleSuites[m.cursor]
+			m.modalSuite = &suite
+			m.modalTool = nil
+			m.showModal = true
+			m.syncModalViewport()
+		}
+	} else {
+		if len(m.visibleTools) > 0 && m.cursor >= 0 && m.cursor < len(m.visibleTools) {
+			tool := m.visibleTools[m.cursor]
+			m.modalTool = &tool
+			m.modalSuite = nil
+			m.showModal = true
+			m.syncModalViewport()
+		}
+	}
+}
+
 func (m Model) Init() tea.Cmd {
 	return nil
 }
@@ -828,7 +848,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			case "ctrl+c":
 				m.quitting = true
 				return m, tea.Quit
-			case "esc", "enter", "q":
+			case "esc", "enter", "q", "d":
 				m.showModal = false
 				m.syncViewport()
 				return m, nil
@@ -1069,29 +1089,17 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			m.syncViewport()
 
+		case "d":
+			m.openDetailsModal()
+			return m, nil
+
 		case "enter":
 			if len(m.selected) > 0 {
 				m.executed = true
 				return m, tea.Quit
 			}
-			// Se o carrinho estiver vazio, abre o modal de detalhes do item no cursor
-			if m.tab == TabPackages {
-				if len(m.visibleSuites) > 0 && m.cursor >= 0 && m.cursor < len(m.visibleSuites) {
-					suite := m.visibleSuites[m.cursor]
-					m.modalSuite = &suite
-					m.modalTool = nil
-					m.showModal = true
-					m.syncModalViewport()
-				}
-			} else {
-				if len(m.visibleTools) > 0 && m.cursor >= 0 && m.cursor < len(m.visibleTools) {
-					tool := m.visibleTools[m.cursor]
-					m.modalTool = &tool
-					m.modalSuite = nil
-					m.showModal = true
-					m.syncModalViewport()
-				}
-			}
+			m.openDetailsModal()
+			return m, nil
 		}
 	}
 
@@ -1211,18 +1219,18 @@ func (m Model) View() string {
 		b.WriteString(dimStyle.Render(fmt.Sprintf("  Item %d de %d (rolagem: %.0f%% • use ↑/↓)\n", m.cursor+1, totalItems, scrollPct)))
 	}
 
-	shortcutText := "Atalhos: [↑/↓/j/k] Navegar • [Espaço] Marcar • [Enter] Detalhes/Executar • [a/A] Marcar Tudo/Limpar • [r] Modo • [/] Buscar • [q] Sair"
+	shortcutText := "Atalhos: [↑/↓] Navegar • [Espaço] Marcar • [d] Detalhes • [Enter] Executar • [a/A] Tudo/Limpar • [r] Modo • [/] Buscar • [q] Sair"
 	if m.width < 135 {
-		shortcutText = "Atalhos: [↑/↓] Navegar • [Espaço] Marcar • [Enter] Detalhes/Executar • [a/A] Tudo/Limpar • [r] Modo • [/] Buscar • [q] Sair"
+		shortcutText = "Atalhos: [↑/↓] Navegar • [Espaço] Marcar • [d] Detalhes • [Enter] Executar • [r] Modo • [/] Buscar • [q] Sair"
 	}
-	if m.width < 125 {
-		shortcutText = "Atalhos: [↑/↓] Navegar • [Espaço] Marcar • [Enter] Detalhes/Executar • [r] Modo • [/] Buscar • [q] Sair"
+	if m.width < 120 {
+		shortcutText = "Atalhos: [↑/↓] Navegar • [Espaço] Marcar • [d] Detalhes • [Enter] Executar • [/] Buscar • [q] Sair"
 	}
 	if m.width < 105 {
-		shortcutText = "Atalhos: [↑/↓] Navegar • [Espaço] Marcar • [Enter] Ação • [r] Modo • [/] Busca • [q] Sair"
+		shortcutText = "[↑/↓] Mover • [Espaço] Marcar • [d] Detalhes • [Enter] Ação • [/] Busca • [q] Sair"
 	}
 	if m.width < 90 {
-		shortcutText = "[↑/↓] Navegar • [Espaço] Marcar • [Enter] Ação • [r] Modo • [/] Busca • [q] Sair"
+		shortcutText = "[↑/↓] Mover • [Espaço] Carrinho • [d] Detalhes • [Enter] Ação • [q] Sair"
 	}
 	b.WriteString(dimStyle.Render(shortcutText + "\n"))
 
