@@ -729,6 +729,111 @@ func (r *Runner) adoptiumArch() string {
 	}
 }
 
+// uninstallScript remove de forma limpa binários, symlinks e diretórios criados por scripts diretos no Linux.
+func (r *Runner) uninstallScript(tool catalog.Tool, target *catalog.Target) error {
+	home := os.Getenv("HOME")
+	if home == "" {
+		home, _ = os.UserHomeDir()
+	}
+
+	switch tool.ID {
+	case "temurin":
+		if home != "" {
+			_ = os.RemoveAll(filepath.Join(home, ".local", "share", "adoptium"))
+			_ = os.Remove(filepath.Join(home, ".local", "bin", "java"))
+		}
+
+	case "ghidra":
+		if home != "" {
+			_ = os.RemoveAll(filepath.Join(home, ".local", "share", "ghidra"))
+			_ = os.Remove(filepath.Join(home, ".local", "bin", "ghidra"))
+		}
+
+	case "uv":
+		if home != "" {
+			_ = os.Remove(filepath.Join(home, ".local", "bin", "uv"))
+			_ = os.Remove(filepath.Join(home, ".local", "bin", "uvx"))
+			_ = os.Remove(filepath.Join(home, ".cargo", "bin", "uv"))
+			_ = os.Remove(filepath.Join(home, ".cargo", "bin", "uvx"))
+			_ = os.RemoveAll(filepath.Join(home, ".local", "share", "uv"))
+		}
+
+	case "rustup":
+		if r.haveCommand("rustup") {
+			_ = r.executor.Execute("rustup", "self", "uninstall", "-y")
+		} else if home != "" {
+			cargoRustup := filepath.Join(home, ".cargo", "bin", "rustup")
+			if _, err := os.Stat(cargoRustup); err == nil {
+				_ = r.executor.Execute(cargoRustup, "self", "uninstall", "-y")
+			}
+		}
+		if home != "" {
+			_ = os.RemoveAll(filepath.Join(home, ".rustup"))
+			_ = os.RemoveAll(filepath.Join(home, ".cargo"))
+		}
+
+	case "ollama":
+		if r.haveCommand("systemctl") {
+			_ = r.execWithSudoIfNeeded("systemctl", "stop", "ollama")
+			_ = r.execWithSudoIfNeeded("systemctl", "disable", "ollama")
+			_ = r.execWithSudoIfNeeded("rm", "-f", "/etc/systemd/system/ollama.service")
+		}
+		_ = r.execWithSudoIfNeeded("rm", "-f", "/usr/local/bin/ollama", "/usr/bin/ollama")
+		_ = r.execWithSudoIfNeeded("rm", "-rf", "/usr/share/ollama")
+		if home != "" {
+			_ = os.Remove(filepath.Join(home, ".local", "bin", "ollama"))
+		}
+
+	case "hermes":
+		if home != "" {
+			_ = os.Remove(filepath.Join(home, ".local", "bin", "hermes"))
+			_ = os.RemoveAll(filepath.Join(home, ".hermes"))
+			_ = os.RemoveAll(filepath.Join(home, ".local", "share", "hermes"))
+		}
+
+	case "orca":
+		if home != "" {
+			_ = os.Remove(filepath.Join(home, ".local", "bin", "orca"))
+			_ = os.RemoveAll(filepath.Join(home, ".local", "share", "orca"))
+			_ = os.RemoveAll(filepath.Join(home, ".config", "orca"))
+		}
+
+	case "openmausbot":
+		if home != "" {
+			_ = os.Remove(filepath.Join(home, ".local", "bin", "openmausbot"))
+		}
+
+	case "opengym", "openstock", "openmaicapp":
+		if home != "" {
+			_ = os.RemoveAll(filepath.Join(home, ".local", "share", "apps", tool.ID))
+		}
+
+	case "ohmyzsh":
+		if home != "" {
+			uninstaller := filepath.Join(home, ".oh-my-zsh", "tools", "uninstall.sh")
+			if _, err := os.Stat(uninstaller); err == nil {
+				_ = r.executor.Execute("sh", uninstaller)
+			} else {
+				_ = os.RemoveAll(filepath.Join(home, ".oh-my-zsh"))
+			}
+		}
+
+	case "flathub":
+		_ = r.execWithSudoIfNeeded("flatpak", "remote-delete", "--force", "flathub")
+
+	default:
+		// Limpeza preventiva de binários e symlinks em ~/.local/bin para qualquer outra ferramenta script
+		if home != "" {
+			if target != nil && target.Binary != "" {
+				_ = os.Remove(filepath.Join(home, ".local", "bin", target.Binary))
+			}
+			_ = os.Remove(filepath.Join(home, ".local", "bin", tool.ID))
+		}
+	}
+
+	return nil
+}
+
 func (r *Runner) Uninstall(tool catalog.Tool) error {
 	return r.uninstallInternal(tool, "", true)
 }
@@ -791,20 +896,10 @@ func (r *Runner) uninstallInternal(tool catalog.Tool, prefix string, showVisual 
 		}
 
 	case catalog.TypeScript:
-		if tool.ID == "orca" {
-			_ = os.Remove(filepath.Join(os.Getenv("HOME"), ".local", "bin", "orca"))
-		} else if tool.ID == "openmausbot" {
-			_ = os.Remove(filepath.Join(os.Getenv("HOME"), ".local", "bin", "openmausbot"))
-		} else if tool.ID == "opengym" || tool.ID == "openstock" || tool.ID == "openmaicapp" {
-			_ = os.RemoveAll(filepath.Join(os.Getenv("HOME"), ".local", "share", "apps", tool.ID))
-		} else if tool.ID == "temurin" {
-			_ = os.RemoveAll(filepath.Join(os.Getenv("HOME"), ".local", "share", "adoptium"))
-			_ = os.Remove(filepath.Join(os.Getenv("HOME"), ".local", "bin", "java"))
-		} else if tool.ID == "ghidra" {
-			_ = os.RemoveAll(filepath.Join(os.Getenv("HOME"), ".local", "share", "ghidra"))
-			_ = os.Remove(filepath.Join(os.Getenv("HOME"), ".local", "bin", "ghidra"))
+		err = r.uninstallScript(tool, target)
+		if err == nil {
+			err = r.reg.MarkUninstalled(tool.ID)
 		}
-		err = r.reg.MarkUninstalled(tool.ID)
 
 	case catalog.TypeBrew:
 		err = r.executor.Execute("brew", "uninstall", target.PackageID)

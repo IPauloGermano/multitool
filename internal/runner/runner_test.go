@@ -377,3 +377,114 @@ func TestTemurinDynamicArchDownload(t *testing.T) {
 		}
 	}
 }
+
+func TestUninstallScriptCleanup(t *testing.T) {
+	tempHome := t.TempDir()
+	t.Setenv("HOME", tempHome)
+
+	// Prepara estrutura de arquivos simulada
+	adoptiumDir := filepath.Join(tempHome, ".local", "share", "adoptium")
+	javaBin := filepath.Join(tempHome, ".local", "bin", "java")
+	ghidraDir := filepath.Join(tempHome, ".local", "share", "ghidra")
+	ghidraBin := filepath.Join(tempHome, ".local", "bin", "ghidra")
+	uvBin := filepath.Join(tempHome, ".local", "bin", "uv")
+	uvxBin := filepath.Join(tempHome, ".local", "bin", "uvx")
+	uvShare := filepath.Join(tempHome, ".local", "share", "uv")
+	rustupDir := filepath.Join(tempHome, ".rustup")
+	cargoDir := filepath.Join(tempHome, ".cargo")
+	ollamaBin := filepath.Join(tempHome, ".local", "bin", "ollama")
+
+	_ = os.MkdirAll(adoptiumDir, 0755)
+	_ = os.WriteFile(filepath.Join(adoptiumDir, "release"), []byte("temurin"), 0644)
+	_ = os.MkdirAll(filepath.Dir(javaBin), 0755)
+	_ = os.WriteFile(javaBin, []byte("#!/bin/sh"), 0755)
+
+	_ = os.MkdirAll(ghidraDir, 0755)
+	_ = os.WriteFile(ghidraBin, []byte("#!/bin/sh"), 0755)
+
+	_ = os.WriteFile(uvBin, []byte("#!/bin/sh"), 0755)
+	_ = os.WriteFile(uvxBin, []byte("#!/bin/sh"), 0755)
+	_ = os.MkdirAll(uvShare, 0755)
+
+	_ = os.MkdirAll(rustupDir, 0755)
+	_ = os.MkdirAll(cargoDir, 0755)
+	_ = os.WriteFile(ollamaBin, []byte("#!/bin/sh"), 0755)
+
+	regPath := filepath.Join(tempHome, "installed.json")
+	reg, _ := registry.New(regPath)
+	mock := &MockExecutor{}
+	r := NewWithExecutor(reg, mock, false)
+	r.sysInfo.OS = system.OSLinux
+
+	// 1. Desinstalação do Temurin
+	temurinTool := catalog.FindTool("temurin")
+	if temurinTool != nil {
+		_ = reg.MarkInstalled("temurin")
+		if err := r.Uninstall(*temurinTool); err != nil {
+			t.Fatalf("Erro ao desinstalar temurin: %v", err)
+		}
+		if _, err := os.Stat(adoptiumDir); !os.IsNotExist(err) {
+			t.Errorf("Diretório %s não foi removido após uninstall temurin", adoptiumDir)
+		}
+		if _, err := os.Stat(javaBin); !os.IsNotExist(err) {
+			t.Errorf("Binário %s não foi removido após uninstall temurin", javaBin)
+		}
+	}
+
+	// 2. Desinstalação do Ghidra
+	ghidraTool := catalog.FindTool("ghidra")
+	if ghidraTool != nil {
+		_ = reg.MarkInstalled("ghidra")
+		if err := r.Uninstall(*ghidraTool); err != nil {
+			t.Fatalf("Erro ao desinstalar ghidra: %v", err)
+		}
+		if _, err := os.Stat(ghidraDir); !os.IsNotExist(err) {
+			t.Errorf("Diretório %s não foi removido após uninstall ghidra", ghidraDir)
+		}
+		if _, err := os.Stat(ghidraBin); !os.IsNotExist(err) {
+			t.Errorf("Binário %s não foi removido após uninstall ghidra", ghidraBin)
+		}
+	}
+
+	// 3. Desinstalação do uv
+	uvTool := catalog.FindTool("uv")
+	if uvTool != nil {
+		_ = reg.MarkInstalled("uv")
+		if err := r.Uninstall(*uvTool); err != nil {
+			t.Fatalf("Erro ao desinstalar uv: %v", err)
+		}
+		if _, err := os.Stat(uvBin); !os.IsNotExist(err) {
+			t.Errorf("Binário %s não foi removido após uninstall uv", uvBin)
+		}
+		if _, err := os.Stat(uvxBin); !os.IsNotExist(err) {
+			t.Errorf("Binário %s não foi removido após uninstall uvx", uvxBin)
+		}
+		if _, err := os.Stat(uvShare); !os.IsNotExist(err) {
+			t.Errorf("Diretório %s não foi removido após uninstall uv", uvShare)
+		}
+	}
+
+	// 4. Desinstalação do rustup
+	rustupTool := catalog.FindTool("rustup")
+	if rustupTool != nil {
+		_ = reg.MarkInstalled("rustup")
+		if err := r.Uninstall(*rustupTool); err != nil {
+			t.Fatalf("Erro ao desinstalar rustup: %v", err)
+		}
+		if _, err := os.Stat(rustupDir); !os.IsNotExist(err) {
+			t.Errorf("Diretório %s não foi removido após uninstall rustup", rustupDir)
+		}
+	}
+
+	// 5. Desinstalação do Ollama
+	ollamaTool := catalog.FindTool("ollama")
+	if ollamaTool != nil {
+		_ = reg.MarkInstalled("ollama")
+		if err := r.Uninstall(*ollamaTool); err != nil {
+			t.Fatalf("Erro ao desinstalar ollama: %v", err)
+		}
+		if _, err := os.Stat(ollamaBin); !os.IsNotExist(err) {
+			t.Errorf("Binário %s não foi removido após uninstall ollama", ollamaBin)
+		}
+	}
+}
