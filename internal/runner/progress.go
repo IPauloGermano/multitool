@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/charmbracelet/lipgloss"
+	"github.com/charmbracelet/x/term"
 	"github.com/mattn/go-isatty"
 )
 
@@ -19,12 +20,64 @@ var (
 	styleBarFull = lipgloss.NewStyle().Foreground(lipgloss.Color("#10B981")).Bold(true)
 	styleBarDim  = lipgloss.NewStyle().Foreground(lipgloss.Color("#374151"))
 	styleBarPct  = lipgloss.NewStyle().Foreground(lipgloss.Color("#60A5FA")).Bold(true)
+	styleAct     = lipgloss.NewStyle().Foreground(lipgloss.Color("#9CA3AF"))
 )
+
+// getTerminalWidth obtém a largura visível do terminal ou fallback seguro.
+func getTerminalWidth() int {
+	w, _, err := term.GetSize(os.Stdout.Fd())
+	if err != nil || w <= 0 {
+		return 80
+	}
+	return w
+}
+
+// cleanActivity limpa caracteres de controle que poderiam desalinhar o terminal.
+func cleanActivity(s string) string {
+	s = strings.ReplaceAll(s, "\r", "")
+	s = strings.ReplaceAll(s, "\n", "")
+	s = strings.ReplaceAll(s, "\t", " ")
+	return strings.TrimSpace(s)
+}
+
+// truncateToWidth trunca uma string considerando caracteres unicode para não ultrapassar maxWidth.
+func truncateToWidth(s string, maxWidth int) string {
+	if maxWidth <= 0 {
+		return ""
+	}
+	w := lipgloss.Width(s)
+	if w <= maxWidth {
+		return s
+	}
+
+	target := maxWidth - 3
+	if target <= 0 {
+		runes := []rune(s)
+		if len(runes) > maxWidth {
+			return string(runes[:maxWidth])
+		}
+		return s
+	}
+
+	runes := []rune(s)
+	var b strings.Builder
+	cur := 0
+	for _, r := range runes {
+		rw := lipgloss.Width(string(r))
+		if cur+rw > target {
+			break
+		}
+		b.WriteRune(r)
+		cur += rw
+	}
+	b.WriteString("...")
+	return b.String()
+}
 
 // RenderProgressBar renderiza uma barra de progresso gráfica com Lip Gloss.
 func RenderProgressBar(width int, pct float64) string {
 	if width <= 0 {
-		width = 16
+		width = 12
 	}
 	if pct < 0 {
 		pct = 0
@@ -47,6 +100,7 @@ type Spinner struct {
 	frameIdx  int
 	prefix    string
 	message   string
+	activity  string
 	start     time.Time
 	stopChan  chan struct{}
 	doneChan  chan struct{}
@@ -98,19 +152,47 @@ func (s *Spinner) Start() {
 				s.frameIdx = (s.frameIdx + 1) % len(s.frames)
 				prefix := s.prefix
 				msg := s.message
+				act := s.activity
 				elapsed := time.Since(s.start).Round(time.Second)
 				s.mu.Unlock()
 
-				prefixPart := ""
-				if prefix != "" {
-					prefixPart = prefix + " "
+				termWidth := getTerminalWidth()
+				// Margem de segurança de 2 colunas para JAMAIS quebrar linha
+				maxContent := termWidth - 2
+				if maxContent < 20 {
+					maxContent = 20
 				}
 
-				fmt.Printf("\r\033[K%s %s%s %s",
-					styleSpinner.Render(frame),
-					prefixPart,
-					msg,
-					styleDimTime.Render(fmt.Sprintf("[%s]", elapsed)))
+				timeStr := styleDimTime.Render(fmt.Sprintf("[%s]", elapsed))
+				timeWidth := lipgloss.Width(timeStr)
+				frameStr := styleSpinner.Render(frame) + " "
+				frameWidth := 2
+
+				availForContent := maxContent - timeWidth - frameWidth - 1
+				if availForContent < 10 {
+					availForContent = 10
+				}
+
+				var body strings.Builder
+				if prefix != "" {
+					body.WriteString(prefix)
+					body.WriteString(" ")
+				}
+				body.WriteString(msg)
+				if act != "" {
+					body.WriteString(" • ")
+					body.WriteString(act)
+				}
+
+				lineBody := truncateToWidth(body.String(), availForContent)
+				// Preenche com espaços para cobrir resíduos e evitar oscilação
+				padding := availForContent - lipgloss.Width(lineBody)
+				padStr := ""
+				if padding > 0 {
+					padStr = strings.Repeat(" ", padding)
+				}
+
+				fmt.Printf("\r\033[K%s%s%s %s", frameStr, lineBody, padStr, timeStr)
 			}
 		}
 	}()
@@ -128,6 +210,13 @@ func (s *Spinner) UpdatePrefix(prefix string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.prefix = prefix
+}
+
+// UpdateActivity atualiza a linha de atividade real capturada do comando em execução.
+func (s *Spinner) UpdateActivity(activity string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.activity = cleanActivity(activity)
 }
 
 // Stop finaliza o spinner com um ícone de status e mensagem final.

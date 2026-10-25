@@ -1271,8 +1271,14 @@ func Run(reg *registry.Registry, dryRun bool) error {
 				}
 				toRun = eligible
 			}
+			fmt.Println()
+			fmt.Println(lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#FAFAFA")).Background(lipgloss.Color("#2563EB")).Padding(0, 1).Render(" MULTITOOL • EXECUÇÃO EM LOTE "))
+			fmt.Printf("Iniciando instalação de %d ferramentas selecionadas...\n\n", len(toRun))
 			r.RunBatchInstall(toRun)
 		} else {
+			fmt.Println()
+			fmt.Println(lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#FAFAFA")).Background(lipgloss.Color("#EF4444")).Padding(0, 1).Render(" MULTITOOL • DESINSTALAÇÃO EM LOTE "))
+			fmt.Printf("Iniciando remoção de %d ferramentas selecionadas...\n\n", len(toRun))
 			r.RunBatchUninstall(toRun)
 		}
 	}

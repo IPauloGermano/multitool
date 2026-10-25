@@ -46,3 +46,31 @@ func TestSpinnerLifecycle(t *testing.T) {
 	// Segundo Stop não deve causar pânico (idempotente)
 	sp.Stop(true, "Ignorado")
 }
+
+func TestTruncateToWidth(t *testing.T) {
+	short := "curto"
+	if truncateToWidth(short, 10) != short {
+		t.Errorf("String curta não deveria ser alterada")
+	}
+
+	long := "Esta é uma linha longa demais para caber aqui"
+	truncated := truncateToWidth(long, 20)
+	if len([]rune(truncated)) > 20 {
+		t.Errorf("Truncated excedeu tamanho máximo: %d runes", len([]rune(truncated)))
+	}
+	if !strings.HasSuffix(truncated, "...") {
+		t.Errorf("Esperava terminação com reticências: %s", truncated)
+	}
+
+	if truncateToWidth(long, 0) != "" {
+		t.Errorf("Esperava string vazia para largura 0")
+	}
+}
+
+func TestCleanActivity(t *testing.T) {
+	raw := "\r\t   Instalando pacotes npm...\n\r   "
+	cleaned := cleanActivity(raw)
+	if cleaned != "Instalando pacotes npm..." {
+		t.Errorf("Esperava string sanitizada, obteve: %q", cleaned)
+	}
+}

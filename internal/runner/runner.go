@@ -1,6 +1,7 @@
 package runner
 
 import (
+	"bufio"
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
@@ -53,6 +54,63 @@ func (o *OSExecutor) Execute(name string, args ...string) error {
 	cmd.Stderr = os.Stderr
 	cmd.Stdin = os.Stdin
 	return cmd.Run()
+}
+
+func (o *OSExecutor) ExecuteWithActivity(activityFn func(line string), name string, args ...string) error {
+	cmd := exec.Command(name, args...)
+	cmd.Stdin = os.Stdin
+
+	if activityFn == nil {
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+		return cmd.Run()
+	}
+
+	pr, pw := io.Pipe()
+	cmd.Stdout = pw
+	cmd.Stderr = pw
+
+	var errBuf strings.Builder
+	var errMu sync.Mutex
+
+	go func() {
+		scanner := bufio.NewScanner(pr)
+		buf := make([]byte, 64*1024)
+		scanner.Buffer(buf, 64*1024)
+		for scanner.Scan() {
+			text := scanner.Text()
+			clean := strings.TrimSpace(text)
+			if clean != "" {
+				errMu.Lock()
+				if errBuf.Len() < 8192 {
+					errBuf.WriteString(clean + "\n")
+				}
+				errMu.Unlock()
+				activityFn(clean)
+			}
+		}
+	}()
+
+	err := cmd.Run()
+	_ = pw.Close()
+	_ = pr.Close()
+
+	if err != nil {
+		errMu.Lock()
+		recentLog := errBuf.String()
+		errMu.Unlock()
+		if recentLog != "" {
+			lines := strings.Split(strings.TrimSpace(recentLog), "\n")
+			startIdx := 0
+			if len(lines) > 5 {
+				startIdx = len(lines) - 5
+			}
+			for _, l := range lines[startIdx:] {
+				fmt.Printf("   %s %s\n", styleError.Render("│"), l)
+			}
+		}
+	}
+	return err
 }
 
 func (o *OSExecutor) LookPath(file string) (string, error) {
@@ -186,12 +244,25 @@ func NewWithExecutor(reg *registry.Registry, executor CommandExecutor, dryRun bo
 	}
 }
 
+func (r *Runner) execWithActivity(activityFn func(line string), name string, args ...string) error {
+	if ae, ok := r.executor.(interface {
+		ExecuteWithActivity(func(string), string, ...string) error
+	}); ok {
+		return ae.ExecuteWithActivity(activityFn, name, args...)
+	}
+	return r.executor.Execute(name, args...)
+}
+
 func (r *Runner) execWithSudoIfNeeded(cmdName string, args ...string) error {
+	return r.execWithSudoAndActivity(nil, cmdName, args...)
+}
+
+func (r *Runner) execWithSudoAndActivity(activityFn func(line string), cmdName string, args ...string) error {
 	if r.sysInfo.OS == system.OSLinux && r.sysInfo.NeedsSudo {
 		allArgs := append([]string{cmdName}, args...)
-		return r.executor.Execute("sudo", allArgs...)
+		return r.execWithActivity(activityFn, "sudo", allArgs...)
 	}
-	return r.executor.Execute(cmdName, args...)
+	return r.execWithActivity(activityFn, cmdName, args...)
 }
 
 func (r *Runner) haveCommand(cmd string) bool {
@@ -493,46 +564,53 @@ func (r *Runner) installInternal(tool catalog.Tool, prefix string, showVisual bo
 		sp.Update(fmt.Sprintf("Instalando %s via %s (%s)...", tool.Name, target.Type, target.PackageID))
 	}
 
+	var actFn func(string)
+	if sp != nil {
+		actFn = func(line string) {
+			sp.UpdateActivity(line)
+		}
+	}
+
 	var err error
 	switch target.Type {
 	case catalog.TypeWinget:
-		err = r.executor.Execute("winget", "install", "--exact", "--id", target.PackageID,
+		err = r.execWithActivity(actFn, "winget", "install", "--exact", "--id", target.PackageID,
 			"--accept-source-agreements", "--accept-package-agreements", "--silent")
 
 	case catalog.TypeNative:
-		err = r.installNative(target.PackageID)
+		err = r.installNativeWithActivity(actFn, target.PackageID)
 
 	case catalog.TypeNpm:
-		err = r.executor.Execute("npm", "install", "-g", target.PackageID)
+		err = r.execWithActivity(actFn, "npm", "install", "-g", target.PackageID)
 
 	case catalog.TypePipx:
-		err = r.executor.Execute("pipx", "install", target.PackageID)
+		err = r.execWithActivity(actFn, "pipx", "install", target.PackageID)
 
 	case catalog.TypeCargo:
-		err = r.executor.Execute("cargo", "install", target.PackageID)
+		err = r.execWithActivity(actFn, "cargo", "install", target.PackageID)
 
 	case catalog.TypeFlatpak:
-		err = r.executor.Execute("flatpak", "install", "-y", "flathub", target.PackageID)
+		err = r.execWithActivity(actFn, "flatpak", "install", "-y", "flathub", target.PackageID)
 
 	case catalog.TypeSkill:
-		err = r.installGitSkill(tool.ID, target.PackageID)
+		err = r.installGitSkillWithActivity(actFn, tool.ID, target.PackageID)
 
 	case catalog.TypeDirect:
 		if tool.ID == "orca" {
-			err = r.executor.Execute("powershell", "-NoProfile", "-Command", "Invoke-WebRequest -Uri https://github.com/stablyai/orca/releases/latest/download/orca-windows-setup.exe -OutFile $env:TEMP\\orca-setup.exe; Start-Process -FilePath $env:TEMP\\orca-setup.exe -ArgumentList '/S' -Wait")
+			err = r.execWithActivity(actFn, "powershell", "-NoProfile", "-Command", "Invoke-WebRequest -Uri https://github.com/stablyai/orca/releases/latest/download/orca-windows-setup.exe -OutFile $env:TEMP\\orca-setup.exe; Start-Process -FilePath $env:TEMP\\orca-setup.exe -ArgumentList '/S' -Wait")
 		} else if tool.ID == "openmausbot" {
-			err = r.executor.Execute("powershell", "-NoProfile", "-Command", "Invoke-WebRequest -Uri https://github.com/milind-soni/OpenMausBot/releases/latest/download/OpenMausBot-setup.exe -OutFile $env:TEMP\\OpenMausBot-setup.exe; Start-Process -FilePath $env:TEMP\\OpenMausBot-setup.exe -ArgumentList '/S' -Wait")
+			err = r.execWithActivity(actFn, "powershell", "-NoProfile", "-Command", "Invoke-WebRequest -Uri https://github.com/milind-soni/OpenMausBot/releases/latest/download/OpenMausBot-setup.exe -OutFile $env:TEMP\\OpenMausBot-setup.exe; Start-Process -FilePath $env:TEMP\\OpenMausBot-setup.exe -ArgumentList '/S' -Wait")
 		} else if tool.ID == "apktool" {
-			err = r.executor.Execute("powershell", "-NoProfile", "-Command", "New-Item -ItemType Directory -Force -Path $env:LOCALAPPDATA\\multitool\\bin; Invoke-WebRequest -Uri https://raw.githubusercontent.com/iBotPeaches/Apktool/master/scripts/windows/apktool.bat -OutFile $env:LOCALAPPDATA\\multitool\\bin\\apktool.bat; Invoke-WebRequest -Uri https://github.com/iBotPeaches/Apktool/releases/latest/download/apktool.jar -OutFile $env:LOCALAPPDATA\\multitool\\bin\\apktool.jar")
+			err = r.execWithActivity(actFn, "powershell", "-NoProfile", "-Command", "New-Item -ItemType Directory -Force -Path $env:LOCALAPPDATA\\multitool\\bin; Invoke-WebRequest -Uri https://raw.githubusercontent.com/iBotPeaches/Apktool/master/scripts/windows/apktool.bat -OutFile $env:LOCALAPPDATA\\multitool\\bin\\apktool.bat; Invoke-WebRequest -Uri https://github.com/iBotPeaches/Apktool/releases/latest/download/apktool.jar -OutFile $env:LOCALAPPDATA\\multitool\\bin\\apktool.jar")
 		} else {
-			err = r.installGitSkill(tool.ID, target.PackageID)
+			err = r.installGitSkillWithActivity(actFn, tool.ID, target.PackageID)
 		}
 
 	case catalog.TypeScript:
-		err = r.installScript(tool.ID, target)
+		err = r.installScriptWithActivity(actFn, tool.ID, target)
 
 	case catalog.TypeBrew:
-		err = r.executor.Execute("brew", "install", target.PackageID)
+		err = r.execWithActivity(actFn, "brew", "install", target.PackageID)
 
 	default:
 		err = fmt.Errorf("método de instalação não suportado: %s", target.Type)
@@ -604,112 +682,128 @@ func (r *Runner) findTargetBinaryPath(tool catalog.Tool, target *catalog.Target)
 }
 
 func (r *Runner) installNative(packageID string) error {
+	return r.installNativeWithActivity(nil, packageID)
+}
+
+func (r *Runner) installNativeWithActivity(actFn func(string), packageID string) error {
 	switch r.sysInfo.PrimaryManager {
 	case system.MgrApt:
-		return r.execWithSudoIfNeeded("apt-get", "install", "-y", packageID)
+		return r.execWithSudoAndActivity(actFn, "apt-get", "install", "-y", packageID)
 	case system.MgrDnf:
-		return r.execWithSudoIfNeeded("dnf", "install", "-y", packageID)
+		return r.execWithSudoAndActivity(actFn, "dnf", "install", "-y", packageID)
 	case system.MgrPacman:
-		return r.execWithSudoIfNeeded("pacman", "-S", "--noconfirm", "--needed", packageID)
+		return r.execWithSudoAndActivity(actFn, "pacman", "-S", "--noconfirm", "--needed", packageID)
 	case system.MgrZypper:
-		return r.execWithSudoIfNeeded("zypper", "install", "-y", packageID)
+		return r.execWithSudoAndActivity(actFn, "zypper", "install", "-y", packageID)
 	case system.MgrEopkg:
-		return r.execWithSudoIfNeeded("eopkg", "install", "-y", packageID)
+		return r.execWithSudoAndActivity(actFn, "eopkg", "install", "-y", packageID)
 	case system.MgrBrew:
-		return r.executor.Execute("brew", "install", packageID)
+		return r.execWithActivity(actFn, "brew", "install", packageID)
 	default:
 		return fmt.Errorf("nenhum gerenciador nativo suportado encontrado para instalar %s", packageID)
 	}
 }
 
 func (r *Runner) uninstallNative(packageID string) error {
+	return r.uninstallNativeWithActivity(nil, packageID)
+}
+
+func (r *Runner) uninstallNativeWithActivity(actFn func(string), packageID string) error {
 	switch r.sysInfo.PrimaryManager {
 	case system.MgrApt:
-		return r.execWithSudoIfNeeded("apt-get", "remove", "-y", packageID)
+		return r.execWithSudoAndActivity(actFn, "apt-get", "remove", "-y", packageID)
 	case system.MgrDnf:
-		return r.execWithSudoIfNeeded("dnf", "remove", "-y", packageID)
+		return r.execWithSudoAndActivity(actFn, "dnf", "remove", "-y", packageID)
 	case system.MgrPacman:
-		return r.execWithSudoIfNeeded("pacman", "-R", "--noconfirm", packageID)
+		return r.execWithSudoAndActivity(actFn, "pacman", "-R", "--noconfirm", packageID)
 	case system.MgrZypper:
-		return r.execWithSudoIfNeeded("zypper", "remove", "-y", packageID)
+		return r.execWithSudoAndActivity(actFn, "zypper", "remove", "-y", packageID)
 	case system.MgrEopkg:
-		return r.execWithSudoIfNeeded("eopkg", "remove", "-y", packageID)
+		return r.execWithSudoAndActivity(actFn, "eopkg", "remove", "-y", packageID)
 	case system.MgrBrew:
-		return r.executor.Execute("brew", "uninstall", packageID)
+		return r.execWithActivity(actFn, "brew", "uninstall", packageID)
 	default:
 		return fmt.Errorf("nenhum gerenciador nativo suportado encontrado para remover %s", packageID)
 	}
 }
 
 func (r *Runner) updateNative(packageID string) error {
+	return r.updateNativeWithActivity(nil, packageID)
+}
+
+func (r *Runner) updateNativeWithActivity(actFn func(string), packageID string) error {
 	switch r.sysInfo.PrimaryManager {
 	case system.MgrApt:
-		return r.execWithSudoIfNeeded("apt-get", "install", "--only-upgrade", "-y", packageID)
+		return r.execWithSudoAndActivity(actFn, "apt-get", "install", "--only-upgrade", "-y", packageID)
 	case system.MgrDnf:
-		return r.execWithSudoIfNeeded("dnf", "upgrade", "-y", packageID)
+		return r.execWithSudoAndActivity(actFn, "dnf", "upgrade", "-y", packageID)
 	case system.MgrPacman:
-		return r.execWithSudoIfNeeded("pacman", "-S", "--noconfirm", packageID)
+		return r.execWithSudoAndActivity(actFn, "pacman", "-S", "--noconfirm", packageID)
 	case system.MgrZypper:
-		return r.execWithSudoIfNeeded("zypper", "update", "-y", packageID)
+		return r.execWithSudoAndActivity(actFn, "zypper", "update", "-y", packageID)
 	case system.MgrEopkg:
-		return r.execWithSudoIfNeeded("eopkg", "upgrade", "-y", packageID)
+		return r.execWithSudoAndActivity(actFn, "eopkg", "upgrade", "-y", packageID)
 	case system.MgrBrew:
-		return r.executor.Execute("brew", "upgrade", packageID)
+		return r.execWithActivity(actFn, "brew", "upgrade", packageID)
 	default:
 		return fmt.Errorf("nenhum gerenciador nativo suportado encontrado para atualizar %s", packageID)
 	}
 }
 
 func (r *Runner) installScript(id string, target *catalog.Target) error {
+	return r.installScriptWithActivity(nil, id, target)
+}
+
+func (r *Runner) installScriptWithActivity(actFn func(string), id string, target *catalog.Target) error {
 	switch id {
 	case "ollama":
 		if r.sysInfo.OS == system.OSLinux {
-			return r.executor.Execute("sh", "-c", "curl -fsSL https://ollama.com/install.sh | sh")
+			return r.execWithActivity(actFn, "sh", "-c", "curl -fsSL https://ollama.com/install.sh | sh")
 		}
 	case "hermes":
 		if r.sysInfo.OS == system.OSLinux {
-			return r.executor.Execute("bash", "-c", "curl -fsSL https://hermes-agent.nousresearch.com/install.sh | bash")
+			return r.execWithActivity(actFn, "bash", "-c", "curl -fsSL https://hermes-agent.nousresearch.com/install.sh | bash")
 		}
 	case "rustup":
 		if r.sysInfo.OS == system.OSLinux {
-			return r.executor.Execute("sh", "-c", "curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y")
+			return r.execWithActivity(actFn, "sh", "-c", "curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y")
 		}
 	case "uv":
 		if r.sysInfo.OS == system.OSLinux {
-			return r.executor.Execute("sh", "-c", "curl -LsSf https://astral.sh/uv/install.sh | sh")
+			return r.execWithActivity(actFn, "sh", "-c", "curl -LsSf https://astral.sh/uv/install.sh | sh")
 		}
 	case "flathub":
-		return r.execWithSudoIfNeeded("flatpak", "remote-add", "--if-not-exists", "flathub", "https://dl.flathub.org/repo/flathub.flatpakrepo")
+		return r.execWithSudoAndActivity(actFn, "flatpak", "remote-add", "--if-not-exists", "flathub", "https://dl.flathub.org/repo/flathub.flatpakrepo")
 	case "orca":
 		if r.sysInfo.OS == system.OSLinux {
-			return r.executor.Execute("sh", "-c", "mkdir -p $HOME/.local/bin && curl -fsSL https://github.com/stablyai/orca/releases/latest/download/orca-linux.AppImage -o $HOME/.local/bin/orca && chmod +x $HOME/.local/bin/orca")
+			return r.execWithActivity(actFn, "sh", "-c", "mkdir -p $HOME/.local/bin && curl -fsSL https://github.com/stablyai/orca/releases/latest/download/orca-linux.AppImage -o $HOME/.local/bin/orca && chmod +x $HOME/.local/bin/orca")
 		}
 	case "openmausbot":
 		if r.sysInfo.OS == system.OSLinux {
-			return r.executor.Execute("sh", "-c", "mkdir -p $HOME/.local/bin && curl -fsSL https://github.com/milind-soni/OpenMausBot/releases/latest/download/OpenMausBot.AppImage -o $HOME/.local/bin/openmausbot && chmod +x $HOME/.local/bin/openmausbot")
+			return r.execWithActivity(actFn, "sh", "-c", "mkdir -p $HOME/.local/bin && curl -fsSL https://github.com/milind-soni/OpenMausBot/releases/latest/download/OpenMausBot.AppImage -o $HOME/.local/bin/openmausbot && chmod +x $HOME/.local/bin/openmausbot")
 		}
 	case "docker":
 		if r.sysInfo.OS == system.OSLinux {
-			return r.executor.Execute("sh", "-c", "curl -fsSL https://get.docker.com | sh")
+			return r.execWithActivity(actFn, "sh", "-c", "curl -fsSL https://get.docker.com | sh")
 		}
 	case "opengym", "openstock", "openmaicapp":
 		if r.sysInfo.OS == system.OSLinux {
 			repo := target.PackageID
-			return r.executor.Execute("sh", "-c", fmt.Sprintf("mkdir -p $HOME/.local/share/apps && git clone --depth 1 https://github.com/%s $HOME/.local/share/apps/%s", repo, id))
+			return r.execWithActivity(actFn, "sh", "-c", fmt.Sprintf("mkdir -p $HOME/.local/share/apps && git clone --depth 1 https://github.com/%s $HOME/.local/share/apps/%s", repo, id))
 		}
 	case "temurin":
 		if r.sysInfo.OS == system.OSLinux {
 			arch := r.adoptiumArch()
 			cmd := fmt.Sprintf("mkdir -p $HOME/.local/share/adoptium && curl -fsSL 'https://api.adoptium.net/v3/binary/latest/21/ga/linux/%s/jdk/hotspot/normal/eclipse' | tar -xz -C $HOME/.local/share/adoptium --strip-components=1 && mkdir -p $HOME/.local/bin && ln -sf $HOME/.local/share/adoptium/bin/java $HOME/.local/bin/java", arch)
-			return r.executor.Execute("sh", "-c", cmd)
+			return r.execWithActivity(actFn, "sh", "-c", cmd)
 		}
 	case "ghidra":
 		if r.sysInfo.OS == system.OSLinux {
-			return r.executor.Execute("sh", "-c", "mkdir -p $HOME/.local/share/ghidra && curl -fsSL 'https://github.com/NationalSecurityAgency/ghidra/releases/download/Ghidra_11.1.2_build/ghidra_11.1.2_PUBLIC_20240709.zip' -o /tmp/ghidra.zip && unzip -q /tmp/ghidra.zip -d /tmp && mv /tmp/ghidra_*/* $HOME/.local/share/ghidra && mkdir -p $HOME/.local/bin && ln -sf $HOME/.local/share/ghidra/ghidraRun $HOME/.local/bin/ghidra")
+			return r.execWithActivity(actFn, "sh", "-c", "mkdir -p $HOME/.local/share/ghidra && curl -fsSL 'https://github.com/NationalSecurityAgency/ghidra/releases/download/Ghidra_11.1.2_build/ghidra_11.1.2_PUBLIC_20240709.zip' -o /tmp/ghidra.zip && unzip -q /tmp/ghidra.zip -d /tmp && mv /tmp/ghidra_*/* $HOME/.local/share/ghidra && mkdir -p $HOME/.local/bin && ln -sf $HOME/.local/share/ghidra/ghidraRun $HOME/.local/bin/ghidra")
 		}
 	case "ohmyzsh":
 		if r.sysInfo.OS == system.OSLinux {
-			return r.executor.Execute("sh", "-c", "RUNZSH=no CHSH=no KEEP_ZSHRC=yes sh -c \"$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)\"")
+			return r.execWithActivity(actFn, "sh", "-c", "RUNZSH=no CHSH=no KEEP_ZSHRC=yes sh -c \"$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)\"")
 		}
 	}
 
@@ -1054,15 +1148,19 @@ func (r *Runner) getSkillDir(id string) string {
 }
 
 func (r *Runner) installGitSkill(id, packageID string) error {
+	return r.installGitSkillWithActivity(nil, id, packageID)
+}
+
+func (r *Runner) installGitSkillWithActivity(actFn func(string), id, packageID string) error {
 	repoURL := fmt.Sprintf("https://github.com/%s.git", packageID)
 	dest := r.getSkillDir(id)
 
 	if _, err := os.Stat(dest); err == nil {
-		if err := r.executor.Execute("git", "-C", dest, "pull", "--ff-only"); err != nil {
+		if err := r.execWithActivity(actFn, "git", "-C", dest, "pull", "--ff-only"); err != nil {
 			return err
 		}
 	} else {
-		if err := r.executor.Execute("git", "clone", "--depth", "1", repoURL, dest); err != nil {
+		if err := r.execWithActivity(actFn, "git", "clone", "--depth", "1", repoURL, dest); err != nil {
 			return err
 		}
 	}
@@ -1174,6 +1272,10 @@ func (r *Runner) runBatchInstallPartitioned(tools []catalog.Tool) (int, int) {
 	ok, fail := 0, 0
 	total := len(tools)
 	overallStart := time.Now()
+
+	if r.sysInfo.OS == system.OSLinux && r.sysInfo.NeedsSudo && !r.dryRun {
+		_ = r.executor.Execute("sudo", "-v")
+	}
 
 	i := 0
 	for i < total {
