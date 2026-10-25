@@ -7,6 +7,7 @@ import (
 
 	"github.com/IPauloGermano/multitool/internal/registry"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 )
 
 func TestTUIStateTransitions(t *testing.T) {
@@ -275,5 +276,55 @@ func TestTUIDynamicViewport(t *testing.T) {
 	}
 	if m.GetCursor() != 10 {
 		t.Errorf("Esperava cursor em 10, obteve %d", m.GetCursor())
+	}
+}
+
+func TestTUINoLineOverflow(t *testing.T) {
+	tempDir := t.TempDir()
+	reg, _ := registry.New(filepath.Join(tempDir, "installed.json"))
+	// Marca ferramentas com nomes/descrições longas como instaladas para testar o tag [instalado]
+	_ = reg.MarkInstalled("apktool")
+	_ = reg.MarkInstalled("awsagenttoolkit")
+	_ = reg.MarkInstalled("boltdiy")
+	_ = reg.MarkInstalled("androidstudio")
+
+	widths := []int{80, 95, 105, 110, 120}
+
+	for _, w := range widths {
+		m := NewModel(reg, false)
+		updated, _ := m.Update(tea.WindowSizeMsg{Width: w, Height: 30})
+		m = updated.(Model)
+
+		// 1. Testa aba Ferramentas (todas as linhas na viewport)
+		lines := strings.Split(m.viewport.View(), "\n")
+		for idx, line := range lines {
+			lineWidth := lipgloss.Width(line)
+			if lineWidth > w {
+				t.Errorf("[Width %d] Linha %d das ferramentas excede largura da tela: width=%d > %d\nLinha: %q",
+					w, idx, lineWidth, w, line)
+			}
+		}
+
+		// 2. Testa aba Pacotes
+		updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'p'}})
+		m = updated.(Model)
+		pkgLines := strings.Split(m.viewport.View(), "\n")
+		for idx, line := range pkgLines {
+			lineWidth := lipgloss.Width(line)
+			if lineWidth > w {
+				t.Errorf("[Width %d] Linha %d dos pacotes excede largura da tela: width=%d > %d\nLinha: %q",
+					w, idx, lineWidth, w, line)
+			}
+		}
+
+		// 3. Testa linhas da View completa (cabeçalho, abas e atalhos)
+		fullView := m.View()
+		for idx, line := range strings.Split(fullView, "\n") {
+			lineWidth := lipgloss.Width(line)
+			if lineWidth > w {
+				t.Errorf("[Width %d] Linha %d da View() excede largura da tela: width=%d > %d\nLinha: %q",
+					w, idx, lineWidth, w, line)
+			}
+		}
 	}
 }

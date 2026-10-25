@@ -147,8 +147,14 @@ func (m *Model) updateViewportDimensions() {
 	}
 
 	vpWidth := m.width
-	if vpWidth > 120 {
-		vpWidth = 120
+	if vpWidth <= 0 {
+		vpWidth = 100
+	}
+	if vpWidth > 130 {
+		vpWidth = 130
+	}
+	if vpWidth < 40 {
+		vpWidth = 40
 	}
 
 	modalW := m.width - 6
@@ -178,6 +184,69 @@ func (m *Model) updateViewportDimensions() {
 	if m.showModal {
 		m.syncModalViewport()
 	}
+}
+
+// truncateText limita visualmente uma string a maxWidth colunas no terminal, adicionando reticências se necessário.
+func truncateText(s string, maxWidth int) string {
+	if maxWidth <= 0 {
+		return ""
+	}
+	if lipgloss.Width(s) <= maxWidth {
+		return s
+	}
+	if maxWidth <= 3 {
+		r := []rune(s)
+		if len(r) > maxWidth {
+			return string(r[:maxWidth])
+		}
+		return s
+	}
+	target := maxWidth - 3
+	r := []rune(s)
+	var b strings.Builder
+	curW := 0
+	for _, ch := range r {
+		w := lipgloss.Width(string(ch))
+		if curW+w > target {
+			break
+		}
+		b.WriteRune(ch)
+		curW += w
+	}
+	b.WriteString("...")
+	return b.String()
+}
+
+// wrapText quebra linhas de texto respeitando palavras para exibição em modais ou caixas formatadas.
+func wrapText(s string, maxWidth int, indent string) string {
+	if maxWidth <= 0 {
+		return s
+	}
+	words := strings.Fields(s)
+	if len(words) == 0 {
+		return ""
+	}
+	var lines []string
+	var cur strings.Builder
+	curW := 0
+	for _, w := range words {
+		ww := lipgloss.Width(w)
+		if curW > 0 && curW+1+ww > maxWidth {
+			lines = append(lines, cur.String())
+			cur.Reset()
+			curW = 0
+		}
+		if curW > 0 {
+			cur.WriteString(" ")
+			curW++
+		}
+		cur.WriteString(w)
+		curW += ww
+	}
+	if cur.Len() > 0 {
+		lines = append(lines, cur.String())
+	}
+	return strings.Join(lines, "\n"+indent)
 }
 
 func (m *Model) refreshVisible() {
@@ -282,6 +351,28 @@ func (m *Model) refreshVisible() {
 
 func (m *Model) syncViewport() {
 	if m.tab == TabPackages {
+		availWidth := m.viewport.Width
+		if availWidth > m.width && m.width > 0 {
+			availWidth = m.width
+		}
+		if availWidth > 1 {
+			availWidth--
+		}
+
+		suiteIDWidth := 13
+		suiteNameWidth := 28
+		statsWidth := 18
+		if availWidth < 95 {
+			suiteNameWidth = 22
+			statsWidth = 16
+		}
+		if availWidth < 80 {
+			suiteNameWidth = 18
+			statsWidth = 14
+		}
+
+		prefixW := 2 + 3 + 1 + suiteIDWidth + 1 + suiteNameWidth + 1 + statsWidth + 1
+
 		var lines []string
 		suiteOffsets := make([]int, len(m.visibleSuites))
 		currLine := 0
@@ -312,9 +403,9 @@ func (m *Model) syncViewport() {
 				checked = lipgloss.NewStyle().Foreground(lipgloss.Color("#F59E0B")).Bold(true).Render("[-]")
 			}
 
-			suiteID := fmt.Sprintf("@%-12s", suite.ID)
+			suiteIDFormatted := fmt.Sprintf("@%-12s", truncateText(suite.ID, 12))
 			if m.cursor == i {
-				suiteID = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#60A5FA")).Render(suiteID)
+				suiteIDFormatted = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#60A5FA")).Render(suiteIDFormatted)
 			}
 
 			statsBadge := fmt.Sprintf("(%d/%d instalados)", installedTools, totalTools)
@@ -324,8 +415,22 @@ func (m *Model) syncViewport() {
 				statsBadge = dimStyle.Render(statsBadge)
 			}
 
-			line := fmt.Sprintf("%s%s %s %-32s %-16s %s",
-				cursor, checked, suiteID, suite.Name, statsBadge, dimStyle.Render(suite.Description))
+			availDesc := availWidth - prefixW
+			if availDesc < 0 {
+				availDesc = 0
+			}
+
+			sName := truncateText(suite.Name, suiteNameWidth)
+			sDesc := truncateText(suite.Description, availDesc)
+
+			var line string
+			if sDesc != "" {
+				line = fmt.Sprintf("%s%s %s %-*s %-*s %s",
+					cursor, checked, suiteIDFormatted, suiteNameWidth, sName, statsWidth, statsBadge, dimStyle.Render(sDesc))
+			} else {
+				line = fmt.Sprintf("%s%s %s %-*s %-*s",
+					cursor, checked, suiteIDFormatted, suiteNameWidth, sName, statsWidth, statsBadge)
+			}
 			lines = append(lines, line)
 			currLine++
 
@@ -342,11 +447,40 @@ func (m *Model) syncViewport() {
 					}
 					memberTokens = append(memberTokens, token)
 				}
-				lines = append(lines, fmt.Sprintf("       %s %s",
-					lipgloss.NewStyle().Foreground(lipgloss.Color("#93C5FD")).Render("↳ Membros:"),
-					strings.Join(memberTokens, "  ")))
+
+				prefixHeader := "       " + lipgloss.NewStyle().Foreground(lipgloss.Color("#93C5FD")).Render("↳ Membros:") + " "
+				headerW := 18
+				indent := strings.Repeat(" ", headerW)
+
+				var cur strings.Builder
+				cur.WriteString(prefixHeader)
+				curW := headerW
+				first := true
+
+				for _, token := range memberTokens {
+					tokW := lipgloss.Width(token)
+					if !first && curW+2+tokW > availWidth {
+						lines = append(lines, cur.String())
+						currLine++
+						cur.Reset()
+						cur.WriteString(indent)
+						curW = headerW
+						first = true
+					}
+					if !first {
+						cur.WriteString("  ")
+						curW += 2
+					}
+					cur.WriteString(token)
+					curW += tokW
+					first = false
+				}
+				if cur.Len() > 0 {
+					lines = append(lines, cur.String())
+					currLine++
+				}
 				lines = append(lines, "")
-				currLine += 2
+				currLine++
 			}
 		}
 
@@ -368,6 +502,31 @@ func (m *Model) syncViewport() {
 			}
 		}
 	} else {
+		availWidth := m.viewport.Width
+		if availWidth > m.width && m.width > 0 {
+			availWidth = m.width
+		}
+		if availWidth > 1 {
+			availWidth--
+		}
+
+		idWidth := 16
+		nameWidth := 22
+		methodWidth := 10
+
+		if availWidth < 95 {
+			idWidth = 14
+			nameWidth = 18
+			methodWidth = 9
+		}
+		if availWidth < 80 {
+			idWidth = 13
+			nameWidth = 15
+			methodWidth = 8
+		}
+
+		prefixW := 2 + 3 + 1 + idWidth + 1 + nameWidth + 1 + methodWidth + 1
+
 		var lines []string
 		for i, tool := range m.visibleTools {
 			cursor := "  "
@@ -380,9 +539,11 @@ func (m *Model) syncViewport() {
 				checked = selectedStyle.Render("[✓]")
 			}
 
+			tagW := 0
 			installedTag := ""
 			if m.reg.IsInstalled(tool.ID) {
 				installedTag = lipgloss.NewStyle().Foreground(lipgloss.Color("#10B981")).Render(" [instalado]")
+				tagW = 12
 			}
 
 			method := ""
@@ -391,8 +552,27 @@ func (m *Model) syncViewport() {
 				method = fmt.Sprintf("(%s)", target.Type)
 			}
 
-			line := fmt.Sprintf("%s%s %-14s %-22s %-10s %s%s",
-				cursor, checked, tool.ID, tool.Name, method, dimStyle.Render(tool.Description), installedTag)
+			availDesc := availWidth - prefixW - tagW
+			if availDesc < 0 {
+				availDesc = 0
+			}
+
+			name := truncateText(tool.Name, nameWidth)
+			idStr := truncateText(tool.ID, idWidth)
+			methodStr := truncateText(method, methodWidth)
+			desc := truncateText(tool.Description, availDesc)
+
+			var line string
+			if desc != "" {
+				line = fmt.Sprintf("%s%s %-*s %-*s %-*s %s%s",
+					cursor, checked, idWidth, idStr, nameWidth, name, methodWidth, methodStr, dimStyle.Render(desc), installedTag)
+			} else if installedTag != "" {
+				line = fmt.Sprintf("%s%s %-*s %-*s %-*s%s",
+					cursor, checked, idWidth, idStr, nameWidth, name, methodWidth, methodStr, installedTag)
+			} else {
+				line = fmt.Sprintf("%s%s %-*s %-*s %-*s",
+					cursor, checked, idWidth, idStr, nameWidth, name, methodWidth, methodStr)
+			}
 			lines = append(lines, line)
 		}
 
@@ -437,7 +617,11 @@ func (m *Model) renderToolModalContent(tool catalog.Tool) string {
 
 	b.WriteString(title + "\n\n")
 
-	b.WriteString(fmt.Sprintf("• Descrição:    %s\n", tool.Description))
+	wrapW := m.modalViewport.Width - 16
+	if wrapW < 20 {
+		wrapW = 20
+	}
+	b.WriteString(fmt.Sprintf("• Descrição:    %s\n", wrapText(tool.Description, wrapW, "                ")))
 	b.WriteString(fmt.Sprintf("• Categoria:    %s (%s)\n", tool.Category, catalog.TopoDaSub(tool.Category)))
 
 	installed := dimStyle.Render("Não")
@@ -514,7 +698,11 @@ func (m *Model) renderSuiteModalContent(suite catalog.Suite) string {
 		Render(fmt.Sprintf(" PACOTE: @%s - %s ", suite.ID, suite.Name))
 
 	b.WriteString(title + "\n\n")
-	b.WriteString(fmt.Sprintf("• Descrição:    %s\n", suite.Description))
+	wrapW := m.modalViewport.Width - 16
+	if wrapW < 20 {
+		wrapW = 20
+	}
+	b.WriteString(fmt.Sprintf("• Descrição:    %s\n", wrapText(suite.Description, wrapW, "                ")))
 	b.WriteString(fmt.Sprintf("• Categoria:    %s\n", suite.Category))
 
 	installedCount := 0
@@ -542,7 +730,10 @@ func (m *Model) renderSuiteModalContent(suite catalog.Suite) string {
 		t := catalog.FindTool(tid)
 		desc := ""
 		if t != nil {
-			desc = dimStyle.Render(" - " + t.Description)
+			availDesc := m.modalViewport.Width - 22
+			if availDesc > 0 {
+				desc = dimStyle.Render(" - " + truncateText(t.Description, availDesc))
+			}
 		}
 		b.WriteString(fmt.Sprintf("  %s %-16s%s\n", status, tid, desc))
 	}
@@ -950,8 +1141,6 @@ func (m Model) View() string {
 		b.WriteString("\n\n")
 	}
 
-	b.WriteString(headerStyle.Render("Abas: "))
-
 	renderTab := func(key, label string, active bool) string {
 		txt := fmt.Sprintf("[%s] %s", key, label)
 		if active {
@@ -960,18 +1149,47 @@ func (m Model) View() string {
 		return dimStyle.Render(txt)
 	}
 
-	tabIA := renderTab("1", "IA", m.tab == TabTopo && m.activeTopo == "IA")
-	tabCod := renderTab("2", "Código", m.tab == TabTopo && m.activeTopo == "Código")
-	tabSis := renderTab("3", "Sistema", m.tab == TabTopo && m.activeTopo == "Sistema")
-	tabApp := renderTab("4", "Apps", m.tab == TabTopo && m.activeTopo == "Apps")
-	tabSeg := renderTab("5", "Segurança", m.tab == TabTopo && m.activeTopo == "Segurança")
-	tabAll := renderTab("t", "Todas", m.tab == TabAll)
-	tabPkg := renderTab("p", "Pacotes", m.tab == TabPackages)
-	tabIns := renderTab("i", "Instalados", m.tab == TabInstalled)
-	tabCrt := renderTab("c", "Carrinho", m.tab == TabCart)
+	labelCod := "Código"
+	labelSis := "Sistema"
+	labelSeg := "Segurança"
+	labelAll := "Todas"
+	labelPkg := "Pacotes"
+	labelIns := "Instalados"
+	labelCrt := "Carrinho"
+	prefix := headerStyle.Render("Abas: ")
 
-	b.WriteString(fmt.Sprintf("%s %s %s %s %s | %s %s %s %s\n",
-		tabIA, tabCod, tabSis, tabApp, tabSeg, tabAll, tabPkg, tabIns, tabCrt))
+	if m.width < 118 {
+		labelCod = "Cód"
+		labelSis = "Sis"
+		labelSeg = "Seg"
+		labelPkg = "Pacotes"
+		labelIns = "Inst"
+		labelCrt = "Carrinho"
+	}
+	if m.width < 100 {
+		labelPkg = "Pkgs"
+		labelCrt = "Car"
+	}
+	if m.width < 85 {
+		prefix = ""
+		labelAll = "Todo"
+		labelPkg = "Pkg"
+		labelIns = "Inst"
+		labelCrt = "Car"
+	}
+
+	tabIA := renderTab("1", "IA", m.tab == TabTopo && m.activeTopo == "IA")
+	tabCod := renderTab("2", labelCod, m.tab == TabTopo && m.activeTopo == "Código")
+	tabSis := renderTab("3", labelSis, m.tab == TabTopo && m.activeTopo == "Sistema")
+	tabApp := renderTab("4", "Apps", m.tab == TabTopo && m.activeTopo == "Apps")
+	tabSeg := renderTab("5", labelSeg, m.tab == TabTopo && m.activeTopo == "Segurança")
+	tabAll := renderTab("t", labelAll, m.tab == TabAll)
+	tabPkg := renderTab("p", labelPkg, m.tab == TabPackages)
+	tabIns := renderTab("i", labelIns, m.tab == TabInstalled)
+	tabCrt := renderTab("c", labelCrt, m.tab == TabCart)
+
+	b.WriteString(fmt.Sprintf("%s%s %s %s %s %s | %s %s %s %s\n",
+		prefix, tabIA, tabCod, tabSis, tabApp, tabSeg, tabAll, tabPkg, tabIns, tabCrt))
 
 	if m.searching {
 		b.WriteString(fmt.Sprintf("%s %s█\n", selectedStyle.Render("Buscar:"), m.searchQuery))
@@ -993,7 +1211,20 @@ func (m Model) View() string {
 		b.WriteString(dimStyle.Render(fmt.Sprintf("  Item %d de %d (rolagem: %.0f%% • use ↑/↓)\n", m.cursor+1, totalItems, scrollPct)))
 	}
 
-	b.WriteString(dimStyle.Render("Atalhos: [↑/↓/j/k] Navegar • [Espaço] Marcar • [Enter] Detalhes/Executar • [a/A] Marcar Tudo/Limpar • [r] Modo • [/] Buscar • [q] Sair\n"))
+	shortcutText := "Atalhos: [↑/↓/j/k] Navegar • [Espaço] Marcar • [Enter] Detalhes/Executar • [a/A] Marcar Tudo/Limpar • [r] Modo • [/] Buscar • [q] Sair"
+	if m.width < 135 {
+		shortcutText = "Atalhos: [↑/↓] Navegar • [Espaço] Marcar • [Enter] Detalhes/Executar • [a/A] Tudo/Limpar • [r] Modo • [/] Buscar • [q] Sair"
+	}
+	if m.width < 125 {
+		shortcutText = "Atalhos: [↑/↓] Navegar • [Espaço] Marcar • [Enter] Detalhes/Executar • [r] Modo • [/] Buscar • [q] Sair"
+	}
+	if m.width < 105 {
+		shortcutText = "Atalhos: [↑/↓] Navegar • [Espaço] Marcar • [Enter] Ação • [r] Modo • [/] Busca • [q] Sair"
+	}
+	if m.width < 90 {
+		shortcutText = "[↑/↓] Navegar • [Espaço] Marcar • [Enter] Ação • [r] Modo • [/] Busca • [q] Sair"
+	}
+	b.WriteString(dimStyle.Render(shortcutText + "\n"))
 
 	return b.String()
 }
