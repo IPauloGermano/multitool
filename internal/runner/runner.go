@@ -414,10 +414,20 @@ func (r *Runner) ensureRuntime(toolID string, target *catalog.Target) error {
 
 	fmt.Printf("✔ Runtime '%s' provisionado com sucesso.\n", req.command)
 	LogOp("runtime auto-provision %s fim rc=0", req.command)
+	r.cacheMu.Lock()
+	if r.cmdCache == nil {
+		r.cmdCache = make(map[string]bool)
+	}
+	r.cmdCache[req.command] = true
+	r.cacheMu.Unlock()
 	return nil
 }
 
 func (r *Runner) Install(tool catalog.Tool) error {
+	return r.installInternal(tool, "", true)
+}
+
+func (r *Runner) installInternal(tool catalog.Tool, prefix string, showVisual bool) error {
 	target := tool.TargetForCurrentOS()
 	if target == nil {
 		return fmt.Errorf("ferramenta %s (%s) não é compatível com %s", tool.Name, tool.ID, r.sysInfo.OS)
@@ -425,7 +435,6 @@ func (r *Runner) Install(tool catalog.Tool) error {
 
 	LogOp("install %s inicio", tool.ID)
 	start := time.Now()
-	fmt.Printf("=== Instalando %s (%s) ===\n", tool.Name, tool.ID)
 
 	if r.dryRun {
 		fmt.Printf("[DRY-RUN] Simulando instalação de %s via %s (%s)\n", tool.Name, target.Type, target.PackageID)
@@ -433,24 +442,55 @@ func (r *Runner) Install(tool catalog.Tool) error {
 		return r.reg.MarkInstalled(tool.ID)
 	}
 
+	var sp *Spinner
+	if showVisual {
+		sp = NewSpinner(prefix, fmt.Sprintf("Instalando %s (%s)...", tool.Name, target.Type))
+		sp.Start()
+	} else if prefix != "" {
+		fmt.Printf("➜ %s Instalando %s...\n", prefix, tool.Name)
+	} else {
+		fmt.Printf("=== Instalando %s (%s) ===\n", tool.Name, tool.ID)
+	}
+
 	// Auto-provisionamento de dependências de software
 	for _, depID := range tool.Dependencies {
 		depTool := catalog.FindTool(depID)
 		if depTool != nil && depTool.IsSupportedOnCurrentOS() {
 			if !r.IsDependencySatisfied(depTool) {
-				fmt.Printf("➜ Instalando dependência obrigatória '%s' para '%s'...\n", depTool.Name, tool.Name)
-				if err := r.Install(*depTool); err != nil {
+				if sp != nil {
+					sp.Update(fmt.Sprintf("Instalando dependência '%s' para '%s'...", depTool.Name, tool.Name))
+				} else {
+					fmt.Printf("➜ Instalando dependência obrigatória '%s' para '%s'...\n", depTool.Name, tool.Name)
+				}
+				if err := r.installInternal(*depTool, prefix, false); err != nil {
+					if sp != nil {
+						sp.Stop(false, fmt.Sprintf("Falha ao instalar dependência %s: %v", depID, err))
+					}
 					return fmt.Errorf("falha ao instalar dependência %s: %w", depID, err)
+				}
+				if sp != nil {
+					sp.Update(fmt.Sprintf("Instalando %s (%s)...", tool.Name, target.Type))
 				}
 			}
 		}
 	}
 
 	// Auto-provisionamento de runtime
+	if sp != nil {
+		sp.Update(fmt.Sprintf("Verificando runtime para %s...", tool.Name))
+	}
 	if err := r.ensureRuntime(tool.ID, target); err != nil {
-		fmt.Printf("✖ Falha ao provisionar runtime para %s: %v\n", tool.Name, err)
+		if sp != nil {
+			sp.Stop(false, fmt.Sprintf("Falha ao provisionar runtime para %s: %v", tool.Name, err))
+		} else {
+			fmt.Printf("✖ Falha ao provisionar runtime para %s: %v\n", tool.Name, err)
+		}
 		LogOp("install %s fim rc=1 erro_runtime=%v", tool.ID, err)
 		return err
+	}
+
+	if sp != nil {
+		sp.Update(fmt.Sprintf("Instalando %s via %s (%s)...", tool.Name, target.Type, target.PackageID))
 	}
 
 	var err error
@@ -501,25 +541,41 @@ func (r *Runner) Install(tool catalog.Tool) error {
 	elapsed := time.Since(start).Round(time.Millisecond)
 
 	if err != nil {
-		fmt.Printf("✖ Falha ao instalar %s (%s): %v\n", tool.Name, elapsed, err)
+		if sp != nil {
+			sp.Stop(false, fmt.Sprintf("Falha ao instalar %s (%s): %v", tool.Name, elapsed, err))
+		} else {
+			fmt.Printf("✖ Falha ao instalar %s (%s): %v\n", tool.Name, elapsed, err)
+		}
 		LogOp("install %s fim rc=1 erro=%v", tool.ID, err)
 		return err
 	}
 
 	// Validação de integridade SHA-256 opcional pós-instalação
 	if target.SHA256 != "" {
+		if sp != nil {
+			sp.Update(fmt.Sprintf("Validando integridade SHA-256 de %s...", tool.Name))
+		}
 		binPath := r.findTargetBinaryPath(tool, target)
 		if binPath != "" {
 			if vErr := VerifyFileSHA256(binPath, target.SHA256); vErr != nil {
 				_ = os.Remove(binPath)
+				if sp != nil {
+					sp.Stop(false, fmt.Sprintf("Falha na integridade SHA-256 de %s: %v", tool.Name, vErr))
+				}
 				LogOp("install %s fim rc=1 erro_sha256=%v", tool.ID, vErr)
 				return fmt.Errorf("falha na integridade SHA-256 de %s: %w", tool.Name, vErr)
 			}
-			fmt.Printf("✔ Integridade SHA-256 verificada com sucesso para %s.\n", tool.Name)
+			if sp == nil {
+				fmt.Printf("✔ Integridade SHA-256 verificada com sucesso para %s.\n", tool.Name)
+			}
 		}
 	}
 
-	fmt.Printf("✔ %s instalado com sucesso em %s.\n", tool.Name, elapsed)
+	if sp != nil {
+		sp.Stop(true, fmt.Sprintf("%s instalado com sucesso em %s.", tool.Name, elapsed))
+	} else {
+		fmt.Printf("✔ %s instalado com sucesso em %s.\n", tool.Name, elapsed)
+	}
 	LogOp("install %s fim rc=0 duracao=%s", tool.ID, elapsed)
 	return r.reg.MarkInstalled(tool.ID)
 }
@@ -643,7 +699,9 @@ func (r *Runner) installScript(id string, target *catalog.Target) error {
 		}
 	case "temurin":
 		if r.sysInfo.OS == system.OSLinux {
-			return r.executor.Execute("sh", "-c", "mkdir -p $HOME/.local/share/adoptium && curl -fsSL 'https://api.adoptium.net/v3/binary/latest/21/ga/linux/x64/jdk/hotspot/normal/eclipse' | tar -xz -C $HOME/.local/share/adoptium --strip-components=1 && mkdir -p $HOME/.local/bin && ln -sf $HOME/.local/share/adoptium/bin/java $HOME/.local/bin/java")
+			arch := r.adoptiumArch()
+			cmd := fmt.Sprintf("mkdir -p $HOME/.local/share/adoptium && curl -fsSL 'https://api.adoptium.net/v3/binary/latest/21/ga/linux/%s/jdk/hotspot/normal/eclipse' | tar -xz -C $HOME/.local/share/adoptium --strip-components=1 && mkdir -p $HOME/.local/bin && ln -sf $HOME/.local/share/adoptium/bin/java $HOME/.local/bin/java", arch)
+			return r.executor.Execute("sh", "-c", cmd)
 		}
 	case "ghidra":
 		if r.sysInfo.OS == system.OSLinux {
@@ -658,7 +716,24 @@ func (r *Runner) installScript(id string, target *catalog.Target) error {
 	return fmt.Errorf("script de instalação direta não implementado para: %s", id)
 }
 
+// adoptiumArch mapeia a arquitetura do sistema (r.sysInfo.Arch) para o identificador da API do Adoptium.
+// amd64 -> x64, arm64 -> aarch64, arm -> arm, default -> x64
+func (r *Runner) adoptiumArch() string {
+	switch r.sysInfo.Arch {
+	case "arm64":
+		return "aarch64"
+	case "arm":
+		return "arm"
+	default:
+		return "x64"
+	}
+}
+
 func (r *Runner) Uninstall(tool catalog.Tool) error {
+	return r.uninstallInternal(tool, "", true)
+}
+
+func (r *Runner) uninstallInternal(tool catalog.Tool, prefix string, showVisual bool) error {
 	target := tool.TargetForCurrentOS()
 	if target == nil {
 		return fmt.Errorf("ferramenta %s (%s) não é compatível com %s", tool.Name, tool.ID, r.sysInfo.OS)
@@ -666,12 +741,21 @@ func (r *Runner) Uninstall(tool catalog.Tool) error {
 
 	LogOp("uninstall %s inicio", tool.ID)
 	start := time.Now()
-	fmt.Printf("=== Desinstalando %s (%s) ===\n", tool.Name, tool.ID)
 
 	if r.dryRun {
 		fmt.Printf("[DRY-RUN] Simulando desinstalação de %s via %s (%s)\n", tool.Name, target.Type, target.PackageID)
 		LogOp("uninstall %s fim rc=0 dry-run", tool.ID)
 		return r.reg.MarkUninstalled(tool.ID)
+	}
+
+	var sp *Spinner
+	if showVisual {
+		sp = NewSpinner(prefix, fmt.Sprintf("Desinstalando %s...", tool.Name))
+		sp.Start()
+	} else if prefix != "" {
+		fmt.Printf("➜ %s Desinstalando %s...\n", prefix, tool.Name)
+	} else {
+		fmt.Printf("=== Desinstalando %s (%s) ===\n", tool.Name, tool.ID)
 	}
 
 	var err error
@@ -713,6 +797,12 @@ func (r *Runner) Uninstall(tool catalog.Tool) error {
 			_ = os.Remove(filepath.Join(os.Getenv("HOME"), ".local", "bin", "openmausbot"))
 		} else if tool.ID == "opengym" || tool.ID == "openstock" || tool.ID == "openmaicapp" {
 			_ = os.RemoveAll(filepath.Join(os.Getenv("HOME"), ".local", "share", "apps", tool.ID))
+		} else if tool.ID == "temurin" {
+			_ = os.RemoveAll(filepath.Join(os.Getenv("HOME"), ".local", "share", "adoptium"))
+			_ = os.Remove(filepath.Join(os.Getenv("HOME"), ".local", "bin", "java"))
+		} else if tool.ID == "ghidra" {
+			_ = os.RemoveAll(filepath.Join(os.Getenv("HOME"), ".local", "share", "ghidra"))
+			_ = os.Remove(filepath.Join(os.Getenv("HOME"), ".local", "bin", "ghidra"))
 		}
 		err = r.reg.MarkUninstalled(tool.ID)
 
@@ -726,17 +816,29 @@ func (r *Runner) Uninstall(tool catalog.Tool) error {
 	elapsed := time.Since(start).Round(time.Millisecond)
 
 	if err != nil {
-		fmt.Printf("✖ Falha ao desinstalar %s (%s): %v\n", tool.Name, elapsed, err)
+		if sp != nil {
+			sp.Stop(false, fmt.Sprintf("Falha ao desinstalar %s (%s): %v", tool.Name, elapsed, err))
+		} else {
+			fmt.Printf("✖ Falha ao desinstalar %s (%s): %v\n", tool.Name, elapsed, err)
+		}
 		LogOp("uninstall %s fim rc=1 erro=%v", tool.ID, err)
 		return err
 	}
 
-	fmt.Printf("✔ %s removido com sucesso em %s.\n", tool.Name, elapsed)
+	if sp != nil {
+		sp.Stop(true, fmt.Sprintf("%s removido com sucesso em %s.", tool.Name, elapsed))
+	} else {
+		fmt.Printf("✔ %s removido com sucesso em %s.\n", tool.Name, elapsed)
+	}
 	LogOp("uninstall %s fim rc=0 duracao=%s", tool.ID, elapsed)
 	return r.reg.MarkUninstalled(tool.ID)
 }
 
 func (r *Runner) Update(tool catalog.Tool) error {
+	return r.updateInternal(tool, "", true)
+}
+
+func (r *Runner) updateInternal(tool catalog.Tool, prefix string, showVisual bool) error {
 	target := tool.TargetForCurrentOS()
 	if target == nil {
 		return fmt.Errorf("ferramenta %s (%s) não é compatível com %s", tool.Name, tool.ID, r.sysInfo.OS)
@@ -744,7 +846,6 @@ func (r *Runner) Update(tool catalog.Tool) error {
 
 	LogOp("update %s inicio", tool.ID)
 	start := time.Now()
-	fmt.Printf("=== Atualizando %s (%s) ===\n", tool.Name, tool.ID)
 
 	if r.dryRun {
 		fmt.Printf("[DRY-RUN] Simulando atualização de %s via %s (%s)\n", tool.Name, target.Type, target.PackageID)
@@ -752,11 +853,32 @@ func (r *Runner) Update(tool catalog.Tool) error {
 		return nil
 	}
 
+	var sp *Spinner
+	if showVisual {
+		sp = NewSpinner(prefix, fmt.Sprintf("Atualizando %s via %s...", tool.Name, target.Type))
+		sp.Start()
+	} else if prefix != "" {
+		fmt.Printf("➜ %s Atualizando %s...\n", prefix, tool.Name)
+	} else {
+		fmt.Printf("=== Atualizando %s (%s) ===\n", tool.Name, tool.ID)
+	}
+
 	// Auto-provisionamento de runtime
+	if sp != nil {
+		sp.Update(fmt.Sprintf("Verificando runtime para %s...", tool.Name))
+	}
 	if err := r.ensureRuntime(tool.ID, target); err != nil {
-		fmt.Printf("✖ Falha ao provisionar runtime para %s: %v\n", tool.Name, err)
+		if sp != nil {
+			sp.Stop(false, fmt.Sprintf("Falha ao provisionar runtime para %s: %v", tool.Name, err))
+		} else {
+			fmt.Printf("✖ Falha ao provisionar runtime para %s: %v\n", tool.Name, err)
+		}
 		LogOp("update %s fim rc=1 erro_runtime=%v", tool.ID, err)
 		return err
+	}
+
+	if sp != nil {
+		sp.Update(fmt.Sprintf("Atualizando %s via %s (%s)...", tool.Name, target.Type, target.PackageID))
 	}
 
 	var err error
@@ -806,12 +928,20 @@ func (r *Runner) Update(tool catalog.Tool) error {
 	elapsed := time.Since(start).Round(time.Millisecond)
 
 	if err != nil {
-		fmt.Printf("✖ Falha ao atualizar %s (%s): %v\n", tool.Name, elapsed, err)
+		if sp != nil {
+			sp.Stop(false, fmt.Sprintf("Falha ao atualizar %s (%s): %v", tool.Name, elapsed, err))
+		} else {
+			fmt.Printf("✖ Falha ao atualizar %s (%s): %v\n", tool.Name, elapsed, err)
+		}
 		LogOp("update %s fim rc=1 erro=%v", tool.ID, err)
 		return err
 	}
 
-	fmt.Printf("✔ %s atualizado com sucesso em %s.\n", tool.Name, elapsed)
+	if sp != nil {
+		sp.Stop(true, fmt.Sprintf("%s atualizado com sucesso em %s.", tool.Name, elapsed))
+	} else {
+		fmt.Printf("✔ %s atualizado com sucesso em %s.\n", tool.Name, elapsed)
+	}
 	LogOp("update %s fim rc=0 duracao=%s", tool.ID, elapsed)
 	return nil
 }
@@ -885,7 +1015,9 @@ func (r *Runner) RunBatchInstall(tools []catalog.Tool) (int, int) {
 func (r *Runner) runBatchInstallSkillsParallel(tools []catalog.Tool) (int, int) {
 	total := len(tools)
 	overallStart := time.Now()
-	fmt.Printf("\n⚡ Executando clone concorrente de %d skills (worker pool de 4)...\n", total)
+
+	sp := NewSpinner("", fmt.Sprintf("Clonando concorrentemente %d skills (worker pool de 4)...", total))
+	sp.Start()
 
 	type skillResult struct {
 		tool catalog.Tool
@@ -905,7 +1037,7 @@ func (r *Runner) runBatchInstallSkillsParallel(tools []catalog.Tool) (int, int) 
 			defer func() { <-sem }()
 
 			start := time.Now()
-			err := r.Install(tool)
+			err := r.installInternal(tool, "", false)
 			results <- skillResult{
 				tool: tool,
 				err:  err,
@@ -923,14 +1055,23 @@ func (r *Runner) runBatchInstallSkillsParallel(tools []catalog.Tool) (int, int) 
 	count := 0
 	for res := range results {
 		count++
+		pct := float64(count) / float64(total)
+		bar := RenderProgressBar(14, pct)
+		sp.Update(fmt.Sprintf("%s [%d/%d skills] Clonando concorrentemente...", bar, count, total))
+
 		if res.err != nil {
 			fail++
+			fmt.Printf("  ↳ %s [%d/%d] %s (%s): %v\n",
+				styleError.Render("✖"), count, total, res.tool.Name, res.dur, res.err)
 		} else {
 			ok++
+			fmt.Printf("  ↳ %s [%d/%d] %s (%s)\n",
+				styleSuccess.Render("✔"), count, total, res.tool.Name, res.dur)
 		}
 	}
 
-	fmt.Printf("\nResumo das Skills: %d instalada(s), %d falha(s) em %s.\n", ok, fail, time.Since(overallStart).Round(time.Millisecond))
+	overallDur := time.Since(overallStart).Round(time.Millisecond)
+	sp.Stop(fail == 0, fmt.Sprintf("Resumo das Skills: %d instalada(s), %d falha(s) em %s.", ok, fail, overallDur))
 	return ok, fail
 }
 
@@ -965,8 +1106,9 @@ func (r *Runner) runBatchInstallPartitioned(tools []catalog.Tool) (int, int) {
 			}
 		}
 
-		fmt.Printf("\n--- [%d/%d] ---\n", i+1, total)
-		if err := r.Install(t); err != nil {
+		pct := float64(i) / float64(total)
+		prefix := fmt.Sprintf("[%d/%d] %s", i+1, total, RenderProgressBar(14, pct))
+		if err := r.installInternal(t, prefix, true); err != nil {
 			fail++
 		} else {
 			ok++
@@ -974,7 +1116,9 @@ func (r *Runner) runBatchInstallPartitioned(tools []catalog.Tool) (int, int) {
 		i++
 	}
 
-	fmt.Printf("\nResumo: %d instalado(s), %d falha(s) em %s.\n", ok, fail, time.Since(overallStart).Round(time.Millisecond))
+	overallDur := time.Since(overallStart).Round(time.Millisecond)
+	fmt.Printf("\nResumo do Lote: %s %d instalado(s), %d falha(s) em %s.\n",
+		RenderProgressBar(14, 1.0), ok, fail, overallDur)
 	return ok, fail
 }
 
@@ -984,14 +1128,17 @@ func (r *Runner) RunBatchUninstall(tools []catalog.Tool) (int, int) {
 	overallStart := time.Now()
 
 	for i, t := range tools {
-		fmt.Printf("\n--- [%d/%d] ---\n", i+1, total)
-		if err := r.Uninstall(t); err != nil {
+		pct := float64(i) / float64(total)
+		prefix := fmt.Sprintf("[%d/%d] %s", i+1, total, RenderProgressBar(14, pct))
+		if err := r.uninstallInternal(t, prefix, true); err != nil {
 			fail++
 		} else {
 			ok++
 		}
 	}
-	fmt.Printf("\nResumo: %d removido(s), %d falha(s) em %s.\n", ok, fail, time.Since(overallStart).Round(time.Millisecond))
+	overallDur := time.Since(overallStart).Round(time.Millisecond)
+	fmt.Printf("\nResumo da Remoção: %s %d removido(s), %d falha(s) em %s.\n",
+		RenderProgressBar(14, 1.0), ok, fail, overallDur)
 	return ok, fail
 }
 
@@ -1001,14 +1148,17 @@ func (r *Runner) RunBatchUpdate(tools []catalog.Tool) (int, int) {
 	overallStart := time.Now()
 
 	for i, t := range tools {
-		fmt.Printf("\n--- [%d/%d] ---\n", i+1, total)
-		if err := r.Update(t); err != nil {
+		pct := float64(i) / float64(total)
+		prefix := fmt.Sprintf("[%d/%d] %s", i+1, total, RenderProgressBar(14, pct))
+		if err := r.updateInternal(t, prefix, true); err != nil {
 			fail++
 		} else {
 			ok++
 		}
 	}
-	fmt.Printf("\nResumo: %d atualizado(s), %d falha(s) em %s.\n", ok, fail, time.Since(overallStart).Round(time.Millisecond))
+	overallDur := time.Since(overallStart).Round(time.Millisecond)
+	fmt.Printf("\nResumo da Atualização: %s %d atualizado(s), %d falha(s) em %s.\n",
+		RenderProgressBar(14, 1.0), ok, fail, overallDur)
 	return ok, fail
 }
 

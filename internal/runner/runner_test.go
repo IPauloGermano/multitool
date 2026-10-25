@@ -9,6 +9,7 @@ import (
 
 	"github.com/IPauloGermano/multitool/internal/catalog"
 	"github.com/IPauloGermano/multitool/internal/registry"
+	"github.com/IPauloGermano/multitool/internal/system"
 )
 
 type MockExecutor struct {
@@ -334,5 +335,45 @@ func TestTypeBrewExecution(t *testing.T) {
 	lastCmd := strings.Join(mock.executed[len(mock.executed)-1], " ")
 	if !strings.Contains(lastCmd, "brew install formula-test") {
 		t.Errorf("Comando inesperado para brew install: %s", lastCmd)
+	}
+}
+
+func TestTemurinDynamicArchDownload(t *testing.T) {
+	tempDir := t.TempDir()
+	regPath := filepath.Join(tempDir, "installed.json")
+	reg, _ := registry.New(regPath)
+
+	tool := catalog.FindTool("temurin")
+	if tool == nil {
+		t.Fatalf("Ferramenta 'temurin' não encontrada no catálogo")
+	}
+
+	tests := []struct {
+		arch     string
+		expected string
+	}{
+		{arch: "amd64", expected: "/linux/x64/"},
+		{arch: "arm64", expected: "/linux/aarch64/"},
+		{arch: "arm", expected: "/linux/arm/"},
+		{arch: "unknown", expected: "/linux/x64/"},
+	}
+
+	for _, tt := range tests {
+		mock := &MockExecutor{}
+		r := NewWithExecutor(reg, mock, false)
+		r.sysInfo.OS = system.OSLinux
+		r.sysInfo.Arch = tt.arch
+
+		if err := r.installScript("temurin", tool.Linux); err != nil {
+			t.Fatalf("Erro ao executar installScript temurin com arch=%s: %v", tt.arch, err)
+		}
+
+		if len(mock.executed) == 0 {
+			t.Fatalf("Nenhum comando executado para arch=%s", tt.arch)
+		}
+		cmdStr := strings.Join(mock.executed[len(mock.executed)-1], " ")
+		if !strings.Contains(cmdStr, tt.expected) {
+			t.Errorf("Para arch=%s esperava substring %q no comando, obteve: %s", tt.arch, tt.expected, cmdStr)
+		}
 	}
 }
