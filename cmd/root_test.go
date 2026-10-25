@@ -127,8 +127,8 @@ func TestRootCommands(t *testing.T) {
 	if !reg.IsInstalled("ghidra") {
 		t.Errorf("ghidra deveria estar registrado após install dry-run")
 	}
-	if !reg.IsInstalled("temurin") {
-		t.Errorf("dependência temurin deveria estar registrada após install dry-run de ghidra")
+	if !reg.IsInstalled("temurin") && !strings.Contains(buf.String(), "já está disponível no sistema") {
+		t.Errorf("dependência temurin deveria estar registrada após install dry-run de ghidra ou reportada como já disponível: %s", buf.String())
 	}
 
 	// 10. Teste 'info git' com alvo macOS
