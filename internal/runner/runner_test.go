@@ -488,3 +488,33 @@ func TestUninstallScriptCleanup(t *testing.T) {
 		}
 	}
 }
+
+func TestGhidraInstallScriptResilience(t *testing.T) {
+	tempDir := t.TempDir()
+	regPath := filepath.Join(tempDir, "installed.json")
+	reg, _ := registry.New(regPath)
+
+	tool := catalog.FindTool("ghidra")
+	if tool == nil {
+		t.Fatalf("Ferramenta 'ghidra' não encontrada")
+	}
+
+	mock := &MockExecutor{}
+	r := NewWithExecutor(reg, mock, false)
+	r.sysInfo.OS = system.OSLinux
+
+	if err := r.installScript("ghidra", tool.Linux); err != nil {
+		t.Fatalf("Erro ao executar installScript ghidra: %v", err)
+	}
+
+	if len(mock.executed) == 0 {
+		t.Fatalf("Nenhum comando executado para ghidra")
+	}
+	cmdStr := strings.Join(mock.executed[len(mock.executed)-1], " ")
+	if !strings.Contains(cmdStr, "python3 -m zipfile") {
+		t.Errorf("Comando de instalação do ghidra deve conter fallback para python3 -m zipfile: %s", cmdStr)
+	}
+	if !strings.Contains(cmdStr, "command -v unzip") {
+		t.Errorf("Comando de instalação do ghidra deve verificar command -v unzip: %s", cmdStr)
+	}
+}

@@ -401,6 +401,16 @@ func (r *Runner) ensureRuntime(toolID string, target *catalog.Target) error {
 				brew:     []string{"git"},
 				wingetID: "Git.Git",
 			}
+		} else if toolID == "ghidra" && !r.haveCommand("unzip") && !r.haveCommand("python3") {
+			req = &runtimePkg{
+				command: "unzip",
+				apt:     []string{"unzip"},
+				dnf:     []string{"unzip"},
+				pacman:  []string{"unzip"},
+				zypper:  []string{"unzip"},
+				eopkg:   []string{"unzip"},
+				brew:    []string{"unzip"},
+			}
 		}
 	}
 
@@ -799,7 +809,24 @@ func (r *Runner) installScriptWithActivity(actFn func(string), id string, target
 		}
 	case "ghidra":
 		if r.sysInfo.OS == system.OSLinux {
-			return r.execWithActivity(actFn, "sh", "-c", "mkdir -p $HOME/.local/share/ghidra && curl -fsSL 'https://github.com/NationalSecurityAgency/ghidra/releases/download/Ghidra_11.1.2_build/ghidra_11.1.2_PUBLIC_20240709.zip' -o /tmp/ghidra.zip && unzip -q /tmp/ghidra.zip -d /tmp && mv /tmp/ghidra_*/* $HOME/.local/share/ghidra && mkdir -p $HOME/.local/bin && ln -sf $HOME/.local/share/ghidra/ghidraRun $HOME/.local/bin/ghidra")
+			cmd := "mkdir -p $HOME/.local/share/ghidra && " +
+				"curl -fsSL 'https://github.com/NationalSecurityAgency/ghidra/releases/download/Ghidra_11.1.2_build/ghidra_11.1.2_PUBLIC_20240709.zip' -o /tmp/ghidra.zip && " +
+				"if command -v unzip >/dev/null 2>&1; then " +
+				"  unzip -q /tmp/ghidra.zip -d /tmp; " +
+				"elif command -v python3 >/dev/null 2>&1; then " +
+				"  python3 -m zipfile -e /tmp/ghidra.zip /tmp; " +
+				"elif [ -x \"$HOME/.local/share/adoptium/bin/jar\" ]; then " +
+				"  (cd /tmp && \"$HOME/.local/share/adoptium/bin/jar\" xf /tmp/ghidra.zip); " +
+				"elif command -v jar >/dev/null 2>&1; then " +
+				"  (cd /tmp && jar xf /tmp/ghidra.zip); " +
+				"else " +
+				"  unzip -q /tmp/ghidra.zip -d /tmp; " +
+				"fi && " +
+				"mv /tmp/ghidra_*/* $HOME/.local/share/ghidra && " +
+				"rm -rf /tmp/ghidra_* /tmp/ghidra.zip && " +
+				"chmod +x $HOME/.local/share/ghidra/ghidraRun && " +
+				"mkdir -p $HOME/.local/bin && ln -sf $HOME/.local/share/ghidra/ghidraRun $HOME/.local/bin/ghidra"
+			return r.execWithActivity(actFn, "sh", "-c", cmd)
 		}
 	case "ohmyzsh":
 		if r.sysInfo.OS == system.OSLinux {
