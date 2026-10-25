@@ -146,3 +146,9 @@ make build-windows
 # Compilar todas as plataformas de uma só vez (Linux, Windows, macOS)
 make build-all
 ```
+
+---
+
+## 📄 Licença
+
+Distribuído sob a licença **MIT**. Consulte o arquivo [`LICENSE`](LICENSE) para mais informações.
