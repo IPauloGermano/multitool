@@ -162,6 +162,11 @@ func TestFindToolAndAliases(t *testing.T) {
 		{"artcraft", "artcraft"},
 		{"storytold/artcraft", "artcraft"},
 		{"https://github.com/storytold/artcraft", "artcraft"},
+		{"qbittorrent", "qbittorrent"},
+		{"qbit", "qbittorrent"},
+		{"q-bittorrent", "qbittorrent"},
+		{"qbittorrent/qbittorrent", "qbittorrent"},
+		{"https://github.com/qbittorrent/qBittorrent", "qbittorrent"},
 	}
 
 	for _, tc := range testCases {

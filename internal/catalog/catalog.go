@@ -116,6 +116,9 @@ var toolAliases = map[string]string{
 	"heygen-com/hyperframes":        "hyperframes",
 	"universal-modder":              "universalmodder",
 	"rehan-remade/universal-modder": "universalmodder",
+	"qbittorrent/qbittorrent":       "qbittorrent",
+	"qbit":                          "qbittorrent",
+	"q-bittorrent":                  "qbittorrent",
 	"nousresearch/hermes":           "hermes",
 	"hermes-agent":                  "hermes",
 	"stablyai/orca":                 "orca",
@@ -813,6 +816,11 @@ var catalogList = []Tool{
 		ID: "protonge", Name: "Proton-GE", Category: "Desktop", Description: "Compatibilidade Windows no Steam",
 		Windows: nil,
 		Linux:   &Target{Type: TypeScript, PackageID: "protonge", Binary: "protonge"},
+	},
+	{
+		ID: "qbittorrent", Name: "qBittorrent", Category: "Desktop", Description: "Cliente BitTorrent open-source moderno e leve em C++ / Qt",
+		Windows: &Target{Type: TypeWinget, PackageID: "qBittorrent.qBittorrent", Binary: "qbittorrent.exe"},
+		Linux:   &Target{Type: TypeNative, PackageID: "qbittorrent", Binary: "qbittorrent"},
 	},
 	{
 		ID: "rea", Name: "REA", Category: "Agentes", Description: "Toolkit e MCP server de engenharia reversa para agentes IA",
