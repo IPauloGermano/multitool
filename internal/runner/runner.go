@@ -1,6 +1,7 @@
 package runner
 
 import (
+	"archive/zip"
 	"bufio"
 	"crypto/sha256"
 	"encoding/hex"
@@ -613,25 +614,8 @@ func (r *Runner) installInternal(tool catalog.Tool, prefix string, showVisual bo
 		err = r.installGitSkillWithActivity(actFn, tool.ID, target.PackageID)
 
 	case catalog.TypeDirect:
-		if tool.ID == "orca" {
-			err = r.execWithActivity(actFn, "powershell", "-NoProfile", "-Command", "Invoke-WebRequest -Uri https://github.com/stablyai/orca/releases/latest/download/orca-windows-setup.exe -OutFile $env:TEMP\\orca-setup.exe; Start-Process -FilePath $env:TEMP\\orca-setup.exe -ArgumentList '/S' -Wait")
-		} else if tool.ID == "openmausbot" {
-			err = r.execWithActivity(actFn, "powershell", "-NoProfile", "-Command", "Invoke-WebRequest -Uri https://github.com/milind-soni/OpenMausBot/releases/latest/download/OpenMausBot-setup.exe -OutFile $env:TEMP\\OpenMausBot-setup.exe; Start-Process -FilePath $env:TEMP\\OpenMausBot-setup.exe -ArgumentList '/S' -Wait")
-		} else if tool.ID == "apktool" {
-			err = r.execWithActivity(actFn, "powershell", "-NoProfile", "-Command", "New-Item -ItemType Directory -Force -Path $env:LOCALAPPDATA\\multitool\\bin; Invoke-WebRequest -Uri https://raw.githubusercontent.com/iBotPeaches/Apktool/master/scripts/windows/apktool.bat -OutFile $env:LOCALAPPDATA\\multitool\\bin\\apktool.bat; Invoke-WebRequest -Uri https://github.com/iBotPeaches/Apktool/releases/latest/download/apktool.jar -OutFile $env:LOCALAPPDATA\\multitool\\bin\\apktool.jar")
-		} else if tool.ID == "ghidra" {
-			psCmd := "New-Item -ItemType Directory -Force -Path $env:LOCALAPPDATA\\multitool\\bin, $env:LOCALAPPDATA\\multitool\\ghidra | Out-Null; " +
-				"$zip = \"$env:TEMP\\ghidra.zip\"; " +
-				"$ext = \"$env:TEMP\\ghidra_ext\"; " +
-				"Invoke-WebRequest -Uri 'https://github.com/NationalSecurityAgency/ghidra/releases/download/Ghidra_11.1.2_build/ghidra_11.1.2_PUBLIC_20240709.zip' -OutFile $zip; " +
-				"Expand-Archive -Path $zip -DestinationPath $ext -Force; " +
-				"$dir = Get-ChildItem -Path \"$ext\\ghidra_*\" | Select-Object -First 1; " +
-				"Copy-Item -Path \"$($dir.FullName)\\*\" -Destination \"$env:LOCALAPPDATA\\multitool\\ghidra\" -Recurse -Force; " +
-				"Remove-Item -Path $zip, $ext -Recurse -Force; " +
-				"Set-Content -Path \"$env:LOCALAPPDATA\\multitool\\bin\\ghidraRun.bat\" -Value \"@echo off`r`ncall `\"$env:LOCALAPPDATA\\multitool\\ghidra\\ghidraRun.bat`\" %*\"; " +
-				"Set-Content -Path \"$env:LOCALAPPDATA\\multitool\\bin\\ghidra.bat\" -Value \"@echo off`r`ncall `\"$env:LOCALAPPDATA\\multitool\\ghidra\\ghidraRun.bat`\" %*\"; " +
-				"$bin = \"$env:LOCALAPPDATA\\multitool\\bin\"; $p = [Environment]::GetEnvironmentVariable('Path', 'User'); if ($p -notlike \"*$bin*\") { [Environment]::SetEnvironmentVariable('Path', \"$bin;$p\", 'User') }"
-			err = r.execWithActivity(actFn, "powershell", "-NoProfile", "-Command", psCmd)
+		if tool.ID == "orca" || tool.ID == "openmausbot" || tool.ID == "apktool" || tool.ID == "ghidra" {
+			err = r.installDirectWindowsWithActivity(actFn, tool.ID)
 		} else {
 			err = r.installGitSkillWithActivity(actFn, tool.ID, target.PackageID)
 		}
@@ -1201,25 +1185,8 @@ func (r *Runner) updateInternal(tool catalog.Tool, prefix string, showVisual boo
 		err = r.installGitSkill(tool.ID, target.PackageID)
 
 	case catalog.TypeDirect:
-		if tool.ID == "orca" {
-			err = r.executor.Execute("powershell", "-NoProfile", "-Command", "Invoke-WebRequest -Uri https://github.com/stablyai/orca/releases/latest/download/orca-windows-setup.exe -OutFile $env:TEMP\\orca-setup.exe; Start-Process -FilePath $env:TEMP\\orca-setup.exe -ArgumentList '/S' -Wait")
-		} else if tool.ID == "openmausbot" {
-			err = r.executor.Execute("powershell", "-NoProfile", "-Command", "Invoke-WebRequest -Uri https://github.com/milind-soni/OpenMausBot/releases/latest/download/OpenMausBot-setup.exe -OutFile $env:TEMP\\OpenMausBot-setup.exe; Start-Process -FilePath $env:TEMP\\OpenMausBot-setup.exe -ArgumentList '/S' -Wait")
-		} else if tool.ID == "apktool" {
-			err = r.executor.Execute("powershell", "-NoProfile", "-Command", "New-Item -ItemType Directory -Force -Path $env:LOCALAPPDATA\\multitool\\bin; Invoke-WebRequest -Uri https://raw.githubusercontent.com/iBotPeaches/Apktool/master/scripts/windows/apktool.bat -OutFile $env:LOCALAPPDATA\\multitool\\bin\\apktool.bat; Invoke-WebRequest -Uri https://github.com/iBotPeaches/Apktool/releases/latest/download/apktool.jar -OutFile $env:LOCALAPPDATA\\multitool\\bin\\apktool.jar")
-		} else if tool.ID == "ghidra" {
-			psCmd := "New-Item -ItemType Directory -Force -Path $env:LOCALAPPDATA\\multitool\\bin, $env:LOCALAPPDATA\\multitool\\ghidra | Out-Null; " +
-				"$zip = \"$env:TEMP\\ghidra.zip\"; " +
-				"$ext = \"$env:TEMP\\ghidra_ext\"; " +
-				"Invoke-WebRequest -Uri 'https://github.com/NationalSecurityAgency/ghidra/releases/download/Ghidra_11.1.2_build/ghidra_11.1.2_PUBLIC_20240709.zip' -OutFile $zip; " +
-				"Expand-Archive -Path $zip -DestinationPath $ext -Force; " +
-				"$dir = Get-ChildItem -Path \"$ext\\ghidra_*\" | Select-Object -First 1; " +
-				"Copy-Item -Path \"$($dir.FullName)\\*\" -Destination \"$env:LOCALAPPDATA\\multitool\\ghidra\" -Recurse -Force; " +
-				"Remove-Item -Path $zip, $ext -Recurse -Force; " +
-				"Set-Content -Path \"$env:LOCALAPPDATA\\multitool\\bin\\ghidraRun.bat\" -Value \"@echo off`r`ncall `\"$env:LOCALAPPDATA\\multitool\\ghidra\\ghidraRun.bat`\" %*\"; " +
-				"Set-Content -Path \"$env:LOCALAPPDATA\\multitool\\bin\\ghidra.bat\" -Value \"@echo off`r`ncall `\"$env:LOCALAPPDATA\\multitool\\ghidra\\ghidraRun.bat`\" %*\"; " +
-				"$bin = \"$env:LOCALAPPDATA\\multitool\\bin\"; $p = [Environment]::GetEnvironmentVariable('Path', 'User'); if ($p -notlike \"*$bin*\") { [Environment]::SetEnvironmentVariable('Path', \"$bin;$p\", 'User') }"
-			err = r.executor.Execute("powershell", "-NoProfile", "-Command", psCmd)
+		if tool.ID == "orca" || tool.ID == "openmausbot" || tool.ID == "apktool" || tool.ID == "ghidra" {
+			err = r.installDirectWindows(tool.ID)
 		} else {
 			err = r.installGitSkill(tool.ID, target.PackageID)
 		}
@@ -1269,6 +1236,134 @@ func (r *Runner) getSkillDir(id string) string {
 
 func (r *Runner) installGitSkill(id, packageID string) error {
 	return r.installGitSkillWithActivity(nil, id, packageID)
+}
+
+func extractZipStripRoot(zipPath, destDir string) error {
+	zr, err := zip.OpenReader(zipPath)
+	if err != nil {
+		return err
+	}
+	defer zr.Close()
+
+	for _, f := range zr.File {
+		cleanName := filepath.ToSlash(f.Name)
+		parts := strings.Split(cleanName, "/")
+		if len(parts) <= 1 {
+			continue
+		}
+		subPath := filepath.Join(parts[1:]...)
+		destPath := filepath.Join(destDir, subPath)
+
+		if !strings.HasPrefix(destPath, filepath.Clean(destDir)+string(os.PathSeparator)) && destPath != filepath.Clean(destDir) {
+			continue
+		}
+
+		if f.FileInfo().IsDir() {
+			_ = os.MkdirAll(destPath, 0755)
+			continue
+		}
+
+		if err := os.MkdirAll(filepath.Dir(destPath), 0755); err != nil {
+			return err
+		}
+
+		rc, err := f.Open()
+		if err != nil {
+			return err
+		}
+		out, err := os.OpenFile(destPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, f.Mode())
+		if err != nil {
+			rc.Close()
+			return err
+		}
+		_, err = io.Copy(out, rc)
+		out.Close()
+		rc.Close()
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (r *Runner) installDirectWindows(toolID string) error {
+	return r.installDirectWindowsWithActivity(nil, toolID)
+}
+
+func (r *Runner) installDirectWindowsWithActivity(actFn func(string), toolID string) error {
+	localApp := os.Getenv("LOCALAPPDATA")
+	if localApp == "" {
+		home, _ := os.UserHomeDir()
+		localApp = filepath.Join(home, "AppData", "Local")
+	}
+	binDir := filepath.Join(localApp, "multitool", "bin")
+	if err := os.MkdirAll(binDir, 0755); err != nil {
+		return err
+	}
+
+	switch toolID {
+	case "ghidra":
+		ghidraDir := filepath.Join(localApp, "multitool", "ghidra")
+		if err := os.MkdirAll(ghidraDir, 0755); err != nil {
+			return err
+		}
+		zipPath := filepath.Join(os.TempDir(), "ghidra_dl.zip")
+		_ = os.Remove(zipPath)
+		defer os.Remove(zipPath)
+
+		zipURL := "https://github.com/NationalSecurityAgency/ghidra/releases/download/Ghidra_11.1.2_build/ghidra_11.1.2_PUBLIC_20240709.zip"
+		if err := r.execWithActivity(actFn, "curl.exe", "-fsSL", zipURL, "-o", zipPath); err != nil {
+			return err
+		}
+
+		if fi, err := os.Stat(zipPath); err == nil && fi.Size() > 0 {
+			if err := extractZipStripRoot(zipPath, ghidraDir); err != nil {
+				return fmt.Errorf("falha ao extrair Ghidra: %w", err)
+			}
+		}
+
+		batContent := "@echo off\r\ncall \"%LOCALAPPDATA%\\multitool\\ghidra\\ghidraRun.bat\" %*\r\n"
+		_ = os.WriteFile(filepath.Join(binDir, "ghidraRun.bat"), []byte(batContent), 0755)
+		_ = os.WriteFile(filepath.Join(binDir, "ghidra.bat"), []byte(batContent), 0755)
+		return nil
+
+	case "apktool":
+		batURL := "https://raw.githubusercontent.com/iBotPeaches/Apktool/master/scripts/windows/apktool.bat"
+		jarURL := "https://github.com/iBotPeaches/Apktool/releases/latest/download/apktool.jar"
+		batPath := filepath.Join(binDir, "apktool.bat")
+		jarPath := filepath.Join(binDir, "apktool.jar")
+
+		if err := r.execWithActivity(actFn, "curl.exe", "-fsSL", batURL, "-o", batPath); err != nil {
+			return err
+		}
+		if err := r.execWithActivity(actFn, "curl.exe", "-fsSL", jarURL, "-o", jarPath); err != nil {
+			return err
+		}
+		return nil
+
+	case "orca":
+		setupURL := "https://github.com/stablyai/orca/releases/latest/download/orca-windows-setup.exe"
+		setupPath := filepath.Join(os.TempDir(), "orca-setup.exe")
+		defer os.Remove(setupPath)
+
+		if err := r.execWithActivity(actFn, "curl.exe", "-fsSL", setupURL, "-o", setupPath); err != nil {
+			return err
+		}
+		return r.execWithActivity(actFn, setupPath, "/S")
+
+	case "openmausbot":
+		setupURL := "https://github.com/milind-soni/OpenMausBot/releases/latest/download/OpenMausBot-setup.exe"
+		setupPath := filepath.Join(os.TempDir(), "OpenMausBot-setup.exe")
+		defer os.Remove(setupPath)
+
+		if err := r.execWithActivity(actFn, "curl.exe", "-fsSL", setupURL, "-o", setupPath); err != nil {
+			return err
+		}
+		return r.execWithActivity(actFn, setupPath, "/S")
+
+	default:
+		return fmt.Errorf("ferramenta direta não suportada no Windows: %s", toolID)
+	}
 }
 
 func (r *Runner) installGitSkillWithActivity(actFn func(string), id, packageID string) error {

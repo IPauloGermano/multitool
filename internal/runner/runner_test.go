@@ -558,11 +558,17 @@ func TestGhidraWindowsInstallAndUninstall(t *testing.T) {
 		t.Fatalf("Nenhum comando executado na instalação do Ghidra no Windows")
 	}
 	lastCmd := strings.Join(mock.executed[len(mock.executed)-1], " ")
-	if !strings.Contains(lastCmd, "powershell") || !strings.Contains(lastCmd, "Invoke-WebRequest") || !strings.Contains(lastCmd, "ghidraRun.bat") {
-		t.Errorf("Comando PowerShell inesperado para Ghidra no Windows: %s", lastCmd)
+	if !strings.Contains(lastCmd, "curl.exe") || !strings.Contains(lastCmd, "ghidra") {
+		t.Errorf("Comando de download inesperado para Ghidra no Windows: %s", lastCmd)
 	}
 	if !reg.IsInstalled("ghidra") {
 		t.Errorf("Ghidra deveria estar registrado como instalado")
+	}
+	if _, err := os.Stat(ghidraBat); err != nil {
+		t.Errorf("Arquivo %s não foi criado na instalação de ghidra no Windows", ghidraBat)
+	}
+	if _, err := os.Stat(ghidraRunBat); err != nil {
+		t.Errorf("Arquivo %s não foi criado na instalação de ghidra no Windows", ghidraRunBat)
 	}
 
 	// 2. Desinstalação no Windows
