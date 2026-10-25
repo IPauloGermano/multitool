@@ -589,3 +589,85 @@ func TestGhidraWindowsInstallAndUninstall(t *testing.T) {
 		t.Errorf("Ghidra não deveria mais estar marcado como instalado no registro")
 	}
 }
+
+func TestArtcraftWindowsAndLinux(t *testing.T) {
+	tool := catalog.FindTool("artcraft")
+	if tool == nil {
+		t.Fatalf("Ferramenta 'artcraft' não encontrada no catálogo")
+	}
+
+	// 1. Teste no Windows
+	tempDirWin := t.TempDir()
+	regPathWin := filepath.Join(tempDirWin, "installed.json")
+	regWin, _ := registry.New(regPathWin)
+	mockWin := &MockExecutor{}
+	rWin := NewWithExecutor(regWin, mockWin, false)
+	rWin.sysInfo.OS = system.OSWindows
+
+	if err := rWin.Install(*tool); err != nil {
+		t.Fatalf("Erro ao instalar artcraft no Windows: %v", err)
+	}
+	if !regWin.IsInstalled("artcraft") {
+		t.Errorf("artcraft deveria estar registrado no Windows")
+	}
+	hasSilent := false
+	for _, cmd := range mockWin.executed {
+		for _, arg := range cmd {
+			if arg == "/S" {
+				hasSilent = true
+				break
+			}
+		}
+	}
+	if !hasSilent {
+		t.Errorf("Esperava flag silenciosa /S no instalador Windows do artcraft")
+	}
+
+	if err := rWin.Uninstall(*tool); err != nil {
+		t.Fatalf("Erro ao desinstalar artcraft no Windows: %v", err)
+	}
+	if regWin.IsInstalled("artcraft") {
+		t.Errorf("artcraft deveria estar desmarcado no Windows")
+	}
+
+	// 2. Teste no Linux
+	tempDirLin := t.TempDir()
+	t.Setenv("HOME", tempDirLin)
+	regPathLin := filepath.Join(tempDirLin, "installed.json")
+	regLin, _ := registry.New(regPathLin)
+	mockLin := &MockExecutor{}
+	rLin := NewWithExecutor(regLin, mockLin, false)
+	rLin.sysInfo.OS = system.OSLinux
+
+	if err := rLin.Install(*tool); err != nil {
+		t.Fatalf("Erro ao instalar artcraft no Linux: %v", err)
+	}
+	if !regLin.IsInstalled("artcraft") {
+		t.Errorf("artcraft deveria estar registrado no Linux")
+	}
+	hasClone := false
+	for _, cmd := range mockLin.executed {
+		cmdStr := strings.Join(cmd, " ")
+		if strings.Contains(cmdStr, "git clone") && strings.Contains(cmdStr, "storytold/artcraft") {
+			hasClone = true
+			break
+		}
+	}
+	if !hasClone {
+		t.Errorf("Esperava comando de git clone para storytold/artcraft no Linux")
+	}
+
+	// Cria pasta simulada em ~/.local/share/apps/artcraft
+	appDir := filepath.Join(tempDirLin, ".local", "share", "apps", "artcraft")
+	_ = os.MkdirAll(appDir, 0755)
+
+	if err := rLin.Uninstall(*tool); err != nil {
+		t.Fatalf("Erro ao desinstalar artcraft no Linux: %v", err)
+	}
+	if _, err := os.Stat(appDir); !os.IsNotExist(err) {
+		t.Errorf("Diretório %s ainda existe após uninstall de artcraft no Linux", appDir)
+	}
+	if regLin.IsInstalled("artcraft") {
+		t.Errorf("artcraft deveria estar desmarcado no Linux")
+	}
+}

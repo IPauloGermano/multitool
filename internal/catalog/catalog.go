@@ -104,6 +104,9 @@ var packages = map[string][]string{
 }
 
 var toolAliases = map[string]string{
+	"storytold/artcraft":            "artcraft",
+	"storytold-artcraft":            "artcraft",
+	"art-craft":                     "artcraft",
 	"diagram-design":                "diagramdesign",
 	"cathrynlavery/diagram-design":  "diagramdesign",
 	"rea-agents":                    "rea",
@@ -221,6 +224,11 @@ var catalogList = []Tool{
 		ID: "archify", Name: "Archify", Category: "Skills", Description: "Skill de diagramas de arquitetura",
 		Windows: &Target{Type: TypeDirect, PackageID: "tt-a1i/archify", Binary: "SKILL.md"},
 		Linux:   &Target{Type: TypeSkill, PackageID: "tt-a1i/archify", Binary: "SKILL.md"},
+	},
+	{
+		ID: "artcraft", Name: "ArtCraft", Category: "Desktop", Description: "IDE desktop para criação, composição 2D/3D e direção visual com IA",
+		Windows: &Target{Type: TypeDirect, PackageID: "storytold/artcraft", Binary: "artcraft.exe"},
+		Linux:   &Target{Type: TypeScript, PackageID: "storytold/artcraft", Binary: "artcraft"},
 	},
 	{
 		ID: "astgrep", Name: "ast-grep", Category: "Agentes", Description: "Busca e reescrita de código baseada em AST",

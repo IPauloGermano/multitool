@@ -1,6 +1,6 @@
 # Catálogo Universal e Suítes
 
-O **Multitool** consolida **152 ferramentas** rigorosamente curadas para engenharia de software moderna, agentes de inteligência artificial, segurança e produtividade.
+O **Multitool** consolida **153 ferramentas** rigorosamente curadas para engenharia de software moderna, agentes de inteligência artificial, segurança e produtividade.
 
 ---
 
@@ -119,6 +119,7 @@ Abaixo estão alguns destaques da compatibilidade cruzada:
 | `claudecode` | Claude Code | Agentes | `@anthropic-ai/claude-code` (npm) | `@anthropic-ai/claude-code` (npm) |
 | `hermes` | Hermes Agent | Agentes | `hermes-agent` (npm) | script (`hermes-agent.nousresearch.com`) |
 | `orca` | Orca | Agentes | `stablyai/orca` (direct) | script (`orca-linux.AppImage`) |
+| `artcraft` | ArtCraft | Desktop | `storytold/artcraft` (direct) | script (`storytold/artcraft`) |
 | `universalmodder`| Universal Modder | Skills | `rehan-remade/universal-modder` (git) | `rehan-remade/universal-modder` (skill) |
 | `openshell` | OpenShell | Agentes | `openshell` (pipx) | `openshell` (pipx) |
 | `hallmark` | Hallmark | Skills | `Nutlope/hallmark` (direct) | `Nutlope/hallmark` (skill) |

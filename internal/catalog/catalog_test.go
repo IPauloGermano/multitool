@@ -159,6 +159,9 @@ func TestFindToolAndAliases(t *testing.T) {
 		{"x64dbg", "x64dbg"},
 		{"x64dbg/x64dbg", "x64dbg"},
 		{"https://github.com/x64dbg/x64dbg", "x64dbg"},
+		{"artcraft", "artcraft"},
+		{"storytold/artcraft", "artcraft"},
+		{"https://github.com/storytold/artcraft", "artcraft"},
 	}
 
 	for _, tc := range testCases {

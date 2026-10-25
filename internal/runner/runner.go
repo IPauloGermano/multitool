@@ -614,7 +614,7 @@ func (r *Runner) installInternal(tool catalog.Tool, prefix string, showVisual bo
 		err = r.installGitSkillWithActivity(actFn, tool.ID, target.PackageID)
 
 	case catalog.TypeDirect:
-		if tool.ID == "orca" || tool.ID == "openmausbot" || tool.ID == "apktool" || tool.ID == "ghidra" {
+		if tool.ID == "artcraft" || tool.ID == "orca" || tool.ID == "openmausbot" || tool.ID == "apktool" || tool.ID == "ghidra" {
 			err = r.installDirectWindowsWithActivity(actFn, tool.ID)
 		} else {
 			err = r.installGitSkillWithActivity(actFn, tool.ID, target.PackageID)
@@ -810,7 +810,7 @@ func (r *Runner) installScriptWithActivity(actFn func(string), id string, target
 		if r.sysInfo.OS == system.OSLinux {
 			return r.execWithActivity(actFn, "sh", "-c", "curl -fsSL https://get.docker.com | sh")
 		}
-	case "opengym", "openstock", "openmaicapp":
+	case "opengym", "openstock", "openmaicapp", "artcraft":
 		if r.sysInfo.OS == system.OSLinux {
 			repo := target.PackageID
 			return r.execWithActivity(actFn, "sh", "-c", fmt.Sprintf("mkdir -p $HOME/.local/share/apps && git clone --depth 1 https://github.com/%s $HOME/.local/share/apps/%s", repo, id))
@@ -958,7 +958,7 @@ func (r *Runner) uninstallScript(tool catalog.Tool, target *catalog.Target) erro
 			_ = os.Remove(filepath.Join(home, ".local", "bin", "openmausbot"))
 		}
 
-	case "opengym", "openstock", "openmaicapp":
+	case "opengym", "openstock", "openmaicapp", "artcraft":
 		if home != "" {
 			_ = os.RemoveAll(filepath.Join(home, ".local", "share", "apps", tool.ID))
 		}
@@ -1076,6 +1076,8 @@ func (r *Runner) uninstallInternal(tool catalog.Tool, prefix string, showVisual 
 				_ = os.Remove(filepath.Join(localApp, "multitool", "bin", "ghidraRun.bat"))
 			}
 			err = r.reg.MarkUninstalled(tool.ID)
+		} else if tool.ID == "artcraft" || tool.ID == "orca" || tool.ID == "openmausbot" {
+			err = r.reg.MarkUninstalled(tool.ID)
 		} else {
 			err = r.uninstallGitSkill(tool.ID)
 		}
@@ -1185,7 +1187,7 @@ func (r *Runner) updateInternal(tool catalog.Tool, prefix string, showVisual boo
 		err = r.installGitSkill(tool.ID, target.PackageID)
 
 	case catalog.TypeDirect:
-		if tool.ID == "orca" || tool.ID == "openmausbot" || tool.ID == "apktool" || tool.ID == "ghidra" {
+		if tool.ID == "artcraft" || tool.ID == "orca" || tool.ID == "openmausbot" || tool.ID == "apktool" || tool.ID == "ghidra" {
 			err = r.installDirectWindows(tool.ID)
 		} else {
 			err = r.installGitSkill(tool.ID, target.PackageID)
@@ -1354,6 +1356,16 @@ func (r *Runner) installDirectWindowsWithActivity(actFn func(string), toolID str
 	case "openmausbot":
 		setupURL := "https://github.com/milind-soni/OpenMausBot/releases/latest/download/OpenMausBot-setup.exe"
 		setupPath := filepath.Join(os.TempDir(), "OpenMausBot-setup.exe")
+		defer os.Remove(setupPath)
+
+		if err := r.execWithActivity(actFn, "curl.exe", "-fsSL", setupURL, "-o", setupPath); err != nil {
+			return err
+		}
+		return r.execWithActivity(actFn, setupPath, "/S")
+
+	case "artcraft":
+		setupURL := "https://github.com/storytold/artcraft/releases/download/artcraft-v0.41.0/ArtCraft_0.41.0_x64-setup.exe"
+		setupPath := filepath.Join(os.TempDir(), "ArtCraft-setup.exe")
 		defer os.Remove(setupPath)
 
 		if err := r.execWithActivity(actFn, "curl.exe", "-fsSL", setupURL, "-o", setupPath); err != nil {
