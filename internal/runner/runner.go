@@ -832,6 +832,26 @@ func (r *Runner) installScriptWithActivity(actFn func(string), id string, target
 		if r.sysInfo.OS == system.OSLinux {
 			return r.execWithActivity(actFn, "sh", "-c", "RUNZSH=no CHSH=no KEEP_ZSHRC=yes sh -c \"$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)\"")
 		}
+	case "zed":
+		if r.sysInfo.OS == system.OSLinux {
+			return r.execWithActivity(actFn, "sh", "-c", "curl -f https://zed.dev/install.sh | sh")
+		}
+	case "tailscale":
+		if r.sysInfo.OS == system.OSLinux {
+			return r.execWithActivity(actFn, "sh", "-c", "curl -fsSL https://tailscale.com/install.sh | sh")
+		}
+	case "trivy":
+		if r.sysInfo.OS == system.OSLinux {
+			return r.execWithActivity(actFn, "sh", "-c", "mkdir -p $HOME/.local/bin && curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b $HOME/.local/bin")
+		}
+	case "goose":
+		if r.sysInfo.OS == system.OSLinux {
+			return r.execWithActivity(actFn, "bash", "-c", "curl -fsSL https://github.com/block/goose/releases/download/stable/download_cli.sh | bash")
+		}
+	case "cherrystudio":
+		if r.sysInfo.OS == system.OSLinux {
+			return r.execWithActivity(actFn, "sh", "-c", "mkdir -p $HOME/.local/bin && curl -fsSL https://github.com/CherryHQ/cherry-studio/releases/latest/download/Cherry-Studio-2.1.7-x86_64.AppImage -o $HOME/.local/bin/cherrystudio && chmod +x $HOME/.local/bin/cherrystudio")
+		}
 	}
 
 	return fmt.Errorf("script de instalação direta não implementado para: %s", id)
@@ -937,6 +957,28 @@ func (r *Runner) uninstallScript(tool catalog.Tool, target *catalog.Target) erro
 			} else {
 				_ = os.RemoveAll(filepath.Join(home, ".oh-my-zsh"))
 			}
+		}
+
+	case "zed":
+		if home != "" {
+			_ = os.Remove(filepath.Join(home, ".local", "bin", "zed"))
+			_ = os.RemoveAll(filepath.Join(home, ".local", "share", "zed"))
+		}
+
+	case "trivy":
+		if home != "" {
+			_ = os.Remove(filepath.Join(home, ".local", "bin", "trivy"))
+		}
+
+	case "goose":
+		if home != "" {
+			_ = os.Remove(filepath.Join(home, ".local", "bin", "goose"))
+			_ = os.RemoveAll(filepath.Join(home, ".config", "goose"))
+		}
+
+	case "cherrystudio":
+		if home != "" {
+			_ = os.Remove(filepath.Join(home, ".local", "bin", "cherrystudio"))
 		}
 
 	case "flathub":

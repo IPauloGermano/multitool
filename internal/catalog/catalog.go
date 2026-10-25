@@ -249,7 +249,7 @@ var catalogList = []Tool{
 	{
 		ID: "branchless", Name: "Git Branchless", Category: "Versionamento", Description: "Extensão Git: stacked diffs, undo",
 		Windows: &Target{Type: TypeCargo, PackageID: "git-branchless", Binary: "git-branchless.exe"},
-		Linux:   &Target{Type: TypeNative, PackageID: "git-branchless", Binary: "branchless"},
+		Linux:   &Target{Type: TypeCargo, PackageID: "git-branchless", Binary: "git-branchless"},
 	},
 	{
 		ID: "browseruse", Name: "Browser Use", Category: "Agentes", Description: "Agente IA que opera o navegador",
@@ -311,7 +311,7 @@ var catalogList = []Tool{
 	{
 		ID: "codex", Name: "Codex CLI", Category: "Agentes", Description: "Agente de código da OpenAI",
 		Windows: &Target{Type: TypeNpm, PackageID: "@openai/codex", Binary: "codex.cmd"},
-		Linux:   &Target{Type: TypeScript, PackageID: "codex", Binary: "codex"},
+		Linux:   &Target{Type: TypeNpm, PackageID: "@openai/codex", Binary: "codex"},
 	},
 	{
 		ID: "comfyui", Name: "ComfyUI", Category: "Agentes", Description: "Engine de nós para geração de imagens",
@@ -452,7 +452,7 @@ var catalogList = []Tool{
 	{
 		ID: "gh", Name: "GitHub CLI", Category: "Versionamento", Description: "CLI oficial do GitHub",
 		Windows: &Target{Type: TypeWinget, PackageID: "GitHub.cli", Binary: "gh.exe"},
-		Linux:   &Target{Type: TypeScript, PackageID: "gh", Binary: "gh"},
+		Linux:   &Target{Type: TypeNative, PackageID: "gh", Binary: "gh"},
 		Darwin:  &Target{Type: TypeBrew, PackageID: "gh", Binary: "gh"},
 	},
 	{
@@ -491,7 +491,7 @@ var catalogList = []Tool{
 	{
 		ID: "golang", Name: "Go", Category: "Infraestrutura", Description: "Toolchain Go da Google",
 		Windows: &Target{Type: TypeWinget, PackageID: "GoLang.Go", Binary: "go.exe"},
-		Linux:   &Target{Type: TypeScript, PackageID: "golang", Binary: "golang"},
+		Linux:   &Target{Type: TypeNative, PackageID: "golang", Binary: "go"},
 		Darwin:  &Target{Type: TypeBrew, PackageID: "go", Binary: "go"},
 	},
 	{
@@ -548,7 +548,7 @@ var catalogList = []Tool{
 	{
 		ID: "jetbrainsmono", Name: "JetBrains Mono", Category: "Fontes", Description: "Fonte monoespaçada da JetBrains",
 		Windows: &Target{Type: TypeWinget, PackageID: "JetBrains.JetBrainsMono", Binary: "JetBrainsMono.ttf"},
-		Linux:   &Target{Type: TypeScript, PackageID: "jetbrainsmono", Binary: "jetbrainsmono"},
+		Linux:   &Target{Type: TypeNative, PackageID: "fonts-jetbrains-mono", Binary: "JetBrainsMono-Regular.ttf"},
 	},
 	{
 		ID: "jetbrainstoolbox", Name: "JetBrains Toolbox", Category: "Editores", Description: "Gerenciador de IDEs da JetBrains",
@@ -558,7 +558,7 @@ var catalogList = []Tool{
 	{
 		ID: "jj", Name: "Jujutsu", Category: "Versionamento", Description: "VCS compatível com Git, fluxo simples",
 		Windows: &Target{Type: TypeWinget, PackageID: "martinvonz.jj", Binary: "jj.exe"},
-		Linux:   &Target{Type: TypeScript, PackageID: "jj", Binary: "jj"},
+		Linux:   &Target{Type: TypeCargo, PackageID: "jj-cli", Binary: "jj"},
 		Darwin:  &Target{Type: TypeBrew, PackageID: "jj", Binary: "jj"},
 	},
 	{
@@ -632,13 +632,13 @@ var catalogList = []Tool{
 	{
 		ID: "neovim", Name: "Neovim", Category: "Editores", Description: "Editor modal moderno",
 		Windows: &Target{Type: TypeWinget, PackageID: "Neovim.Neovim", Binary: "nvim.exe"},
-		Linux:   &Target{Type: TypeScript, PackageID: "neovim", Binary: "neovim"},
+		Linux:   &Target{Type: TypeNative, PackageID: "neovim", Binary: "nvim"},
 		Darwin:  &Target{Type: TypeBrew, PackageID: "neovim", Binary: "nvim"},
 	},
 	{
 		ID: "nodejs", Name: "Node.js LTS", Category: "Infraestrutura", Description: "Runtime JavaScript LTS",
 		Windows: &Target{Type: TypeWinget, PackageID: "OpenJS.NodeJS.LTS", Binary: "node.exe"},
-		Linux:   &Target{Type: TypeScript, PackageID: "nodejs", Binary: "nodejs"},
+		Linux:   &Target{Type: TypeNative, PackageID: "nodejs", Binary: "node"},
 		Darwin:  &Target{Type: TypeBrew, PackageID: "node", Binary: "node"},
 	},
 	{
@@ -740,7 +740,7 @@ var catalogList = []Tool{
 	{
 		ID: "openwebui", Name: "Open WebUI", Category: "Agentes", Description: "Interface web moderna para LLMs",
 		Windows: &Target{Type: TypePipx, PackageID: "open-webui", Binary: "open-webui.exe"},
-		Linux:   &Target{Type: TypeScript, PackageID: "openwebui", Binary: "openwebui"},
+		Linux:   &Target{Type: TypePipx, PackageID: "open-webui", Binary: "open-webui"},
 	},
 	{
 		ID: "orca", Name: "Orca", Category: "Agentes", Description: "Orquestrador e ambiente de trabalho para frotas de agentes IA (worktrees paralelos)",
@@ -760,7 +760,7 @@ var catalogList = []Tool{
 	{
 		ID: "phoenix", Name: "Arize Phoenix", Category: "Observabilidade", Description: "Tracing OpenTelemetry para agentes IA",
 		Windows: &Target{Type: TypePipx, PackageID: "arize-phoenix", Binary: "phoenix.exe"},
-		Linux:   &Target{Type: TypeScript, PackageID: "phoenix", Binary: "phoenix"},
+		Linux:   &Target{Type: TypePipx, PackageID: "arize-phoenix", Binary: "phoenix"},
 	},
 	{
 		ID: "playwright", Name: "Playwright", Category: "Infraestrutura", Description: "Automação de browsers",
@@ -817,7 +817,7 @@ var catalogList = []Tool{
 	{
 		ID: "robusta", Name: "Robusta CLI", Category: "Observabilidade", Description: "Troubleshooting Kubernetes com IA",
 		Windows: &Target{Type: TypePipx, PackageID: "robusta-cli", Binary: "robusta.exe"},
-		Linux:   &Target{Type: TypeScript, PackageID: "robusta", Binary: "robusta"},
+		Linux:   &Target{Type: TypePipx, PackageID: "robusta-cli", Binary: "robusta"},
 	},
 	{
 		ID: "rustdesk", Name: "RustDesk", Category: "Desktop", Description: "Acesso e suporte a desktop remoto",
@@ -837,7 +837,7 @@ var catalogList = []Tool{
 	{
 		ID: "semgrep", Name: "Semgrep", Category: "Análise", Description: "Scanner estático de código",
 		Windows: &Target{Type: TypePipx, PackageID: "semgrep", Binary: "semgrep.exe"},
-		Linux:   &Target{Type: TypeScript, PackageID: "semgrep", Binary: "semgrep"},
+		Linux:   &Target{Type: TypePipx, PackageID: "semgrep", Binary: "semgrep"},
 	},
 	{
 		ID: "sourcesans3", Name: "Source Sans 3", Category: "Fontes", Description: "Sans serif da Adobe para interfaces",
@@ -922,7 +922,7 @@ var catalogList = []Tool{
 	{
 		ID: "vscode", Name: "Visual Studio Code", Category: "Editores", Description: "Editor de código da Microsoft",
 		Windows: &Target{Type: TypeWinget, PackageID: "Microsoft.VisualStudioCode", Binary: "code.cmd"},
-		Linux:   &Target{Type: TypeScript, PackageID: "vscode", Binary: "vscode"},
+		Linux:   &Target{Type: TypeFlatpak, PackageID: "com.visualstudio.code", Binary: "code"},
 		Darwin:  &Target{Type: TypeBrew, PackageID: "visual-studio-code", Binary: "code"},
 	},
 	{
