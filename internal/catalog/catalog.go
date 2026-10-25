@@ -143,6 +143,28 @@ var toolAliases = map[string]string{
 	"iBotPeaches/Apktool":           "apktool",
 	"x64dbg/x64dbg":                 "x64dbg",
 	"x64-dbg":                       "x64dbg",
+	"aider-ai/aider":                "aider",
+	"ollama/ollama":                 "ollama",
+	"anthropics/claude-code":        "claudecode",
+	"block/goose":                   "goose",
+	"ast-grep/ast-grep":             "astgrep",
+	"yamadashy/repomix":             "repomix",
+	"aristocratos/btop":             "btop",
+	"sharkdp/bat":                   "bat",
+	"BurntSushi/ripgrep":            "ripgrep",
+	"junegunn/fzf":                  "fzf",
+	"jqlang/jq":                     "jq",
+	"simonw/llm":                    "llm",
+	"promptfoo/promptfoo":           "promptfoo",
+	"Arize-ai/phoenix":              "phoenix",
+	"GoogleChromeLabs/bubblewrap":   "bubblewrap",
+	"pathwaycom/mcpm":               "mcpm",
+	"superinterface/supergateway":   "supergateway",
+	"upstash/context7":              "context7",
+	"codebase-memory/codebase-memory": "codebase_memory",
+	"modelcontextprotocol/inspector": "mcpinspector",
+	"crewAIInc/crewAI":              "crewai",
+	"langchain-ai/langgraph":        "langgraph",
 }
 
 var catalogList = []Tool{
@@ -1278,8 +1300,13 @@ func GetUpstreamRepo(toolID string) string {
 
 	// 1. Alvos do tipo skill apontam diretamente para o repositório Git
 	for _, target := range []*Target{tool.Linux, tool.Windows, tool.Darwin} {
-		if target != nil && target.Type == TypeSkill && strings.HasPrefix(target.PackageID, "http") {
-			return target.PackageID
+		if target != nil && target.Type == TypeSkill {
+			if strings.HasPrefix(target.PackageID, "http") {
+				return target.PackageID
+			}
+			if strings.Contains(target.PackageID, "/") {
+				return "https://github.com/" + target.PackageID
+			}
 		}
 	}
 

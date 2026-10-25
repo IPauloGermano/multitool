@@ -190,6 +190,12 @@ agentes de IA, compiladores e aplicativos de sistema.`,
 			fmt.Fprintf(out, "• Descrição:    %s\n", tool.Description)
 			fmt.Fprintf(out, "• Categoria:    %s (%s)\n", tool.Category, catalog.TopoDaSub(tool.Category))
 			fmt.Fprintf(out, "• Instalado:    %s\n", installed)
+
+			upstream := catalog.GetUpstreamRepo(tool.ID)
+			if upstream != "" {
+				fmt.Fprintf(out, "• Repositório:  %s\n", styleCyan.Render(upstream))
+			}
+
 			if len(tool.Dependencies) > 0 {
 				fmt.Fprintf(out, "• Dependências: %s\n", styleCyan.Render(strings.Join(tool.Dependencies, ", ")))
 			}

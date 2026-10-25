@@ -88,6 +88,9 @@ func TestRootCommands(t *testing.T) {
 	if !strings.Contains(buf.String(), "Ollama") {
 		t.Errorf("Esperava 'Ollama' no info: %s", buf.String())
 	}
+	if !strings.Contains(buf.String(), "Repositório:") || !strings.Contains(buf.String(), "https://github.com/ollama/ollama") {
+		t.Errorf("Esperava link do repositório no info ollama: %s", buf.String())
+	}
 
 	// 7. Teste 'install --dry-run'
 	buf.Reset()
