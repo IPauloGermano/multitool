@@ -1,6 +1,6 @@
 # Catálogo Universal e Suítes
 
-O **Multitool** consolida **155 ferramentas** rigorosamente curadas para engenharia de software moderna, agentes de inteligência artificial, segurança e produtividade.
+O **Multitool** consolida **158 ferramentas** rigorosamente curadas para engenharia de software moderna, agentes de inteligência artificial, segurança e produtividade.
 
 ---
 
@@ -68,7 +68,7 @@ Harnesses, frameworks e observabilidade para agentes autônomos:
 - `openmausbot`: Alternativa open-source ao Grok Bot / Manus com equipe de agentes IA e VMs.
 - `openshell`: Runtime seguro e sandbox com governança para agentes de IA da NVIDIA.
 
-### 4. `@skills` (Coleção Curada de 23 Skills)
+### 4. `@skills` (Coleção Curada de 24 Skills)
 Coleção de metodologias e habilidades para agentes de código:
 - `superpowers`: Metodologia de desenvolvimento com TDD e planos.
 - `impeccable`: Design e frontend limpo sem slop.
@@ -93,6 +93,7 @@ Coleção de metodologias e habilidades para agentes de código:
 - `universalmodder`: Modding e instrumentação de jogos de PC para agentes IA.
 - `androidskills`: Skills oficiais do Google para agentes de IA no desenvolvimento Android.
 - `egm`: Framework de Spec-Driven Development com agentes IA (Elephant & Goldfish) do Google.
+- `scientificagentskills`: Skills científicas e bancos de dados para agentes de IA na pesquisa (K-Dense AI).
 
 ### 5. `@dev` (Ferramentas Essenciais de Desenvolvimento)
 - `git`, `gh`, `fzf`, `btop`, `nodejs`, `golang`, `temurin`, `docker`, `vscode`, `neovim`, `waveterm`, `ghostty`, `jj`, `uv`, `rustup`, `bat`.
@@ -123,6 +124,9 @@ Abaixo estão alguns destaques da compatibilidade cruzada:
 | `artcraft` | ArtCraft | Desktop | `storytold/artcraft` (direct) | script (`storytold/artcraft`) |
 | `qbittorrent` | qBittorrent | Desktop | `qBittorrent.qBittorrent` (winget) | `qbittorrent` (native) |
 | `egm` | Elephant-Goldfish Model (EGM) | Skills | `google/elephant-goldfish-model` (direct) | `google/elephant-goldfish-model` (skill) |
+| `scientificagentskills` | Scientific Agent Skills | Skills | `K-Dense-AI/scientific-agent-skills` (direct) | `K-Dense-AI/scientific-agent-skills` (skill) |
+| `agentreach` | Agent Reach | Agentes | `git+https://github.com/Panniantong/Agent-Reach.git` (pipx) | `git+https://github.com/Panniantong/Agent-Reach.git` (pipx) |
+| `gbrain` | gbrain | Agentes | *Não disponível* | script (`garrytan/gbrain`) |
 | `universalmodder`| Universal Modder | Skills | `rehan-remade/universal-modder` (git) | `rehan-remade/universal-modder` (skill) |
 | `openshell` | OpenShell | Agentes | `openshell` (pipx) | `openshell` (pipx) |
 | `hallmark` | Hallmark | Skills | `Nutlope/hallmark` (direct) | `Nutlope/hallmark` (skill) |

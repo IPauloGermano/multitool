@@ -806,6 +806,13 @@ func (r *Runner) installScriptWithActivity(actFn func(string), id string, target
 		if r.sysInfo.OS == system.OSLinux {
 			return r.execWithActivity(actFn, "sh", "-c", "mkdir -p $HOME/.local/bin && curl -fsSL https://github.com/milind-soni/OpenMausBot/releases/latest/download/OpenMausBot.AppImage -o $HOME/.local/bin/openmausbot && chmod +x $HOME/.local/bin/openmausbot")
 		}
+	case "gbrain":
+		if r.sysInfo.OS == system.OSLinux {
+			return r.execWithActivity(actFn, "sh", "-c", "mkdir -p $HOME/.local/bin && curl -fsSL https://github.com/garrytan/gbrain/releases/latest/download/gbrain-linux-x64 -o $HOME/.local/bin/gbrain && chmod +x $HOME/.local/bin/gbrain")
+		}
+		if r.sysInfo.OS == system.OSDarwin {
+			return r.execWithActivity(actFn, "sh", "-c", "mkdir -p $HOME/.local/bin && curl -fsSL https://github.com/garrytan/gbrain/releases/latest/download/gbrain-darwin-arm64 -o $HOME/.local/bin/gbrain && chmod +x $HOME/.local/bin/gbrain")
+		}
 	case "docker":
 		if r.sysInfo.OS == system.OSLinux {
 			return r.execWithActivity(actFn, "sh", "-c", "curl -fsSL https://get.docker.com | sh")
@@ -958,6 +965,12 @@ func (r *Runner) uninstallScript(tool catalog.Tool, target *catalog.Target) erro
 			_ = os.Remove(filepath.Join(home, ".local", "bin", "openmausbot"))
 		}
 
+	case "gbrain":
+		if home != "" {
+			_ = os.Remove(filepath.Join(home, ".local", "bin", "gbrain"))
+			_ = os.RemoveAll(filepath.Join(home, ".gbrain"))
+		}
+
 	case "opengym", "openstock", "openmaicapp", "artcraft":
 		if home != "" {
 			_ = os.RemoveAll(filepath.Join(home, ".local", "share", "apps", tool.ID))
@@ -1052,7 +1065,11 @@ func (r *Runner) uninstallInternal(tool catalog.Tool, prefix string, showVisual 
 		err = r.executor.Execute("npm", "uninstall", "-g", target.PackageID)
 
 	case catalog.TypePipx:
-		err = r.executor.Execute("pipx", "uninstall", target.PackageID)
+		pkgName := target.PackageID
+		if strings.HasPrefix(pkgName, "git+") || strings.HasPrefix(pkgName, "http") {
+			pkgName = strings.TrimSuffix(target.Binary, ".exe")
+		}
+		err = r.executor.Execute("pipx", "uninstall", pkgName)
 
 	case catalog.TypeCargo:
 		err = r.executor.Execute("cargo", "uninstall", target.PackageID)
@@ -1175,7 +1192,11 @@ func (r *Runner) updateInternal(tool catalog.Tool, prefix string, showVisual boo
 		err = r.executor.Execute("npm", "update", "-g", target.PackageID)
 
 	case catalog.TypePipx:
-		err = r.executor.Execute("pipx", "upgrade", target.PackageID)
+		if strings.HasPrefix(target.PackageID, "git+") || strings.HasPrefix(target.PackageID, "http") {
+			err = r.executor.Execute("pipx", "install", "--force", target.PackageID)
+		} else {
+			err = r.executor.Execute("pipx", "upgrade", target.PackageID)
+		}
 
 	case catalog.TypeCargo:
 		err = r.executor.Execute("cargo", "install", target.PackageID)

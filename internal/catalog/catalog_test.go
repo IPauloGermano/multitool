@@ -173,6 +173,18 @@ func TestFindToolAndAliases(t *testing.T) {
 		{"google/elephant-goldfish-model", "egm"},
 		{"https://github.com/google/elephant-goldfish-model", "egm"},
 		{"https://github.com/google/elephant-goldfish-model.git", "egm"},
+		{"scientificagentskills", "scientificagentskills"},
+		{"k-dense-ai/scientific-agent-skills", "scientificagentskills"},
+		{"https://github.com/k-dense-ai/scientific-agent-skills", "scientificagentskills"},
+		{"agentreach", "agentreach"},
+		{"agent-reach", "agentreach"},
+		{"panniantong/agent-reach", "agentreach"},
+		{"https://github.com/Panniantong/agent-reach", "agentreach"},
+		{"gbrain", "gbrain"},
+		{"garrytan/gbrain", "gbrain"},
+		{"https://github.com/garrytan/gbrain", "gbrain"},
+		{"dietrichgebert/ponytail", "ponytail"},
+		{"https://github.com/dietrichgebert/ponytail", "ponytail"},
 	}
 
 	for _, tc := range testCases {
