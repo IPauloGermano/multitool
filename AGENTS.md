@@ -18,7 +18,7 @@
 #   internal/registry/registry.go (Controle de estado thread-safe installed.json em ~/.local/share ou %LOCALAPPDATA%)
 #   internal/tui/tui.go (Interface reativa Bubble Tea: abas [1-5]/t/p/i/c, busca rápida /, modo r, carrinho, suítes integradas)
 # sensitive: curl|sh / AppImage / downloads de releases GitHub + execução de sudo no Linux + criação de symlinks em ~/.claude, ~/.config/opencode, ~/.gemini + gravação em installed.json
-# catalogo: 158 ferramentas ativas
+# catalogo: 160 ferramentas ativas
 ```
 
 ---

@@ -385,7 +385,7 @@ func (r *Runner) ensureRuntime(toolID string, target *catalog.Target) error {
 			wingetID: "Git.Git",
 		}
 	case catalog.TypeDirect:
-		if toolID != "orca" && toolID != "openmausbot" && toolID != "apktool" && toolID != "ghidra" {
+		if toolID != "orca" && toolID != "openmausbot" && toolID != "apktool" && toolID != "ghidra" && toolID != "artcraft" && toolID != "wabt" {
 			req = &runtimePkg{
 				command:  "git",
 				apt:      []string{"git"},
@@ -614,7 +614,7 @@ func (r *Runner) installInternal(tool catalog.Tool, prefix string, showVisual bo
 		err = r.installGitSkillWithActivity(actFn, tool.ID, target.PackageID)
 
 	case catalog.TypeDirect:
-		if tool.ID == "artcraft" || tool.ID == "orca" || tool.ID == "openmausbot" || tool.ID == "apktool" || tool.ID == "ghidra" {
+		if tool.ID == "artcraft" || tool.ID == "orca" || tool.ID == "openmausbot" || tool.ID == "apktool" || tool.ID == "ghidra" || tool.ID == "wabt" {
 			err = r.installDirectWindowsWithActivity(actFn, tool.ID)
 		} else {
 			err = r.installGitSkillWithActivity(actFn, tool.ID, target.PackageID)
@@ -1095,6 +1095,16 @@ func (r *Runner) uninstallInternal(tool catalog.Tool, prefix string, showVisual 
 			err = r.reg.MarkUninstalled(tool.ID)
 		} else if tool.ID == "artcraft" || tool.ID == "orca" || tool.ID == "openmausbot" {
 			err = r.reg.MarkUninstalled(tool.ID)
+		} else if tool.ID == "wabt" {
+			localApp := os.Getenv("LOCALAPPDATA")
+			if localApp != "" {
+				_ = os.RemoveAll(filepath.Join(localApp, "multitool", "wabt"))
+				entries := []string{"wat2wasm.exe", "wasm2wat.exe", "wasm-interp.exe", "wasm-objdump.exe", "wasm-validate.exe", "wasm-stats.exe", "wasm-strip.exe", "wasm2c.exe", "wast2json.exe", "wat-desugar.exe", "spectest-interp.exe"}
+				for _, bin := range entries {
+					_ = os.Remove(filepath.Join(localApp, "multitool", "bin", bin))
+				}
+			}
+			err = r.reg.MarkUninstalled(tool.ID)
 		} else {
 			err = r.uninstallGitSkill(tool.ID)
 		}
@@ -1208,7 +1218,7 @@ func (r *Runner) updateInternal(tool catalog.Tool, prefix string, showVisual boo
 		err = r.installGitSkill(tool.ID, target.PackageID)
 
 	case catalog.TypeDirect:
-		if tool.ID == "artcraft" || tool.ID == "orca" || tool.ID == "openmausbot" || tool.ID == "apktool" || tool.ID == "ghidra" {
+		if tool.ID == "artcraft" || tool.ID == "orca" || tool.ID == "openmausbot" || tool.ID == "apktool" || tool.ID == "ghidra" || tool.ID == "wabt" {
 			err = r.installDirectWindows(tool.ID)
 		} else {
 			err = r.installGitSkill(tool.ID, target.PackageID)
@@ -1393,6 +1403,34 @@ func (r *Runner) installDirectWindowsWithActivity(actFn func(string), toolID str
 			return err
 		}
 		return r.execWithActivity(actFn, setupPath, "/S")
+
+	case "wabt":
+		wabtDir := filepath.Join(localApp, "multitool", "wabt")
+		if err := os.MkdirAll(wabtDir, 0755); err != nil {
+			return err
+		}
+		tarURL := "https://github.com/WebAssembly/wabt/releases/latest/download/wabt-1.0.42-windows-x64.tar.gz"
+		tarPath := filepath.Join(os.TempDir(), "wabt.tar.gz")
+		defer os.Remove(tarPath)
+
+		if err := r.execWithActivity(actFn, "curl.exe", "-fsSL", tarURL, "-o", tarPath); err != nil {
+			return err
+		}
+		if err := r.execWithActivity(actFn, "tar.exe", "-xzf", tarPath, "-C", wabtDir, "--strip-components=1"); err != nil {
+			return fmt.Errorf("falha ao extrair WABT: %w", err)
+		}
+		entries, _ := os.ReadDir(filepath.Join(wabtDir, "bin"))
+		for _, e := range entries {
+			if !e.IsDir() && strings.HasSuffix(strings.ToLower(e.Name()), ".exe") {
+				src := filepath.Join(wabtDir, "bin", e.Name())
+				dst := filepath.Join(binDir, e.Name())
+				data, err := os.ReadFile(src)
+				if err == nil {
+					_ = os.WriteFile(dst, data, 0755)
+				}
+			}
+		}
+		return nil
 
 	default:
 		return fmt.Errorf("ferramenta direta não suportada no Windows: %s", toolID)

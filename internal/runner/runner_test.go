@@ -671,3 +671,95 @@ func TestArtcraftWindowsAndLinux(t *testing.T) {
 		t.Errorf("artcraft deveria estar desmarcado no Linux")
 	}
 }
+
+func TestClangAndWabtInstallAndUninstall(t *testing.T) {
+	clangTool := catalog.FindTool("clang")
+	if clangTool == nil {
+		t.Fatalf("Ferramenta 'clang' não encontrada no catálogo")
+	}
+	wabtTool := catalog.FindTool("wabt")
+	if wabtTool == nil {
+		t.Fatalf("Ferramenta 'wabt' não encontrada no catálogo")
+	}
+
+	// 1. Clang no Linux (TypeNative)
+	tempDir := t.TempDir()
+	reg, _ := registry.New(filepath.Join(tempDir, "installed.json"))
+	mock := &MockExecutor{}
+	r := NewWithExecutor(reg, mock, false)
+	r.sysInfo.OS = system.OSLinux
+	r.sysInfo.PrimaryManager = system.MgrApt
+
+	if err := r.Install(*clangTool); err != nil {
+		t.Fatalf("Erro ao instalar clang no Linux: %v", err)
+	}
+	if !reg.IsInstalled("clang") {
+		t.Errorf("clang deveria estar registrado no Linux")
+	}
+	if err := r.Uninstall(*clangTool); err != nil {
+		t.Fatalf("Erro ao desinstalar clang no Linux: %v", err)
+	}
+	if reg.IsInstalled("clang") {
+		t.Errorf("clang deveria estar desinstalado no Linux")
+	}
+
+	// 2. WABT no Linux (TypeNative)
+	if err := r.Install(*wabtTool); err != nil {
+		t.Fatalf("Erro ao instalar wabt no Linux: %v", err)
+	}
+	if !reg.IsInstalled("wabt") {
+		t.Errorf("wabt deveria estar registrado no Linux")
+	}
+	if err := r.Uninstall(*wabtTool); err != nil {
+		t.Fatalf("Erro ao desinstalar wabt no Linux: %v", err)
+	}
+	if reg.IsInstalled("wabt") {
+		t.Errorf("wabt deveria estar desinstalado no Linux")
+	}
+
+	// 3. Clang e WABT no Darwin (TypeBrew)
+	regDarwin, _ := registry.New(filepath.Join(tempDir, "installed_darwin.json"))
+	mockDarwin := &MockExecutor{}
+	rDarwin := NewWithExecutor(regDarwin, mockDarwin, false)
+	rDarwin.sysInfo.OS = system.OSDarwin
+
+	if err := rDarwin.Install(*clangTool); err != nil {
+		t.Fatalf("Erro ao instalar clang no Darwin: %v", err)
+	}
+	if !regDarwin.IsInstalled("clang") {
+		t.Errorf("clang deveria estar registrado no Darwin")
+	}
+	if err := rDarwin.Install(*wabtTool); err != nil {
+		t.Fatalf("Erro ao instalar wabt no Darwin: %v", err)
+	}
+	if !regDarwin.IsInstalled("wabt") {
+		t.Errorf("wabt deveria estar registrado no Darwin")
+	}
+
+	// 4. Clang e WABT no Windows (TypeWinget e TypeDirect)
+	regWin, _ := registry.New(filepath.Join(tempDir, "installed_win.json"))
+	mockWin := &MockExecutor{}
+	rWin := NewWithExecutor(regWin, mockWin, false)
+	rWin.sysInfo.OS = system.OSWindows
+	localApp := filepath.Join(tempDir, "localapp")
+	t.Setenv("LOCALAPPDATA", localApp)
+
+	if err := rWin.Install(*clangTool); err != nil {
+		t.Fatalf("Erro ao instalar clang no Windows: %v", err)
+	}
+	if !regWin.IsInstalled("clang") {
+		t.Errorf("clang deveria estar registrado no Windows")
+	}
+	if err := rWin.Install(*wabtTool); err != nil {
+		t.Fatalf("Erro ao instalar wabt no Windows: %v", err)
+	}
+	if !regWin.IsInstalled("wabt") {
+		t.Errorf("wabt deveria estar registrado no Windows")
+	}
+	if err := rWin.Uninstall(*wabtTool); err != nil {
+		t.Fatalf("Erro ao desinstalar wabt no Windows: %v", err)
+	}
+	if regWin.IsInstalled("wabt") {
+		t.Errorf("wabt deveria estar desinstalado no Windows")
+	}
+}

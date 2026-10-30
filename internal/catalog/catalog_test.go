@@ -185,6 +185,18 @@ func TestFindToolAndAliases(t *testing.T) {
 		{"https://github.com/garrytan/gbrain", "gbrain"},
 		{"dietrichgebert/ponytail", "ponytail"},
 		{"https://github.com/dietrichgebert/ponytail", "ponytail"},
+		{"clang", "clang"},
+		{"llvm", "clang"},
+		{"llvm-clang", "clang"},
+		{"apple-clang", "clang"},
+		{"llvm/llvm", "clang"},
+		{"https://github.com/llvm/llvm-project", "clang"},
+		{"wabt", "wabt"},
+		{"webassembly/wabt", "wabt"},
+		{"webassembly-wabt", "wabt"},
+		{"wat2wasm", "wabt"},
+		{"wasm2wat", "wabt"},
+		{"https://github.com/webassembly/wabt", "wabt"},
 	}
 
 	for _, tc := range testCases {

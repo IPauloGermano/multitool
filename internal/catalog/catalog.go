@@ -93,7 +93,7 @@ var packages = map[string][]string{
 		"git", "gh", "fzf", "btop", "nodejs", "golang", "temurin", "docker", "vscode", "neovim", "waveterm", "ghostty", "jj", "uv", "rustup", "bat",
 	},
 	"toolchain": {
-		"gcc", "make", "gdb", "cmake",
+		"gcc", "make", "gdb", "cmake", "clang",
 	},
 	"termstack": {
 		"waveterm", "ghostty", "bat", "fzf", "zsh", "ohmyzsh",
@@ -104,6 +104,15 @@ var packages = map[string][]string{
 }
 
 var toolAliases = map[string]string{
+	"llvm/llvm":                     "clang",
+	"llvm/llvm-project":             "clang",
+	"llvm-clang":                    "clang",
+	"llvm":                          "clang",
+	"apple-clang":                   "clang",
+	"webassembly/wabt":              "wabt",
+	"webassembly-wabt":              "wabt",
+	"wat2wasm":                      "wabt",
+	"wasm2wat":                      "wabt",
 	"storytold/artcraft":            "artcraft",
 	"storytold-artcraft":            "artcraft",
 	"art-craft":                     "artcraft",
@@ -331,6 +340,12 @@ var catalogList = []Tool{
 		ID: "clamtk", Name: "ClamTk", Category: "Análise", Description: "Interface gráfica do ClamAV",
 		Windows: nil,
 		Linux:   &Target{Type: TypeNative, PackageID: "clamtk", Binary: "clamtk"},
+	},
+	{
+		ID: "clang", Name: "Clang (LLVM)", Category: "Infraestrutura", Description: "Compilador C/C++/Objective-C de alta performance baseado em LLVM",
+		Windows: &Target{Type: TypeWinget, PackageID: "LLVM.LLVM", Binary: "clang.exe"},
+		Linux:   &Target{Type: TypeNative, PackageID: "clang", Binary: "clang"},
+		Darwin:  &Target{Type: TypeBrew, PackageID: "llvm", Binary: "clang"},
 	},
 	{
 		ID: "claudecode", Name: "Claude Code", Category: "Agentes", Description: "Agente de código CLI da Anthropic",
@@ -992,6 +1007,12 @@ var catalogList = []Tool{
 		Windows: &Target{Type: TypeWinget, PackageID: "Microsoft.VisualStudioCode", Binary: "code.cmd"},
 		Linux:   &Target{Type: TypeFlatpak, PackageID: "com.visualstudio.code", Binary: "code"},
 		Darwin:  &Target{Type: TypeBrew, PackageID: "visual-studio-code", Binary: "code"},
+	},
+	{
+		ID: "wabt", Name: "WABT", Category: "Infraestrutura", Description: "WebAssembly Binary Toolkit (wat2wasm, wasm2wat, wasm-objdump)",
+		Windows: &Target{Type: TypeDirect, PackageID: "WebAssembly/wabt", Binary: "wat2wasm.exe"},
+		Linux:   &Target{Type: TypeNative, PackageID: "wabt", Binary: "wat2wasm"},
+		Darwin:  &Target{Type: TypeBrew, PackageID: "wabt", Binary: "wat2wasm"},
 	},
 	{
 		ID: "warp", Name: "Warp", Category: "Terminais", Description: "Terminal moderno com IA",

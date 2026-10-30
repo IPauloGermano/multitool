@@ -1,6 +1,6 @@
 # Catálogo Universal e Suítes
 
-O **Multitool** consolida **158 ferramentas** rigorosamente curadas para engenharia de software moderna, agentes de inteligência artificial, segurança e produtividade.
+O **Multitool** consolida **160 ferramentas** rigorosamente curadas para engenharia de software moderna, agentes de inteligência artificial, segurança e produtividade.
 
 ---
 
@@ -99,7 +99,7 @@ Coleção de metodologias e habilidades para agentes de código:
 - `git`, `gh`, `fzf`, `btop`, `nodejs`, `golang`, `temurin`, `docker`, `vscode`, `neovim`, `waveterm`, `ghostty`, `jj`, `uv`, `rustup`, `bat`.
 
 ### 6. `@toolchain` (Compilação C/C++)
-- `gcc`, `make`, `gdb`, `cmake`.
+- `gcc`, `make`, `gdb`, `cmake`, `clang`.
 
 ### 7. `@termstack` (Stack Moderna de Terminal)
 - `waveterm`, `ghostty`, `bat`, `fzf`, `zsh`, `ohmyzsh`.
@@ -116,6 +116,8 @@ Abaixo estão alguns destaques da compatibilidade cruzada:
 | ID | Nome | Categoria | Alvo Windows | Alvo Linux |
 | :--- | :--- | :--- | :--- | :--- |
 | `btop` | Btop | Infraestrutura | `aristocratos.btop4win` (winget) | `btop` (native) |
+| `clang` | Clang (LLVM) | Infraestrutura | `LLVM.LLVM` (winget) | `clang` (native) |
+| `wabt` | WABT | Infraestrutura | `WebAssembly/wabt` (direct) | `wabt` (native) |
 | `git` | Git | Versionamento | `Git.Git` (winget) | `git` (native) |
 | `ollama` | Ollama | Agentes | `Ollama.Ollama` (winget) | script (`ollama.com/install.sh`) |
 | `claudecode` | Claude Code | Agentes | `@anthropic-ai/claude-code` (npm) | `@anthropic-ai/claude-code` (npm) |
