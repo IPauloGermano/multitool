@@ -52,10 +52,46 @@ Unificação e evolução integrada dos projetos `linux-multitool` e `windows-mu
 
 ---
 
+## 📦 Pré-requisitos & Instalação do Go
+
+O único requisito para compilar ou executar o Multitool a partir do código-fonte é o **Go 1.24+**:
+
+- **Windows (PowerShell)**:
+  ```powershell
+  winget install GoLang.Go
+  # Reinicie o terminal após a instalação para atualizar as variáveis de ambiente (PATH)
+  ```
+- **Linux (Ubuntu / Debian / WSL)**:
+  ```bash
+  sudo apt update && sudo apt install -y golang-go
+  ```
+- **macOS**:
+  ```bash
+  brew install go
+  ```
+
+---
+
 ## 🛠️ Como Usar
 
-### 1. Menu Interativo (TUI)
-Para iniciar a interface terminal com abas e busca em tempo real:
+### 1. Execução Direta (Sem Compilar)
+Você pode rodar o Multitool instantaneamente a partir do código-fonte com `go run`:
+
+```bash
+# Iniciar a Interface Interativa (TUI)
+go run main.go
+
+# Executar comandos CLI diretamente
+go run main.go system                   # Diagnóstico do sistema operacional
+go run main.go list                     # Listar ferramentas compatíveis
+go run main.go suites                   # Listar suítes integradas
+go run main.go install @vibecode --dry-run  # Simulação segura sem alterações
+```
+
+---
+
+### 2. Menu Interativo (TUI com Binário Compilado)
+Para iniciar a interface terminal com abas e busca em tempo real a partir do binário:
 ```bash
 # No Linux / macOS:
 ./multitool
@@ -81,7 +117,7 @@ multitool.exe
 
 ---
 
-### 2. Comandos CLI
+### 3. Comandos CLI
 
 ```bash
 # Diagnóstico do sistema operacional e runtimes detectados
@@ -126,10 +162,22 @@ multitool update @mcp
 
 ---
 
-## 🏗️ Compilação Multiplataforma
+## 🏗️ Compilação
 
-O projeto foi construído em Go puro (sem CGO) e pode ser cross-compilado para qualquer plataforma a partir de qualquer sistema operacional:
+O projeto foi construído em Go puro (sem CGO) e pode ser compilado nativamente ou cross-compilado para qualquer plataforma:
 
+### Compilação Direta (Sem `make`)
+Ideal para Windows nativo (PowerShell / CMD) ou builds rápidos:
+```powershell
+# No Windows:
+go build -ldflags="-s -w" -o multitool.exe main.go
+
+# No Linux / macOS:
+go build -ldflags="-s -w" -o multitool main.go
+```
+
+### Compilação Multiplataforma via `Makefile`
+Para ambientes Linux, WSL, macOS ou Git Bash com `make`:
 ```bash
 # Executar todos os testes unitários
 make test
