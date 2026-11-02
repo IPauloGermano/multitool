@@ -1,7 +1,6 @@
 package catalog
 
 import (
-	"runtime"
 	"strings"
 	"testing"
 )
@@ -350,40 +349,34 @@ func TestResolveDependencies(t *testing.T) {
 		t.Errorf("Ordem topológica incorreta: temurin (%d) deve vir antes de ghidra (%d)", temurinIdx, ghidraIdx)
 	}
 
-	// 2. Múltiplas ferramentas compartilhando dependência
-	testTools := []string{"apktool", "ghidra"}
-	expectedDep := "temurin"
-	if runtime.GOOS == "linux" {
-		testTools = []string{"keep", "opengym"}
-		expectedDep = "docker"
-	}
-	resolvedShared, err := ResolveDependencies(testTools)
+	// 2. Múltiplas ferramentas compartilhando dependência (apktool e ghidra -> temurin)
+	resolvedShared, err := ResolveDependencies([]string{"apktool", "ghidra"})
 	if err != nil {
 		t.Fatalf("Erro ao resolver dependências compartilhadas: %v", err)
 	}
 
-	depCount := 0
-	depIdx := -1
-	tool1Idx := -1
-	tool2Idx := -1
+	temurinCount := 0
+	temurinSharedIdx := -1
+	apktoolIdx := -1
+	ghidraSharedIdx := -1
 	for i, tool := range resolvedShared {
-		if tool.ID == expectedDep {
-			depCount++
-			depIdx = i
+		if tool.ID == "temurin" {
+			temurinCount++
+			temurinSharedIdx = i
 		}
-		if tool.ID == testTools[0] {
-			tool1Idx = i
+		if tool.ID == "apktool" {
+			apktoolIdx = i
 		}
-		if tool.ID == testTools[1] {
-			tool2Idx = i
+		if tool.ID == "ghidra" {
+			ghidraSharedIdx = i
 		}
 	}
 
-	if depCount != 1 {
-		t.Errorf("Esperava exatamente 1 ocorrência de %s desduplicada, obteve %d", expectedDep, depCount)
+	if temurinCount != 1 {
+		t.Errorf("Esperava exatamente 1 ocorrência de temurin desduplicada, obteve %d", temurinCount)
 	}
-	if depIdx > tool1Idx || depIdx > tool2Idx {
-		t.Errorf("%s (%d) deve vir antes de %s (%d) e %s (%d)", expectedDep, depIdx, testTools[0], tool1Idx, testTools[1], tool2Idx)
+	if temurinSharedIdx > apktoolIdx || temurinSharedIdx > ghidraSharedIdx {
+		t.Errorf("temurin (%d) deve vir antes de apktool (%d) e ghidra (%d)", temurinSharedIdx, apktoolIdx, ghidraSharedIdx)
 	}
 
 	// 3. Ferramenta sem dependências
