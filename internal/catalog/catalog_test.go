@@ -1,6 +1,7 @@
 package catalog
 
 import (
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -132,6 +133,26 @@ func TestFindToolAndAliases(t *testing.T) {
 		{"https://github.com/android/skills.git", "androidskills"},
 		{"paperclip", "paperclip"},
 		{"paperclipai", "paperclip"},
+		{"agentdesktop", "agentdesktop"},
+		{"agent-desktop", "agentdesktop"},
+		{"vercel-labs/agent-desktop", "agentdesktop"},
+		{"https://github.com/vercel-labs/agent-desktop", "agentdesktop"},
+		{"agentbrowser", "agentbrowser"},
+		{"agent-browser", "agentbrowser"},
+		{"vercel-labs/agent-browser", "agentbrowser"},
+		{"https://github.com/vercel-labs/agent-browser", "agentbrowser"},
+		{"skillscli", "skillscli"},
+		{"skills", "skillscli"},
+		{"skills-cli", "skillscli"},
+		{"vercel-labs/skills", "skillscli"},
+		{"https://github.com/vercel-labs/skills", "skillscli"},
+		{"scrapling", "scrapling"},
+		{"d4vinci/scrapling", "scrapling"},
+		{"https://github.com/d4vinci/scrapling", "scrapling"},
+		{"claudemem", "claudemem"},
+		{"claude-mem", "claudemem"},
+		{"thedotmack/claude-mem", "claudemem"},
+		{"https://github.com/thedotmack/claude-mem", "claudemem"},
 		{"paperclipai/paperclip", "paperclip"},
 		{"https://github.com/paperclipai/paperclip", "paperclip"},
 		{"openmausbot", "openmausbot"},
@@ -329,34 +350,40 @@ func TestResolveDependencies(t *testing.T) {
 		t.Errorf("Ordem topológica incorreta: temurin (%d) deve vir antes de ghidra (%d)", temurinIdx, ghidraIdx)
 	}
 
-	// 2. Múltiplas ferramentas compartilhando dependência (keep e opengym -> docker)
-	resolvedShared, err := ResolveDependencies([]string{"keep", "opengym"})
+	// 2. Múltiplas ferramentas compartilhando dependência
+	testTools := []string{"apktool", "ghidra"}
+	expectedDep := "temurin"
+	if runtime.GOOS == "linux" {
+		testTools = []string{"keep", "opengym"}
+		expectedDep = "docker"
+	}
+	resolvedShared, err := ResolveDependencies(testTools)
 	if err != nil {
 		t.Fatalf("Erro ao resolver dependências compartilhadas: %v", err)
 	}
 
-	dockerCount := 0
-	dockerIdx := -1
-	keepIdx := -1
-	opengymIdx := -1
+	depCount := 0
+	depIdx := -1
+	tool1Idx := -1
+	tool2Idx := -1
 	for i, tool := range resolvedShared {
-		if tool.ID == "docker" {
-			dockerCount++
-			dockerIdx = i
+		if tool.ID == expectedDep {
+			depCount++
+			depIdx = i
 		}
-		if tool.ID == "keep" {
-			keepIdx = i
+		if tool.ID == testTools[0] {
+			tool1Idx = i
 		}
-		if tool.ID == "opengym" {
-			opengymIdx = i
+		if tool.ID == testTools[1] {
+			tool2Idx = i
 		}
 	}
 
-	if dockerCount != 1 {
-		t.Errorf("Esperava exatamente 1 ocorrência de docker desduplicada, obteve %d", dockerCount)
+	if depCount != 1 {
+		t.Errorf("Esperava exatamente 1 ocorrência de %s desduplicada, obteve %d", expectedDep, depCount)
 	}
-	if dockerIdx > keepIdx || dockerIdx > opengymIdx {
-		t.Errorf("docker (%d) deve vir antes de keep (%d) e opengym (%d)", dockerIdx, keepIdx, opengymIdx)
+	if depIdx > tool1Idx || depIdx > tool2Idx {
+		t.Errorf("%s (%d) deve vir antes de %s (%d) e %s (%d)", expectedDep, depIdx, testTools[0], tool1Idx, testTools[1], tool2Idx)
 	}
 
 	// 3. Ferramenta sem dependências

@@ -155,7 +155,7 @@ func TestSoftwareDependencyAutoInstall(t *testing.T) {
 	reg, _ := registry.New(regPath)
 
 	mock := &MockExecutor{
-		missing: map[string]bool{"java": true, "temurin": true},
+		missing: map[string]bool{"java": true, "java.exe": true, "temurin": true},
 	}
 	r := NewWithExecutor(reg, mock, false)
 
@@ -322,6 +322,7 @@ func TestTypeBrewExecution(t *testing.T) {
 		ID:       "formula-test",
 		Name:     "Formula Test",
 		Category: "Infraestrutura",
+		Windows:  &catalog.Target{Type: catalog.TypeBrew, PackageID: "formula-test", Binary: "formula-test"},
 		Linux:    &catalog.Target{Type: catalog.TypeBrew, PackageID: "formula-test", Binary: "formula-test"},
 	}
 

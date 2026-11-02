@@ -1,6 +1,6 @@
 # Catálogo Universal e Suítes
 
-O **Multitool** consolida **160 ferramentas** rigorosamente curadas para engenharia de software moderna, agentes de inteligência artificial, segurança e produtividade.
+O **Multitool** consolida **165 ferramentas** rigorosamente curadas para engenharia de software moderna, agentes de inteligência artificial, segurança e produtividade.
 
 ---
 
@@ -67,6 +67,11 @@ Harnesses, frameworks e observabilidade para agentes autônomos:
 - `orca`: Orquestração de frotas de agentes IA em worktrees paralelos.
 - `openmausbot`: Alternativa open-source ao Grok Bot / Manus com equipe de agentes IA e VMs.
 - `openshell`: Runtime seguro e sandbox com governança para agentes de IA da NVIDIA.
+- `agentdesktop`: Computer use CLI e automação de apps desktop (Vercel Labs).
+- `agentbrowser`: Automação e navegação web headless/headed para agentes IA (Vercel Labs).
+- `skillscli`: Descoberta, instalação e gerenciamento de skills para agentes IA (Vercel Labs).
+- `scrapling`: Framework e CLI de web scraping indetectável e adaptativo para agentes IA (D4Vinci).
+- `claudemem`: Sistema de compressão de memória persistente e grafo de conhecimento para Claude Code (thedotmack).
 
 ### 4. `@skills` (Coleção Curada de 24 Skills)
 Coleção de metodologias e habilidades para agentes de código:
@@ -124,6 +129,11 @@ Abaixo estão alguns destaques da compatibilidade cruzada:
 | `hermes` | Hermes Agent | Agentes | `hermes-agent` (npm) | script (`hermes-agent.nousresearch.com`) |
 | `orca` | Orca | Agentes | `stablyai/orca` (direct) | script (`orca-linux.AppImage`) |
 | `artcraft` | ArtCraft | Desktop | `storytold/artcraft` (direct) | script (`storytold/artcraft`) |
+| `agentdesktop` | Agent Desktop | Agentes | `agent-desktop` (npm) | `agent-desktop` (npm) |
+| `agentbrowser` | Agent Browser | Agentes | `agent-browser` (npm) | `agent-browser` (npm) |
+| `skillscli` | Skills CLI | Agentes | `skills` (npm) | `skills` (npm) |
+| `scrapling` | Scrapling | Agentes | `scrapling` (pipx) | `scrapling` (pipx) |
+| `claudemem` | Claude-Mem | Agentes | `claude-mem` (npm) | `claude-mem` (npm) |
 | `qbittorrent` | qBittorrent | Desktop | `qBittorrent.qBittorrent` (winget) | `qbittorrent` (native) |
 | `egm` | Elephant-Goldfish Model (EGM) | Skills | `google/elephant-goldfish-model` (direct) | `google/elephant-goldfish-model` (skill) |
 | `scientificagentskills` | Scientific Agent Skills | Skills | `K-Dense-AI/scientific-agent-skills` (direct) | `K-Dense-AI/scientific-agent-skills` (skill) |
