@@ -254,6 +254,9 @@ type Runner struct {
 }
 
 func New(reg *registry.Registry, dryRun bool) *Runner {
+	if reg != nil {
+		reg.SetDryRun(dryRun)
+	}
 	return &Runner{
 		reg:      reg,
 		sysInfo:  system.GetSystemInfo(),
@@ -264,6 +267,9 @@ func New(reg *registry.Registry, dryRun bool) *Runner {
 }
 
 func NewWithExecutor(reg *registry.Registry, executor CommandExecutor, dryRun bool) *Runner {
+	if reg != nil {
+		reg.SetDryRun(dryRun)
+	}
 	return &Runner{
 		reg:      reg,
 		sysInfo:  system.GetSystemInfo(),
@@ -333,6 +339,66 @@ func (r *Runner) startSudoKeepAlive() func() {
 
 	return func() {
 		close(done)
+	}
+}
+
+func (r *Runner) toolNeedsSudo(tool catalog.Tool, isInstallOrUpdate bool) bool {
+	if r.sysInfo == nil || r.sysInfo.OS != system.OSLinux || !r.sysInfo.NeedsSudo || r.dryRun {
+		return false
+	}
+	target := r.targetForTool(tool)
+	if target == nil {
+		return false
+	}
+	if target.Type == catalog.TypeNative && r.sysInfo.PrimaryManager != system.MgrBrew {
+		return true
+	}
+	if target.Type == catalog.TypeScript {
+		switch tool.ID {
+		case "docker", "tailscale":
+			return isInstallOrUpdate
+		case "ollama":
+			if isInstallOrUpdate {
+				return true
+			}
+			for _, p := range []string{"/etc/systemd/system/ollama.service", "/usr/local/bin/ollama", "/usr/bin/ollama", "/usr/share/ollama"} {
+				if _, err := os.Stat(p); err == nil {
+					return true
+				}
+			}
+			return false
+		}
+	}
+	return false
+}
+
+func (r *Runner) batchNeedsSudo(tools []catalog.Tool, isInstallOrUpdate bool) bool {
+	for _, t := range tools {
+		if r.toolNeedsSudo(t, isInstallOrUpdate) {
+			return true
+		}
+	}
+	return false
+}
+
+func (r *Runner) isToolPresentOnHost(tool catalog.Tool, target *catalog.Target) bool {
+	if target == nil {
+		return false
+	}
+	switch target.Type {
+	case catalog.TypeFlatpak:
+		if !r.haveCommand("flatpak") {
+			return false
+		}
+		return r.executor.Execute("flatpak", "info", target.PackageID) == nil
+	case catalog.TypeSkill:
+		fi, err := os.Stat(r.getSkillDir(tool.ID))
+		return err == nil && fi.IsDir()
+	default:
+		if tool.ID == "temurin" && r.haveCommand("java") {
+			return true
+		}
+		return r.findTargetBinaryPath(tool, target) != ""
 	}
 }
 
@@ -1143,26 +1209,46 @@ func (r *Runner) uninstallInternal(tool catalog.Tool, prefix string, showVisual 
 	var err error
 	switch target.Type {
 	case catalog.TypeWinget:
-		err = r.execWithActivity(actFn, "winget", "uninstall", "--exact", "--id", target.PackageID, "--silent")
+		if r.haveCommand("winget") {
+			err = r.execWithActivity(actFn, "winget", "uninstall", "--exact", "--id", target.PackageID, "--silent")
+		} else {
+			LogOp("uninstall %s winget ausente no PATH, limpando registro", tool.ID)
+		}
 
 	case catalog.TypeNative:
 		err = r.uninstallNativeWithActivity(actFn, target.PackageID)
 
 	case catalog.TypeNpm:
-		err = r.execWithActivity(actFn, "npm", "uninstall", "-g", target.PackageID)
+		if r.haveCommand("npm") {
+			err = r.execWithActivity(actFn, "npm", "uninstall", "-g", target.PackageID)
+		} else {
+			LogOp("uninstall %s npm ausente no PATH, limpando registro", tool.ID)
+		}
 
 	case catalog.TypePipx:
-		pkgName := target.PackageID
-		if strings.HasPrefix(pkgName, "git+") || strings.HasPrefix(pkgName, "http") {
-			pkgName = strings.TrimSuffix(target.Binary, ".exe")
+		if r.haveCommand("pipx") {
+			pkgName := target.PackageID
+			if strings.HasPrefix(pkgName, "git+") || strings.HasPrefix(pkgName, "http") {
+				pkgName = strings.TrimSuffix(target.Binary, ".exe")
+			}
+			err = r.execWithActivity(actFn, "pipx", "uninstall", pkgName)
+		} else {
+			LogOp("uninstall %s pipx ausente no PATH, limpando registro", tool.ID)
 		}
-		err = r.execWithActivity(actFn, "pipx", "uninstall", pkgName)
 
 	case catalog.TypeCargo:
-		err = r.execWithActivity(actFn, "cargo", "uninstall", target.PackageID)
+		if r.haveCommand("cargo") {
+			err = r.execWithActivity(actFn, "cargo", "uninstall", target.PackageID)
+		} else {
+			LogOp("uninstall %s cargo ausente no PATH, limpando registro", tool.ID)
+		}
 
 	case catalog.TypeFlatpak:
-		err = r.execWithActivity(actFn, "flatpak", "--noninteractive", "uninstall", "-y", target.PackageID)
+		if r.haveCommand("flatpak") {
+			err = r.execWithActivity(actFn, "flatpak", "--noninteractive", "uninstall", "-y", target.PackageID)
+		} else {
+			LogOp("uninstall %s flatpak ausente no PATH, limpando registro", tool.ID)
+		}
 
 	case catalog.TypeSkill, catalog.TypeDirect:
 		if tool.ID == "apktool" {
@@ -1203,10 +1289,20 @@ func (r *Runner) uninstallInternal(tool catalog.Tool, prefix string, showVisual 
 		}
 
 	case catalog.TypeBrew:
-		err = r.execWithActivity(actFn, "brew", "uninstall", target.PackageID)
+		if r.haveCommand("brew") {
+			err = r.execWithActivity(actFn, "brew", "uninstall", target.PackageID)
+		} else {
+			LogOp("uninstall %s brew ausente no PATH, limpando registro", tool.ID)
+		}
 
 	default:
 		err = fmt.Errorf("método de desinstalação não suportado: %s", target.Type)
+	}
+
+	// Se o gerenciador retornou erro mas a ferramenta já não está presente no host, considera já removida
+	if err != nil && !r.isToolPresentOnHost(tool, target) {
+		LogOp("uninstall %s ferramenta ja ausente no host apos erro (%v), limpando registro", tool.ID, err)
+		err = nil
 	}
 
 	elapsed := time.Since(start).Round(time.Millisecond)
@@ -1657,7 +1753,10 @@ func (r *Runner) runBatchInstallPartitioned(tools []catalog.Tool) (int, int) {
 	total := len(tools)
 	overallStart := time.Now()
 
-	stopSudo := r.startSudoKeepAlive()
+	stopSudo := func() {}
+	if r.batchNeedsSudo(tools, true) {
+		stopSudo = r.startSudoKeepAlive()
+	}
 	defer stopSudo()
 
 	i := 0
@@ -1707,7 +1806,10 @@ func (r *Runner) RunBatchUninstall(tools []catalog.Tool) (int, int) {
 	total := len(tools)
 	overallStart := time.Now()
 
-	stopSudo := r.startSudoKeepAlive()
+	stopSudo := func() {}
+	if r.batchNeedsSudo(tools, false) {
+		stopSudo = r.startSudoKeepAlive()
+	}
 	defer stopSudo()
 
 	for i, t := range tools {
@@ -1730,7 +1832,10 @@ func (r *Runner) RunBatchUpdate(tools []catalog.Tool) (int, int) {
 	total := len(tools)
 	overallStart := time.Now()
 
-	stopSudo := r.startSudoKeepAlive()
+	stopSudo := func() {}
+	if r.batchNeedsSudo(tools, true) {
+		stopSudo = r.startSudoKeepAlive()
+	}
 	defer stopSudo()
 
 	for i, t := range tools {

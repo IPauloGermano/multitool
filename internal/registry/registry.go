@@ -19,7 +19,14 @@ type InstalledItem struct {
 type Registry struct {
 	mu        sync.RWMutex
 	filePath  string
+	dryRun    bool
 	Installed map[string]InstalledItem `json:"installed"`
+}
+
+func (r *Registry) SetDryRun(dryRun bool) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.dryRun = dryRun
 }
 
 func DefaultPath() string {
@@ -89,6 +96,9 @@ func (r *Registry) load() error {
 }
 
 func (r *Registry) save() error {
+	if r.dryRun {
+		return nil
+	}
 	data, err := json.MarshalIndent(r.Installed, "", "  ")
 	if err != nil {
 		return err

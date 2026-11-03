@@ -835,6 +835,46 @@ func TestFlathubInstallAndUninstall(t *testing.T) {
 	}
 	lastCmdStr := strings.Join(lastCmd, " ")
 	if !strings.Contains(lastCmdStr, "--noninteractive") {
-		t.Errorf("flatpak remote-add deve conter --noninteractive: %v", lastCmd)
+		t.Errorf("flatpak remote-add deve conter --noninteractive: %v", lastCmdStr)
+	}
+}
+
+func TestUninstallWhenRuntimeMissingAndNoUnnecessarySudo(t *testing.T) {
+	tempDir := t.TempDir()
+
+	discordTool := catalog.FindTool("discord")
+	if discordTool == nil {
+		t.Fatalf("Ferramenta 'discord' não encontrada no catálogo")
+	}
+
+	// Simula Linux com NeedsSudo=true, mas sem flatpak instalado no PATH
+	regPath := filepath.Join(tempDir, "installed.json")
+	reg, _ := registry.New(regPath)
+	_ = reg.MarkInstalled("discord")
+
+	mock := &MockExecutor{
+		missing: map[string]bool{
+			"flatpak": true,
+			"Discord": true,
+		},
+	}
+	r := NewWithExecutor(reg, mock, false)
+	r.sysInfo.OS = system.OSLinux
+	r.sysInfo.NeedsSudo = true
+
+	ok, fail := r.RunBatchUninstall([]catalog.Tool{*discordTool})
+	if ok != 1 || fail != 0 {
+		t.Fatalf("Esperava ok=1, fail=0 ao desinstalar Discord sem flatpak no PATH, obteve ok=%d, fail=%d", ok, fail)
+	}
+	if reg.IsInstalled("discord") {
+		t.Errorf("Discord deveria ter sido removido do installed.json")
+	}
+	for _, cmd := range mock.executed {
+		if cmd[0] == "sudo" {
+			t.Errorf("RunBatchUninstall para ferramenta Flatpak NÃO deve invocar sudo: %v", cmd)
+		}
+		if cmd[0] == "flatpak" {
+			t.Errorf("Não deveria tentar executar flatpak quando ausente do PATH: %v", cmd)
+		}
 	}
 }
