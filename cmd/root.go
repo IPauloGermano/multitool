@@ -466,7 +466,15 @@ func runUninstall(r *runner.Runner, args []string) error {
 		if t == nil {
 			return fmt.Errorf("ferramenta não encontrada no catálogo: %s", id)
 		}
+		if !t.IsSupportedOnCurrentOS() {
+			continue
+		}
 		tools = append(tools, *t)
+	}
+
+	if len(tools) == 0 {
+		fmt.Println("Nenhuma ferramenta compatível com o sistema atual para desinstalar.")
+		return nil
 	}
 
 	ok, fail := r.RunBatchUninstall(tools)

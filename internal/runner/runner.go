@@ -3,6 +3,7 @@ package runner
 import (
 	"archive/zip"
 	"bufio"
+	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
@@ -47,6 +48,10 @@ type CommandExecutor interface {
 	LookPath(file string) (string, error)
 }
 
+type TimeoutExecutor interface {
+	ExecuteWithTimeout(timeout time.Duration, name string, args ...string) error
+}
+
 type OSExecutor struct{}
 
 func (o *OSExecutor) Execute(name string, args ...string) error {
@@ -57,8 +62,31 @@ func (o *OSExecutor) Execute(name string, args ...string) error {
 	return cmd.Run()
 }
 
+func (o *OSExecutor) ExecuteWithTimeout(timeout time.Duration, name string, args ...string) error {
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, name, args...)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	cmd.Stdin = os.Stdin
+	return cmd.Run()
+}
+
 func (o *OSExecutor) ExecuteWithActivity(activityFn func(line string), name string, args ...string) error {
-	cmd := exec.Command(name, args...)
+	return o.ExecuteWithActivityTimeout(0, activityFn, name, args...)
+}
+
+func (o *OSExecutor) ExecuteWithActivityTimeout(timeout time.Duration, activityFn func(line string), name string, args ...string) error {
+	var ctx context.Context
+	var cancel context.CancelFunc
+	if timeout > 0 {
+		ctx, cancel = context.WithTimeout(context.Background(), timeout)
+		defer cancel()
+	} else {
+		ctx = context.Background()
+	}
+
+	cmd := exec.CommandContext(ctx, name, args...)
 	cmd.Stdin = os.Stdin
 
 	if activityFn == nil {
@@ -264,6 +292,48 @@ func (r *Runner) execWithSudoAndActivity(activityFn func(line string), cmdName s
 		return r.execWithActivity(activityFn, "sudo", allArgs...)
 	}
 	return r.execWithActivity(activityFn, cmdName, args...)
+}
+
+func (r *Runner) execWithTimeout(timeout time.Duration, name string, args ...string) error {
+	if te, ok := r.executor.(TimeoutExecutor); ok {
+		return te.ExecuteWithTimeout(timeout, name, args...)
+	}
+	return r.executor.Execute(name, args...)
+}
+
+func (r *Runner) execWithActivityAndTimeout(timeout time.Duration, activityFn func(line string), name string, args ...string) error {
+	if ae, ok := r.executor.(interface {
+		ExecuteWithActivityTimeout(time.Duration, func(string), string, ...string) error
+	}); ok {
+		return ae.ExecuteWithActivityTimeout(timeout, activityFn, name, args...)
+	}
+	return r.execWithActivity(activityFn, name, args...)
+}
+
+func (r *Runner) startSudoKeepAlive() func() {
+	if r.sysInfo == nil || r.sysInfo.OS != system.OSLinux || !r.sysInfo.NeedsSudo || r.dryRun {
+		return func() {}
+	}
+
+	_ = r.executor.Execute("sudo", "-v")
+
+	done := make(chan struct{})
+	go func() {
+		ticker := time.NewTicker(45 * time.Second)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-done:
+				return
+			case <-ticker.C:
+				_ = r.executor.Execute("sudo", "-n", "-v")
+			}
+		}
+	}()
+
+	return func() {
+		close(done)
+	}
 }
 
 func (r *Runner) haveCommand(cmd string) bool {
@@ -498,7 +568,7 @@ func (r *Runner) ensureRuntime(toolID string, target *catalog.Target) error {
 	}
 
 	if req.command == "flatpak" && r.sysInfo.OS == system.OSLinux {
-		_ = r.executor.Execute("flatpak", "remote-add", "--if-not-exists", "flathub", "https://dl.flathub.org/repo/flathub.flatpakrepo")
+		_ = r.executor.Execute("flatpak", "--noninteractive", "remote-add", "--if-not-exists", "flathub", "https://dl.flathub.org/repo/flathub.flatpakrepo")
 	}
 
 	fmt.Printf("✔ Runtime '%s' provisionado com sucesso.\n", req.command)
@@ -608,7 +678,7 @@ func (r *Runner) installInternal(tool catalog.Tool, prefix string, showVisual bo
 		err = r.execWithActivity(actFn, "cargo", "install", target.PackageID)
 
 	case catalog.TypeFlatpak:
-		err = r.execWithActivity(actFn, "flatpak", "install", "-y", "flathub", target.PackageID)
+		err = r.execWithActivity(actFn, "flatpak", "--noninteractive", "install", "-y", "flathub", target.PackageID)
 
 	case catalog.TypeSkill:
 		err = r.installGitSkillWithActivity(actFn, tool.ID, target.PackageID)
@@ -797,7 +867,10 @@ func (r *Runner) installScriptWithActivity(actFn func(string), id string, target
 			return r.execWithActivity(actFn, "sh", "-c", "curl -LsSf https://astral.sh/uv/install.sh | sh")
 		}
 	case "flathub":
-		return r.execWithSudoAndActivity(actFn, "flatpak", "remote-add", "--if-not-exists", "flathub", "https://dl.flathub.org/repo/flathub.flatpakrepo")
+		if !r.haveCommand("flatpak") {
+			return fmt.Errorf("flatpak não encontrado no sistema para configurar flathub")
+		}
+		return r.execWithActivity(actFn, "flatpak", "--noninteractive", "remote-add", "--if-not-exists", "flathub", "https://dl.flathub.org/repo/flathub.flatpakrepo")
 	case "orca":
 		if r.sysInfo.OS == system.OSLinux {
 			return r.execWithActivity(actFn, "sh", "-c", "mkdir -p $HOME/.local/bin && curl -fsSL https://github.com/stablyai/orca/releases/latest/download/orca-linux.AppImage -o $HOME/.local/bin/orca && chmod +x $HOME/.local/bin/orca")
@@ -1009,7 +1082,10 @@ func (r *Runner) uninstallScript(tool catalog.Tool, target *catalog.Target) erro
 		}
 
 	case "flathub":
-		_ = r.execWithSudoIfNeeded("flatpak", "remote-delete", "--force", "flathub")
+		if r.haveCommand("flatpak") {
+			_ = r.execWithTimeout(15*time.Second, "flatpak", "--noninteractive", "remote-delete", "--force", "flathub")
+			_ = r.execWithTimeout(15*time.Second, "flatpak", "--user", "--noninteractive", "remote-delete", "--force", "flathub")
+		}
 
 	default:
 		// Limpeza preventiva de binários e symlinks em ~/.local/bin para qualquer outra ferramenta script
@@ -1043,6 +1119,10 @@ func (r *Runner) uninstallInternal(tool catalog.Tool, prefix string, showVisual 
 		return r.reg.MarkUninstalled(tool.ID)
 	}
 
+	if showVisual && target.Type == catalog.TypeNative && r.sysInfo.OS == system.OSLinux && r.sysInfo.NeedsSudo && !r.dryRun {
+		_ = r.executor.Execute("sudo", "-v")
+	}
+
 	var sp *Spinner
 	if showVisual {
 		sp = NewSpinner(prefix, fmt.Sprintf("Desinstalando %s...", tool.Name))
@@ -1053,29 +1133,36 @@ func (r *Runner) uninstallInternal(tool catalog.Tool, prefix string, showVisual 
 		fmt.Printf("=== Desinstalando %s (%s) ===\n", tool.Name, tool.ID)
 	}
 
+	var actFn func(string)
+	if sp != nil {
+		actFn = func(line string) {
+			sp.UpdateActivity(line)
+		}
+	}
+
 	var err error
 	switch target.Type {
 	case catalog.TypeWinget:
-		err = r.executor.Execute("winget", "uninstall", "--exact", "--id", target.PackageID, "--silent")
+		err = r.execWithActivity(actFn, "winget", "uninstall", "--exact", "--id", target.PackageID, "--silent")
 
 	case catalog.TypeNative:
-		err = r.uninstallNative(target.PackageID)
+		err = r.uninstallNativeWithActivity(actFn, target.PackageID)
 
 	case catalog.TypeNpm:
-		err = r.executor.Execute("npm", "uninstall", "-g", target.PackageID)
+		err = r.execWithActivity(actFn, "npm", "uninstall", "-g", target.PackageID)
 
 	case catalog.TypePipx:
 		pkgName := target.PackageID
 		if strings.HasPrefix(pkgName, "git+") || strings.HasPrefix(pkgName, "http") {
 			pkgName = strings.TrimSuffix(target.Binary, ".exe")
 		}
-		err = r.executor.Execute("pipx", "uninstall", pkgName)
+		err = r.execWithActivity(actFn, "pipx", "uninstall", pkgName)
 
 	case catalog.TypeCargo:
-		err = r.executor.Execute("cargo", "uninstall", target.PackageID)
+		err = r.execWithActivity(actFn, "cargo", "uninstall", target.PackageID)
 
 	case catalog.TypeFlatpak:
-		err = r.executor.Execute("flatpak", "uninstall", "-y", target.PackageID)
+		err = r.execWithActivity(actFn, "flatpak", "--noninteractive", "uninstall", "-y", target.PackageID)
 
 	case catalog.TypeSkill, catalog.TypeDirect:
 		if tool.ID == "apktool" {
@@ -1116,7 +1203,7 @@ func (r *Runner) uninstallInternal(tool catalog.Tool, prefix string, showVisual 
 		}
 
 	case catalog.TypeBrew:
-		err = r.executor.Execute("brew", "uninstall", target.PackageID)
+		err = r.execWithActivity(actFn, "brew", "uninstall", target.PackageID)
 
 	default:
 		err = fmt.Errorf("método de desinstalação não suportado: %s", target.Type)
@@ -1162,6 +1249,10 @@ func (r *Runner) updateInternal(tool catalog.Tool, prefix string, showVisual boo
 		return nil
 	}
 
+	if showVisual && target.Type == catalog.TypeNative && r.sysInfo.OS == system.OSLinux && r.sysInfo.NeedsSudo && !r.dryRun {
+		_ = r.executor.Execute("sudo", "-v")
+	}
+
 	var sp *Spinner
 	if showVisual {
 		sp = NewSpinner(prefix, fmt.Sprintf("Atualizando %s via %s...", tool.Name, target.Type))
@@ -1190,45 +1281,52 @@ func (r *Runner) updateInternal(tool catalog.Tool, prefix string, showVisual boo
 		sp.Update(fmt.Sprintf("Atualizando %s via %s (%s)...", tool.Name, target.Type, target.PackageID))
 	}
 
+	var actFn func(string)
+	if sp != nil {
+		actFn = func(line string) {
+			sp.UpdateActivity(line)
+		}
+	}
+
 	var err error
 	switch target.Type {
 	case catalog.TypeWinget:
-		err = r.executor.Execute("winget", "upgrade", "--exact", "--id", target.PackageID, "--silent")
+		err = r.execWithActivity(actFn, "winget", "upgrade", "--exact", "--id", target.PackageID, "--silent")
 
 	case catalog.TypeNative:
-		err = r.updateNative(target.PackageID)
+		err = r.updateNativeWithActivity(actFn, target.PackageID)
 
 	case catalog.TypeNpm:
-		err = r.executor.Execute("npm", "update", "-g", target.PackageID)
+		err = r.execWithActivity(actFn, "npm", "update", "-g", target.PackageID)
 
 	case catalog.TypePipx:
 		if strings.HasPrefix(target.PackageID, "git+") || strings.HasPrefix(target.PackageID, "http") {
-			err = r.executor.Execute("pipx", "install", "--force", target.PackageID)
+			err = r.execWithActivity(actFn, "pipx", "install", "--force", target.PackageID)
 		} else {
-			err = r.executor.Execute("pipx", "upgrade", target.PackageID)
+			err = r.execWithActivity(actFn, "pipx", "upgrade", target.PackageID)
 		}
 
 	case catalog.TypeCargo:
-		err = r.executor.Execute("cargo", "install", target.PackageID)
+		err = r.execWithActivity(actFn, "cargo", "install", target.PackageID)
 
 	case catalog.TypeFlatpak:
-		err = r.executor.Execute("flatpak", "update", "-y", target.PackageID)
+		err = r.execWithActivity(actFn, "flatpak", "--noninteractive", "update", "-y", target.PackageID)
 
 	case catalog.TypeSkill:
-		err = r.installGitSkill(tool.ID, target.PackageID)
+		err = r.installGitSkillWithActivity(actFn, tool.ID, target.PackageID)
 
 	case catalog.TypeDirect:
 		if tool.ID == "artcraft" || tool.ID == "orca" || tool.ID == "openmausbot" || tool.ID == "apktool" || tool.ID == "ghidra" || tool.ID == "wabt" {
-			err = r.installDirectWindows(tool.ID)
+			err = r.installDirectWindowsWithActivity(actFn, tool.ID)
 		} else {
-			err = r.installGitSkill(tool.ID, target.PackageID)
+			err = r.installGitSkillWithActivity(actFn, tool.ID, target.PackageID)
 		}
 
 	case catalog.TypeScript:
-		err = r.installScript(tool.ID, target)
+		err = r.installScriptWithActivity(actFn, tool.ID, target)
 
 	case catalog.TypeBrew:
-		err = r.executor.Execute("brew", "upgrade", target.PackageID)
+		err = r.execWithActivity(actFn, "brew", "upgrade", target.PackageID)
 
 	default:
 		err = fmt.Errorf("método de atualização não suportado: %s", target.Type)
@@ -1559,9 +1657,8 @@ func (r *Runner) runBatchInstallPartitioned(tools []catalog.Tool) (int, int) {
 	total := len(tools)
 	overallStart := time.Now()
 
-	if r.sysInfo.OS == system.OSLinux && r.sysInfo.NeedsSudo && !r.dryRun {
-		_ = r.executor.Execute("sudo", "-v")
-	}
+	stopSudo := r.startSudoKeepAlive()
+	defer stopSudo()
 
 	i := 0
 	for i < total {
@@ -1610,6 +1707,9 @@ func (r *Runner) RunBatchUninstall(tools []catalog.Tool) (int, int) {
 	total := len(tools)
 	overallStart := time.Now()
 
+	stopSudo := r.startSudoKeepAlive()
+	defer stopSudo()
+
 	for i, t := range tools {
 		pct := float64(i) / float64(total)
 		prefix := fmt.Sprintf("[%d/%d] %s", i+1, total, RenderProgressBar(14, pct))
@@ -1629,6 +1729,9 @@ func (r *Runner) RunBatchUpdate(tools []catalog.Tool) (int, int) {
 	ok, fail := 0, 0
 	total := len(tools)
 	overallStart := time.Now()
+
+	stopSudo := r.startSudoKeepAlive()
+	defer stopSudo()
 
 	for i, t := range tools {
 		pct := float64(i) / float64(total)

@@ -764,3 +764,77 @@ func TestClangAndWabtInstallAndUninstall(t *testing.T) {
 		t.Errorf("wabt deveria estar desinstalado no Windows")
 	}
 }
+
+func TestFlathubInstallAndUninstall(t *testing.T) {
+	tempDir := t.TempDir()
+	flathubTool := catalog.FindTool("flathub")
+	if flathubTool == nil {
+		t.Fatalf("Ferramenta flathub não encontrada no catálogo")
+	}
+
+	// 1. Desinstalação quando flatpak NÃO está no sistema
+	reg1, _ := registry.New(filepath.Join(tempDir, "reg1.json"))
+	mock1 := &MockExecutor{
+		missing: map[string]bool{"flatpak": true},
+	}
+	r1 := NewWithExecutor(reg1, mock1, false)
+	r1.sysInfo.OS = system.OSLinux
+	r1.sysInfo.NeedsSudo = true
+
+	_ = reg1.MarkInstalled("flathub")
+	if err := r1.Uninstall(*flathubTool); err != nil {
+		t.Fatalf("Erro ao desinstalar flathub quando flatpak ausente: %v", err)
+	}
+	if len(mock1.executed) != 0 {
+		t.Errorf("Não deveria ter executado nenhum comando quando flatpak está ausente, mas executou: %v", mock1.executed)
+	}
+	if reg1.IsInstalled("flathub") {
+		t.Errorf("flathub deveria constar como desinstalado")
+	}
+
+	// 2. Desinstalação quando flatpak ESTÁ presente no sistema
+	reg2, _ := registry.New(filepath.Join(tempDir, "reg2.json"))
+	mock2 := &MockExecutor{}
+	r2 := NewWithExecutor(reg2, mock2, false)
+	r2.sysInfo.OS = system.OSLinux
+	r2.sysInfo.NeedsSudo = true
+
+	_ = reg2.MarkInstalled("flathub")
+	if err := r2.Uninstall(*flathubTool); err != nil {
+		t.Fatalf("Erro ao desinstalar flathub quando flatpak presente: %v", err)
+	}
+	if len(mock2.executed) == 0 {
+		t.Fatalf("Deveria ter executado comandos de remoção do remote flathub")
+	}
+	for _, cmd := range mock2.executed {
+		if cmd[0] == "sudo" {
+			t.Errorf("flatpak remote-delete NÃO deve ser executado com sudo: %v", cmd)
+		}
+		cmdStr := strings.Join(cmd, " ")
+		if !strings.Contains(cmdStr, "--noninteractive") {
+			t.Errorf("flatpak remote-delete deve conter --noninteractive para não travar: %v", cmd)
+		}
+	}
+
+	// 3. Instalação quando flatpak presente no sistema
+	reg3, _ := registry.New(filepath.Join(tempDir, "reg3.json"))
+	mock3 := &MockExecutor{}
+	r3 := NewWithExecutor(reg3, mock3, false)
+	r3.sysInfo.OS = system.OSLinux
+	r3.sysInfo.NeedsSudo = true
+
+	if err := r3.Install(*flathubTool); err != nil {
+		t.Fatalf("Erro ao instalar flathub: %v", err)
+	}
+	if len(mock3.executed) == 0 {
+		t.Fatalf("Deveria ter executado comando de remote-add para flathub")
+	}
+	lastCmd := mock3.executed[len(mock3.executed)-1]
+	if lastCmd[0] == "sudo" {
+		t.Errorf("flatpak remote-add NÃO deve ser executado com sudo: %v", lastCmd)
+	}
+	lastCmdStr := strings.Join(lastCmd, " ")
+	if !strings.Contains(lastCmdStr, "--noninteractive") {
+		t.Errorf("flatpak remote-add deve conter --noninteractive: %v", lastCmd)
+	}
+}
