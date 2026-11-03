@@ -1098,7 +1098,26 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.executed = true
 				return m, tea.Quit
 			}
-			m.openDetailsModal()
+			// Se o carrinho estiver vazio, seleciona e executa o item sob o cursor
+			if m.tab == TabPackages {
+				if len(m.visibleSuites) > 0 && m.cursor >= 0 && m.cursor < len(m.visibleSuites) {
+					suite := m.visibleSuites[m.cursor]
+					for _, tid := range suite.Tools {
+						m.selected[tid] = true
+					}
+					if len(m.selected) > 0 {
+						m.executed = true
+						return m, tea.Quit
+					}
+				}
+			} else {
+				if len(m.visibleTools) > 0 && m.cursor >= 0 && m.cursor < len(m.visibleTools) {
+					toolID := m.visibleTools[m.cursor].ID
+					m.selected[toolID] = true
+					m.executed = true
+					return m, tea.Quit
+				}
+			}
 			return m, nil
 		}
 	}
@@ -1219,22 +1238,72 @@ func (m Model) View() string {
 		b.WriteString(dimStyle.Render(fmt.Sprintf("  Item %d de %d (rolagem: %.0f%% • use ↑/↓)\n", m.cursor+1, totalItems, scrollPct)))
 	}
 
-	shortcutText := "Atalhos: [↑/↓] Navegar • [Espaço] Marcar • [d] Detalhes • [Enter] Executar • [a/A] Tudo/Limpar • [r] Modo • [/] Buscar • [q] Sair"
-	if m.width < 135 {
-		shortcutText = "Atalhos: [↑/↓] Navegar • [Espaço] Marcar • [d] Detalhes • [Enter] Executar • [r] Modo • [/] Buscar • [q] Sair"
-	}
-	if m.width < 120 {
-		shortcutText = "Atalhos: [↑/↓] Navegar • [Espaço] Marcar • [d] Detalhes • [Enter] Executar • [/] Buscar • [q] Sair"
-	}
-	if m.width < 105 {
-		shortcutText = "[↑/↓] Mover • [Espaço] Marcar • [d] Detalhes • [Enter] Ação • [/] Busca • [q] Sair"
-	}
-	if m.width < 90 {
-		shortcutText = "[↑/↓] Mover • [Espaço] Carrinho • [d] Detalhes • [Enter] Ação • [q] Sair"
-	}
+	shortcutText := m.renderShortcuts()
 	b.WriteString(dimStyle.Render(shortcutText + "\n"))
 
 	return b.String()
+}
+
+func (m Model) renderShortcuts() string {
+	selectedCount := len(m.selected)
+	isUninstall := m.mode == ModeUninstall
+	hasItems := (m.tab == TabPackages && len(m.visibleSuites) > 0) || (m.tab != TabPackages && len(m.visibleTools) > 0)
+
+	var enterLabel string
+	var allLabel string
+
+	if isUninstall {
+		if selectedCount > 0 {
+			enterLabel = fmt.Sprintf("[Enter] Desinstalar (%d)", selectedCount)
+			allLabel = "[A] Limpar"
+		} else if hasItems {
+			if m.tab == TabPackages {
+				enterLabel = "[Enter] Desinstalar pacote"
+			} else {
+				enterLabel = "[Enter] Desinstalar atual"
+			}
+			allLabel = "[a] Todos"
+		} else {
+			enterLabel = "[Enter] Executar"
+			allLabel = "[a] Todos"
+		}
+	} else {
+		if selectedCount > 0 {
+			enterLabel = fmt.Sprintf("[Enter] Instalar (%d)", selectedCount)
+			allLabel = "[A] Limpar"
+		} else if hasItems {
+			if m.tab == TabPackages {
+				enterLabel = "[Enter] Instalar pacote"
+			} else {
+				enterLabel = "[Enter] Instalar atual"
+			}
+			allLabel = "[a] Todos"
+		} else {
+			enterLabel = "[Enter] Executar"
+			allLabel = "[a] Todos"
+		}
+	}
+
+	if m.width >= 135 {
+		return fmt.Sprintf("Atalhos: [↑/↓] Navegar • %s • %s • [Espaço] Marcar • [d] Detalhes • [r] Modo • [/] Buscar • [q] Sair", enterLabel, allLabel)
+	}
+	if m.width >= 115 {
+		return fmt.Sprintf("%s • %s • [Espaço] Marcar • [d] Detalhes • [r] Modo • [/] Buscar • [q] Sair", enterLabel, allLabel)
+	}
+	if m.width >= 95 {
+		return fmt.Sprintf("%s • %s • [Espaço] Marcar • [d] Detalhes • [r] Modo • [q] Sair", enterLabel, allLabel)
+	}
+	if m.width >= 80 {
+		shortAction := "Instalar"
+		if isUninstall {
+			shortAction = "Remover"
+		}
+		if selectedCount > 0 {
+			shortAction = fmt.Sprintf("%s (%d)", shortAction, selectedCount)
+		}
+		return fmt.Sprintf("[Enter] %s • %s • [Espaço] Marcar • [d] Info • [q] Sair", shortAction, allLabel)
+	}
+	return fmt.Sprintf("[Enter] Ação • %s • [d] Info • [q] Sair", allLabel)
 }
 
 func Run(reg *registry.Registry, dryRun bool) error {
@@ -1248,9 +1317,19 @@ func Run(reg *registry.Registry, dryRun bool) error {
 	res := finalModel.(Model)
 	if res.executed && len(res.selected) > 0 {
 		var toRun []catalog.Tool
+		seen := make(map[string]bool)
 		for _, t := range res.allTools {
 			if res.selected[t.ID] {
 				toRun = append(toRun, t)
+				seen[t.ID] = true
+			}
+		}
+		for id := range res.selected {
+			if !seen[id] {
+				if t := catalog.FindTool(id); t != nil {
+					toRun = append(toRun, *t)
+					seen[id] = true
+				}
 			}
 		}
 

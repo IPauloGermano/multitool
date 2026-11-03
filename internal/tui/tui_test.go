@@ -133,11 +133,11 @@ func TestTUIModalDetails(t *testing.T) {
 		t.Fatalf("Esperava carrinho vazio, obteve: %d", m.SelectedCount())
 	}
 
-	// 2. Enter com carrinho vazio deve abrir modal de detalhes
-	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	// 2. Tecla 'd' deve abrir modal de detalhes
+	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'d'}})
 	m = updated.(Model)
 	if !m.IsModalOpen() {
-		t.Fatalf("Esperava modal aberto após Enter com carrinho vazio")
+		t.Fatalf("Esperava modal aberto após pressionar 'd'")
 	}
 	if m.GetModalTool() == nil {
 		t.Fatalf("Esperava ferramenta carregada no modal")
@@ -201,8 +201,8 @@ func TestTUISuiteModalDetails(t *testing.T) {
 	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'p'}})
 	m = updated.(Model)
 
-	// Enter com carrinho vazio abre modal da suíte
-	updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	// Tecla 'd' com carrinho vazio abre modal da suíte
+	updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'d'}})
 	m = updated.(Model)
 	if !m.IsModalOpen() {
 		t.Fatalf("Esperava modal aberto para suíte")
@@ -344,5 +344,105 @@ func TestTUINoLineOverflow(t *testing.T) {
 					w, idx, lineWidth, w, line)
 			}
 		}
+	}
+}
+
+func TestTUIEnterEmptyCartExecutesFocusedTool(t *testing.T) {
+	tempDir := t.TempDir()
+	reg, _ := registry.New(filepath.Join(tempDir, "installed.json"))
+	m := NewModel(reg, true)
+
+	if m.SelectedCount() != 0 {
+		t.Fatalf("Esperava carrinho vazio, obteve %d", m.SelectedCount())
+	}
+
+	firstTool := m.GetVisibleTools()[0]
+
+	// Enter com carrinho vazio deve selecionar a ferramenta em foco e sair para executar
+	updated, cmd := m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	m = updated.(Model)
+
+	if !m.executed {
+		t.Errorf("Esperava m.executed == true após Enter no item em foco")
+	}
+	if cmd == nil {
+		t.Errorf("Esperava tea.Quit após Enter no item em foco")
+	}
+	if m.SelectedCount() != 1 {
+		t.Errorf("Esperava 1 item selecionado, obteve %d", m.SelectedCount())
+	}
+	if !m.selected[firstTool.ID] {
+		t.Errorf("Esperava ferramenta %s selecionada, selected=%v", firstTool.ID, m.selected)
+	}
+}
+
+func TestTUIEnterEmptyCartExecutesSuite(t *testing.T) {
+	tempDir := t.TempDir()
+	reg, _ := registry.New(filepath.Join(tempDir, "installed.json"))
+	m := NewModel(reg, true)
+
+	// Muda para aba Pacotes
+	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'p'}})
+	m = updated.(Model)
+
+	suite := m.GetVisibleSuites()[0]
+
+	// Enter na suíte com carrinho vazio deve selecionar todos os membros da suíte e executar
+	updated, cmd := m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	m = updated.(Model)
+
+	if !m.executed {
+		t.Errorf("Esperava m.executed == true após Enter na suíte")
+	}
+	if cmd == nil {
+		t.Errorf("Esperava tea.Quit após Enter na suíte")
+	}
+	for _, tid := range suite.Tools {
+		if !m.selected[tid] {
+			t.Errorf("Esperava ferramenta %s do pacote %s selecionada", tid, suite.ID)
+		}
+	}
+}
+
+func TestTUIUninstallModeEnter(t *testing.T) {
+	tempDir := t.TempDir()
+	reg, _ := registry.New(filepath.Join(tempDir, "installed.json"))
+	_ = reg.MarkInstalled("docker")
+	_ = reg.MarkInstalled("ghidra")
+
+	m := NewModel(reg, true)
+
+	// 1. Muda para aba Instalados com 'i'
+	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'i'}})
+	m = updated.(Model)
+
+	// 2. Muda para modo Desinstalar com 'r'
+	updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'r'}})
+	m = updated.(Model)
+
+	if m.GetMode() != ModeUninstall {
+		t.Fatalf("Esperava modo %s, obteve %s", ModeUninstall, m.GetMode())
+	}
+	if len(m.GetVisibleTools()) != 2 {
+		t.Fatalf("Esperava 2 ferramentas instaladas visíveis, obteve %d", len(m.GetVisibleTools()))
+	}
+
+	firstTool := m.GetVisibleTools()[0]
+
+	// 3. Enter com carrinho vazio deve selecionar a primeira ferramenta instalada e executar desinstalação
+	updated, cmd := m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	m = updated.(Model)
+
+	if !m.executed {
+		t.Errorf("Esperava m.executed == true após Enter no modo desinstalar")
+	}
+	if cmd == nil {
+		t.Errorf("Esperava tea.Quit cmd")
+	}
+	if m.SelectedCount() != 1 {
+		t.Errorf("Esperava 1 ferramenta selecionada para desinstalação, obteve %d", m.SelectedCount())
+	}
+	if !m.selected[firstTool.ID] {
+		t.Errorf("Esperava ferramenta %s selecionada, obteve %v", firstTool.ID, m.selected)
 	}
 }
