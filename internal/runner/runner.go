@@ -6,6 +6,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -452,6 +453,55 @@ func (r *Runner) IsDependencySatisfied(depTool *catalog.Tool) bool {
 	return false
 }
 
+// isWingetAlreadyInstalled verifica se o erro do winget indica que o pacote já está instalado
+// e na versão mais recente (APPINSTALLER_CLI_ERROR_UPDATE_NOT_APPLICABLE 0x8a15002b).
+func isWingetAlreadyInstalled(err error) bool {
+	if err == nil {
+		return false
+	}
+	var ee *exec.ExitError
+	if errors.As(err, &ee) {
+		code := uint32(ee.ExitCode())
+		if code == 0x8a15002b {
+			return true
+		}
+	}
+	errStr := strings.ToLower(err.Error())
+	return strings.Contains(errStr, "8a15002b")
+}
+
+// isWingetRebootRequired verifica se o instalador do winget retornou sucesso com reinicialização pendente (3010 / 1641).
+func isWingetRebootRequired(err error) bool {
+	if err == nil {
+		return false
+	}
+	var ee *exec.ExitError
+	if errors.As(err, &ee) {
+		code := uint32(ee.ExitCode())
+		if code == 3010 || code == 1641 {
+			return true
+		}
+	}
+	return false
+}
+
+// isWingetPackageNotFound verifica se o winget indicou que o pacote não foi encontrado ao desinstalar
+// (APPINSTALLER_CLI_ERROR_NO_APPLICATIONS_FOUND 0x8a150014 ou NO_UNINSTALL_INFO_FOUND 0x8a15002f).
+func isWingetPackageNotFound(err error) bool {
+	if err == nil {
+		return false
+	}
+	var ee *exec.ExitError
+	if errors.As(err, &ee) {
+		code := uint32(ee.ExitCode())
+		if code == 0x8a150014 || code == 0x8a15002f {
+			return true
+		}
+	}
+	errStr := strings.ToLower(err.Error())
+	return strings.Contains(errStr, "8a150014") || strings.Contains(errStr, "8a15002f")
+}
+
 type runtimePkg struct {
 	command  string
 	apt      []string
@@ -576,6 +626,9 @@ func (r *Runner) ensureRuntime(toolID string, target *catalog.Target) error {
 		}
 		err = r.executor.Execute("winget", "install", "--exact", "--id", req.wingetID,
 			"--accept-source-agreements", "--accept-package-agreements", "--silent")
+		if isWingetAlreadyInstalled(err) || isWingetRebootRequired(err) {
+			err = nil
+		}
 	} else if r.sysInfo.OS == system.OSDarwin {
 		if len(req.brew) == 0 {
 			return fmt.Errorf("runtime '%s' não encontrado para macOS", req.command)
@@ -726,10 +779,19 @@ func (r *Runner) installInternal(tool catalog.Tool, prefix string, showVisual bo
 	}
 
 	var err error
+	var alreadyInstalled bool
+	var rebootRequired bool
 	switch target.Type {
 	case catalog.TypeWinget:
 		err = r.execWithActivity(actFn, "winget", "install", "--exact", "--id", target.PackageID,
 			"--accept-source-agreements", "--accept-package-agreements", "--silent")
+		if isWingetAlreadyInstalled(err) {
+			err = nil
+			alreadyInstalled = true
+		} else if isWingetRebootRequired(err) {
+			err = nil
+			rebootRequired = true
+		}
 
 	case catalog.TypeNative:
 		err = r.installNativeWithActivity(actFn, target.PackageID)
@@ -800,11 +862,23 @@ func (r *Runner) installInternal(tool catalog.Tool, prefix string, showVisual bo
 	}
 
 	if sp != nil {
-		sp.Stop(true, fmt.Sprintf("%s instalado com sucesso em %s.", tool.Name, elapsed))
+		if alreadyInstalled {
+			sp.Stop(true, fmt.Sprintf("%s já está instalado na versão mais recente (%s).", tool.Name, elapsed))
+		} else if rebootRequired {
+			sp.Stop(true, fmt.Sprintf("%s instalado com sucesso em %s (reinicialização recomendada).", tool.Name, elapsed))
+		} else {
+			sp.Stop(true, fmt.Sprintf("%s instalado com sucesso em %s.", tool.Name, elapsed))
+		}
 	} else {
-		fmt.Printf("✔ %s instalado com sucesso em %s.\n", tool.Name, elapsed)
+		if alreadyInstalled {
+			fmt.Printf("✔ %s já está instalado na versão mais recente (%s).\n", tool.Name, elapsed)
+		} else if rebootRequired {
+			fmt.Printf("✔ %s instalado com sucesso em %s (reinicialização recomendada).\n", tool.Name, elapsed)
+		} else {
+			fmt.Printf("✔ %s instalado com sucesso em %s.\n", tool.Name, elapsed)
+		}
 	}
-	LogOp("install %s fim rc=0 duracao=%s", tool.ID, elapsed)
+	LogOp("install %s fim rc=0 duracao=%s ja_instalado=%v reboot=%v", tool.ID, elapsed, alreadyInstalled, rebootRequired)
 	return r.reg.MarkInstalled(tool.ID)
 }
 
@@ -831,6 +905,26 @@ func (r *Runner) findTargetBinaryPath(tool catalog.Tool, target *catalog.Target)
 		pWin2 := filepath.Join(localApp, "multitool", "bin", tool.ID+".bat")
 		if _, err := os.Stat(pWin2); err == nil {
 			return pWin2
+		}
+	}
+	if (r.sysInfo != nil && r.sysInfo.OS == system.OSWindows || runtime.GOOS == "windows") && target.Binary != "" {
+		progDirs := []string{
+			os.Getenv("ProgramFiles"),
+			os.Getenv("ProgramFiles(x86)"),
+			filepath.Join(os.Getenv("LOCALAPPDATA"), "Programs"),
+		}
+		for _, base := range progDirs {
+			if base == "" {
+				continue
+			}
+			pName := filepath.Join(base, tool.Name, target.Binary)
+			if _, err := os.Stat(pName); err == nil {
+				return pName
+			}
+			pID := filepath.Join(base, tool.ID, target.Binary)
+			if _, err := os.Stat(pID); err == nil {
+				return pID
+			}
 		}
 	}
 	if target.Binary != "" {
@@ -1211,6 +1305,10 @@ func (r *Runner) uninstallInternal(tool catalog.Tool, prefix string, showVisual 
 	case catalog.TypeWinget:
 		if r.haveCommand("winget") {
 			err = r.execWithActivity(actFn, "winget", "uninstall", "--exact", "--id", target.PackageID, "--silent")
+			if isWingetPackageNotFound(err) {
+				LogOp("uninstall %s winget pacote ja ausente (0x8a150014/0x8a15002f), limpando registro", tool.ID)
+				err = nil
+			}
 		} else {
 			LogOp("uninstall %s winget ausente no PATH, limpando registro", tool.ID)
 		}
@@ -1385,9 +1483,18 @@ func (r *Runner) updateInternal(tool catalog.Tool, prefix string, showVisual boo
 	}
 
 	var err error
+	var alreadyUpToDate bool
+	var rebootRequired bool
 	switch target.Type {
 	case catalog.TypeWinget:
 		err = r.execWithActivity(actFn, "winget", "upgrade", "--exact", "--id", target.PackageID, "--silent")
+		if isWingetAlreadyInstalled(err) {
+			err = nil
+			alreadyUpToDate = true
+		} else if isWingetRebootRequired(err) {
+			err = nil
+			rebootRequired = true
+		}
 
 	case catalog.TypeNative:
 		err = r.updateNativeWithActivity(actFn, target.PackageID)
@@ -1441,11 +1548,23 @@ func (r *Runner) updateInternal(tool catalog.Tool, prefix string, showVisual boo
 	}
 
 	if sp != nil {
-		sp.Stop(true, fmt.Sprintf("%s atualizado com sucesso em %s.", tool.Name, elapsed))
+		if alreadyUpToDate {
+			sp.Stop(true, fmt.Sprintf("%s já está na versão mais recente (%s).", tool.Name, elapsed))
+		} else if rebootRequired {
+			sp.Stop(true, fmt.Sprintf("%s atualizado com sucesso em %s (reinicialização recomendada).", tool.Name, elapsed))
+		} else {
+			sp.Stop(true, fmt.Sprintf("%s atualizado com sucesso em %s.", tool.Name, elapsed))
+		}
 	} else {
-		fmt.Printf("✔ %s atualizado com sucesso em %s.\n", tool.Name, elapsed)
+		if alreadyUpToDate {
+			fmt.Printf("✔ %s já está na versão mais recente (%s).\n", tool.Name, elapsed)
+		} else if rebootRequired {
+			fmt.Printf("✔ %s atualizado com sucesso em %s (reinicialização recomendada).\n", tool.Name, elapsed)
+		} else {
+			fmt.Printf("✔ %s atualizado com sucesso em %s.\n", tool.Name, elapsed)
+		}
 	}
-	LogOp("update %s fim rc=0 duracao=%s", tool.ID, elapsed)
+	LogOp("update %s fim rc=0 duracao=%s ja_atualizado=%v reboot=%v", tool.ID, elapsed, alreadyUpToDate, rebootRequired)
 	return nil
 }
 
@@ -1895,6 +2014,9 @@ func (r *Runner) SyncInstalled() ([]SyncResult, int, error) {
 		} else if target.Binary != "" && r.haveCommand(target.Binary) {
 			detected = true
 			detectMethod = fmt.Sprintf("PATH (%s)", target.Binary)
+		} else if binPath := r.findTargetBinaryPath(tool, target); binPath != "" {
+			detected = true
+			detectMethod = fmt.Sprintf("disco (%s)", filepath.Dir(binPath))
 		} else if target.Type == catalog.TypeSkill {
 			skillDir := r.getSkillDir(tool.ID)
 			if fi, err := os.Stat(skillDir); err == nil && fi.IsDir() {

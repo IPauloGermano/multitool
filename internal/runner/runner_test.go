@@ -1,6 +1,7 @@
 package runner
 
 import (
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -15,11 +16,20 @@ import (
 type MockExecutor struct {
 	executed [][]string
 	missing  map[string]bool
+	errors   map[string]error
 }
 
 func (m *MockExecutor) Execute(name string, args ...string) error {
 	cmd := append([]string{name}, args...)
 	m.executed = append(m.executed, cmd)
+	if m.errors != nil {
+		cmdKey := strings.Join(cmd, " ")
+		for k, err := range m.errors {
+			if strings.Contains(cmdKey, k) {
+				return err
+			}
+		}
+	}
 	return nil
 }
 
@@ -876,5 +886,112 @@ func TestUninstallWhenRuntimeMissingAndNoUnnecessarySudo(t *testing.T) {
 		if cmd[0] == "flatpak" {
 			t.Errorf("Não deveria tentar executar flatpak quando ausente do PATH: %v", cmd)
 		}
+	}
+}
+
+func TestWingetExitCodeHelpers(t *testing.T) {
+	errAlready := fmt.Errorf("exit status 0x8a15002b")
+	if !isWingetAlreadyInstalled(errAlready) {
+		t.Errorf("Esperava isWingetAlreadyInstalled=true para 0x8a15002b")
+	}
+
+	if isWingetAlreadyInstalled(nil) {
+		t.Errorf("Esperava isWingetAlreadyInstalled=false para nil")
+	}
+
+	if isWingetRebootRequired(nil) {
+		t.Errorf("Esperava isWingetRebootRequired=false para nil")
+	}
+
+	errNotFound := fmt.Errorf("exit status 0x8a150014")
+	if !isWingetPackageNotFound(errNotFound) {
+		t.Errorf("Esperava isWingetPackageNotFound=true para 0x8a150014")
+	}
+	errNoUninstall := fmt.Errorf("exit status 0x8a15002f")
+	if !isWingetPackageNotFound(errNoUninstall) {
+		t.Errorf("Esperava isWingetPackageNotFound=true para 0x8a15002f")
+	}
+	if isWingetPackageNotFound(nil) {
+		t.Errorf("Esperava isWingetPackageNotFound=false para nil")
+	}
+}
+
+func TestWingetInstallAlreadyInstalledIdempotent(t *testing.T) {
+	tempDir := t.TempDir()
+	regPath := filepath.Join(tempDir, "installed.json")
+	reg, _ := registry.New(regPath)
+
+	tool := catalog.FindTool("qbittorrent")
+	if tool == nil {
+		t.Fatalf("Ferramenta 'qbittorrent' não encontrada")
+	}
+
+	mock := &MockExecutor{
+		errors: map[string]error{
+			"winget install": fmt.Errorf("exit status 0x8a15002b"),
+		},
+	}
+	r := NewWithExecutor(reg, mock, false)
+	r.sysInfo.OS = system.OSWindows
+
+	err := r.Install(*tool)
+	if err != nil {
+		t.Fatalf("Install deveria ter tratado 0x8a15002b como sucesso, mas retornou erro: %v", err)
+	}
+	if !reg.IsInstalled("qbittorrent") {
+		t.Errorf("qbittorrent deveria estar registrado no installed.json após 0x8a15002b")
+	}
+}
+
+func TestWingetUpdateAlreadyUpToDateIdempotent(t *testing.T) {
+	tempDir := t.TempDir()
+	regPath := filepath.Join(tempDir, "installed.json")
+	reg, _ := registry.New(regPath)
+	_ = reg.MarkInstalled("qbittorrent")
+
+	tool := catalog.FindTool("qbittorrent")
+	if tool == nil {
+		t.Fatalf("Ferramenta 'qbittorrent' não encontrada")
+	}
+
+	mock := &MockExecutor{
+		errors: map[string]error{
+			"winget upgrade": fmt.Errorf("exit status 0x8a15002b"),
+		},
+	}
+	r := NewWithExecutor(reg, mock, false)
+	r.sysInfo.OS = system.OSWindows
+
+	err := r.Update(*tool)
+	if err != nil {
+		t.Fatalf("Update deveria ter tratado 0x8a15002b como sucesso, mas retornou erro: %v", err)
+	}
+}
+
+func TestWingetUninstallPackageNotFoundIdempotent(t *testing.T) {
+	tempDir := t.TempDir()
+	regPath := filepath.Join(tempDir, "installed.json")
+	reg, _ := registry.New(regPath)
+	_ = reg.MarkInstalled("qbittorrent")
+
+	tool := catalog.FindTool("qbittorrent")
+	if tool == nil {
+		t.Fatalf("Ferramenta 'qbittorrent' não encontrada")
+	}
+
+	mock := &MockExecutor{
+		errors: map[string]error{
+			"winget uninstall": fmt.Errorf("exit status 0x8a150014"),
+		},
+	}
+	r := NewWithExecutor(reg, mock, false)
+	r.sysInfo.OS = system.OSWindows
+
+	err := r.Uninstall(*tool)
+	if err != nil {
+		t.Fatalf("Uninstall deveria ter tratado 0x8a150014 como sucesso, mas retornou erro: %v", err)
+	}
+	if reg.IsInstalled("qbittorrent") {
+		t.Errorf("qbittorrent deveria ter sido desmarcado do installed.json")
 	}
 }
