@@ -161,6 +161,8 @@ func TestAutoProvisionRuntime(t *testing.T) {
 
 func TestSoftwareDependencyAutoInstall(t *testing.T) {
 	tempDir := t.TempDir()
+	localApp := filepath.Join(tempDir, "AppData", "Local")
+	t.Setenv("LOCALAPPDATA", localApp)
 	regPath := filepath.Join(tempDir, "installed.json")
 	reg, _ := registry.New(regPath)
 
@@ -188,6 +190,8 @@ func TestSoftwareDependencyAutoInstall(t *testing.T) {
 
 func TestSoftwareDependencySkippedWhenSatisfied(t *testing.T) {
 	tempDir := t.TempDir()
+	localApp := filepath.Join(tempDir, "AppData", "Local")
+	t.Setenv("LOCALAPPDATA", localApp)
 	regPath := filepath.Join(tempDir, "installed.json")
 	reg, _ := registry.New(regPath)
 
@@ -601,14 +605,16 @@ func TestGhidraWindowsInstallAndUninstall(t *testing.T) {
 	}
 }
 
-func TestArtcraftWindowsAndLinux(t *testing.T) {
-	tool := catalog.FindTool("artcraft")
+func TestCraftLauncherWindowsAndLinux(t *testing.T) {
+	tool := catalog.FindTool("craftlauncher")
 	if tool == nil {
-		t.Fatalf("Ferramenta 'artcraft' não encontrada no catálogo")
+		t.Fatalf("Ferramenta 'craftlauncher' não encontrada no catálogo")
 	}
 
 	// 1. Teste no Windows
 	tempDirWin := t.TempDir()
+	localAppWin := filepath.Join(tempDirWin, "AppData", "Local")
+	t.Setenv("LOCALAPPDATA", localAppWin)
 	regPathWin := filepath.Join(tempDirWin, "installed.json")
 	regWin, _ := registry.New(regPathWin)
 	mockWin := &MockExecutor{}
@@ -616,10 +622,10 @@ func TestArtcraftWindowsAndLinux(t *testing.T) {
 	rWin.sysInfo.OS = system.OSWindows
 
 	if err := rWin.Install(*tool); err != nil {
-		t.Fatalf("Erro ao instalar artcraft no Windows: %v", err)
+		t.Fatalf("Erro ao instalar craftlauncher no Windows: %v", err)
 	}
-	if !regWin.IsInstalled("artcraft") {
-		t.Errorf("artcraft deveria estar registrado no Windows")
+	if !regWin.IsInstalled("craftlauncher") {
+		t.Errorf("craftlauncher deveria estar registrado no Windows")
 	}
 	hasSilent := false
 	for _, cmd := range mockWin.executed {
@@ -631,14 +637,14 @@ func TestArtcraftWindowsAndLinux(t *testing.T) {
 		}
 	}
 	if !hasSilent {
-		t.Errorf("Esperava flag silenciosa /S no instalador Windows do artcraft")
+		t.Errorf("Esperava flag silenciosa /S no instalador Windows do craftlauncher")
 	}
 
 	if err := rWin.Uninstall(*tool); err != nil {
-		t.Fatalf("Erro ao desinstalar artcraft no Windows: %v", err)
+		t.Fatalf("Erro ao desinstalar craftlauncher no Windows: %v", err)
 	}
-	if regWin.IsInstalled("artcraft") {
-		t.Errorf("artcraft deveria estar desmarcado no Windows")
+	if regWin.IsInstalled("craftlauncher") {
+		t.Errorf("craftlauncher deveria estar desmarcado no Windows")
 	}
 
 	// 2. Teste no Linux
@@ -651,35 +657,35 @@ func TestArtcraftWindowsAndLinux(t *testing.T) {
 	rLin.sysInfo.OS = system.OSLinux
 
 	if err := rLin.Install(*tool); err != nil {
-		t.Fatalf("Erro ao instalar artcraft no Linux: %v", err)
+		t.Fatalf("Erro ao instalar craftlauncher no Linux: %v", err)
 	}
-	if !regLin.IsInstalled("artcraft") {
-		t.Errorf("artcraft deveria estar registrado no Linux")
+	if !regLin.IsInstalled("craftlauncher") {
+		t.Errorf("craftlauncher deveria estar registrado no Linux")
 	}
 	hasClone := false
 	for _, cmd := range mockLin.executed {
 		cmdStr := strings.Join(cmd, " ")
-		if strings.Contains(cmdStr, "git clone") && strings.Contains(cmdStr, "storytold/artcraft") {
+		if strings.Contains(cmdStr, "git clone") && strings.Contains(cmdStr, "storytold/craft-launcher") {
 			hasClone = true
 			break
 		}
 	}
 	if !hasClone {
-		t.Errorf("Esperava comando de git clone para storytold/artcraft no Linux")
+		t.Errorf("Esperava comando de git clone para storytold/craft-launcher no Linux")
 	}
 
-	// Cria pasta simulada em ~/.local/share/apps/artcraft
-	appDir := filepath.Join(tempDirLin, ".local", "share", "apps", "artcraft")
+	// Cria pasta simulada em ~/.local/share/apps/craftlauncher
+	appDir := filepath.Join(tempDirLin, ".local", "share", "apps", "craftlauncher")
 	_ = os.MkdirAll(appDir, 0755)
 
 	if err := rLin.Uninstall(*tool); err != nil {
-		t.Fatalf("Erro ao desinstalar artcraft no Linux: %v", err)
+		t.Fatalf("Erro ao desinstalar craftlauncher no Linux: %v", err)
 	}
 	if _, err := os.Stat(appDir); !os.IsNotExist(err) {
-		t.Errorf("Diretório %s ainda existe após uninstall de artcraft no Linux", appDir)
+		t.Errorf("Diretório %s ainda existe após uninstall de craftlauncher no Linux", appDir)
 	}
-	if regLin.IsInstalled("artcraft") {
-		t.Errorf("artcraft deveria estar desmarcado no Linux")
+	if regLin.IsInstalled("craftlauncher") {
+		t.Errorf("craftlauncher deveria estar desmarcado no Linux")
 	}
 }
 

@@ -84,7 +84,7 @@ var packages = map[string][]string{
 		"mcpm", "mcpinspector", "supergateway", "codebase_memory", "repomix", "context7", "rea", "awsagenttoolkit",
 	},
 	"agentstack": {
-		"langgraph", "crewai", "ax", "bubblewrap", "promptfoo", "phoenix", "otelcol", "podman", "ecc", "paperclip", "hyperframes", "orca", "openmausbot", "openshell", "agentdesktop", "agentbrowser", "skillscli", "scrapling", "claudemem",
+		"langgraph", "crewai", "ax", "bubblewrap", "promptfoo", "phoenix", "otelcol", "podman", "ecc", "paperclip", "hyperframes", "orca", "openmausbot", "openshell", "agentdesktop", "agentbrowser", "skillscli", "scrapling", "claudemem", "astryx",
 	},
 	"skills": {
 		"superpowers", "impeccable", "tasteskill", "emilkowalski", "archify", "opencodereview", "securityaudit", "contextmode", "ponytail", "reverseskill", "pocockskills", "diagramdesign", "ihaveadhd", "addyosmani", "humanizer", "openmaic", "openseo", "linkedin", "universalmodder", "androidskills", "hallmark", "awsagenttoolkit", "egm", "scientificagentskills",
@@ -104,6 +104,45 @@ var packages = map[string][]string{
 }
 
 var toolAliases = map[string]string{
+	// Astryx
+	"astryx":                             "astryx",
+	"meta/astryx":                        "astryx",
+	"meta-astryx":                        "astryx",
+	"https://github.com/meta/astryx":     "astryx",
+	"https://github.com/meta/astryx.git": "astryx",
+	"@astryxdesign/cli":                  "astryx",
+	"astryxdesign":                       "astryx",
+
+	// Claude Desktop
+	"claudedesktop":                                 "claudedesktop",
+	"claude-desktop":                                "claudedesktop",
+	"claude-app":                                    "claudedesktop",
+	"anthropic/claude-desktop":                      "claudedesktop",
+	"anthropic-claude":                              "claudedesktop",
+	"anthropic.claude":                              "claudedesktop",
+	"https://github.com/anthropics/claude-desktop": "claudedesktop",
+
+	// Antigravity CLI
+	"antigravity-cli":        "agy",
+	"antigravitycli":         "agy",
+	"google/antigravity-cli": "agy",
+	"google-antigravity-cli": "agy",
+	"agy-cli":                "agy",
+
+	// Codex
+	"openai/codex":                  "codex",
+	"openai-codex":                  "codex",
+	"codex-cli":                     "codex",
+	"https://github.com/openai/codex": "codex",
+	"@openai/codex":                 "codex",
+
+	// Addy Osmani Agent Skills
+	"addyosmani/agent-skills":        "addyosmani",
+	"https://github.com/addyosmani/agent-skills": "addyosmani",
+	"https://github.com/addyosmani/agent-skills.git": "addyosmani",
+	"agent-skills":                  "addyosmani",
+	"addyosmani-skills":             "addyosmani",
+
 	"llvm/llvm":                     "clang",
 	"llvm/llvm-project":             "clang",
 	"llvm-clang":                    "clang",
@@ -113,9 +152,13 @@ var toolAliases = map[string]string{
 	"webassembly-wabt":              "wabt",
 	"wat2wasm":                      "wabt",
 	"wasm2wat":                      "wabt",
-	"storytold/artcraft":            "artcraft",
-	"storytold-artcraft":            "artcraft",
-	"art-craft":                     "artcraft",
+	"storytold/craft-launcher":            "craftlauncher",
+	"storytold-craft-launcher":            "craftlauncher",
+	"craft-launcher":                      "craftlauncher",
+	"craftlauncher":                       "craftlauncher",
+	"https://github.com/storytold/craft-launcher": "craftlauncher",
+	"https://github.com/storytold/craft-launcher.git": "craftlauncher",
+	"artcraft-launcher":                   "craftlauncher",
 	"diagram-design":                "diagramdesign",
 	"cathrynlavery/diagram-design":  "diagramdesign",
 	"vercel-labs/agent-desktop":       "agentdesktop",
@@ -155,6 +198,11 @@ var toolAliases = map[string]string{
 	"panniantong-agent-reach":           "agentreach",
 	"garrytan/gbrain":                   "gbrain",
 	"garrytan-gbrain":                   "gbrain",
+	"cloudflare/security-audit-skill":                    "securityaudit",
+	"cloudflare/security-audit":                          "securityaudit",
+	"security-audit":                                     "securityaudit",
+	"security-audit-skill":                               "securityaudit",
+	"https://github.com/cloudflare/security-audit-skill": "securityaudit",
 	"dietrichgebert/ponytail":           "ponytail",
 	"google/elephant-goldfish-model":     "egm",
 	"elephant-goldfish-model":        "egm",
@@ -291,14 +339,15 @@ var catalogList = []Tool{
 		Linux:   &Target{Type: TypeSkill, PackageID: "tt-a1i/archify", Binary: "SKILL.md"},
 	},
 	{
-		ID: "artcraft", Name: "ArtCraft", Category: "Desktop", Description: "IDE desktop para criação, composição 2D/3D e direção visual com IA",
-		Windows: &Target{Type: TypeDirect, PackageID: "storytold/artcraft", Binary: "artcraft.exe"},
-		Linux:   &Target{Type: TypeScript, PackageID: "storytold/artcraft", Binary: "artcraft"},
-	},
-	{
 		ID: "astgrep", Name: "ast-grep", Category: "Agentes", Description: "Busca e reescrita de código baseada em AST",
 		Windows: &Target{Type: TypeNpm, PackageID: "@ast-grep/cli", Binary: "ast-grep.cmd"},
 		Linux:   &Target{Type: TypeNpm, PackageID: "@ast-grep/cli", Binary: "astgrep"},
+	},
+	{
+		ID: "astryx", Name: "Astryx", Category: "Agentes", Description: "Design system e CLI open-source da Meta para desenvolvimento e agentes de IA",
+		Windows: &Target{Type: TypeNpm, PackageID: "@astryxdesign/cli", Binary: "astryx.cmd"},
+		Linux:   &Target{Type: TypeNpm, PackageID: "@astryxdesign/cli", Binary: "astryx"},
+		Darwin:  &Target{Type: TypeNpm, PackageID: "@astryxdesign/cli", Binary: "astryx"},
 	},
 	{
 		ID: "atkinson", Name: "Atkinson Hyperlegible Next", Category: "Fontes", Description: "Fonte legível do Braille Institute",
@@ -385,6 +434,12 @@ var catalogList = []Tool{
 		Linux:   &Target{Type: TypeNpm, PackageID: "@anthropic-ai/claude-code", Binary: "claude"},
 	},
 	{
+		ID: "claudedesktop", Name: "Claude Desktop", Category: "Desktop", Description: "Aplicativo desktop oficial do assistente Claude da Anthropic",
+		Windows: &Target{Type: TypeWinget, PackageID: "Anthropic.Claude", Binary: "Claude.exe"},
+		Linux:   &Target{Type: TypeFlatpak, PackageID: "com.anthropic.Claude", Binary: "claude"},
+		Darwin:  &Target{Type: TypeBrew, PackageID: "claude", Binary: "claude"},
+	},
+	{
 		ID: "claudemem", Name: "Claude-Mem", Category: "Agentes", Description: "Sistema de compressão de memória persistente e grafo de conhecimento para Claude Code (thedotmack)",
 		Windows: &Target{Type: TypeNpm, PackageID: "claude-mem", Binary: "claude-mem.cmd"},
 		Linux:   &Target{Type: TypeNpm, PackageID: "claude-mem", Binary: "claude-mem"},
@@ -425,6 +480,11 @@ var catalogList = []Tool{
 		ID: "contextmode", Name: "Context Mode", Category: "Skills", Description: "Otimização de context window para agentes",
 		Windows: &Target{Type: TypeDirect, PackageID: "mksglu/context-mode", Binary: "SKILL.md"},
 		Linux:   &Target{Type: TypeSkill, PackageID: "mksglu/context-mode", Binary: "SKILL.md"},
+	},
+	{
+		ID: "craftlauncher", Name: "Craft Launcher", Category: "Desktop", Description: "Launcher oficial da suíte criativa open-source Craft (ArtCraft)",
+		Windows: &Target{Type: TypeDirect, PackageID: "storytold/craft-launcher", Binary: "craft-launcher.exe"},
+		Linux:   &Target{Type: TypeScript, PackageID: "storytold/craft-launcher", Binary: "craft-launcher"},
 	},
 	{
 		ID: "crewai", Name: "CrewAI", Category: "Agentes", Description: "Orquestração multi-agentes",
@@ -952,8 +1012,9 @@ var catalogList = []Tool{
 	},
 	{
 		ID: "securityaudit", Name: "Security Audit", Category: "Skills", Description: "Skill de auditoria de segurança",
-		Windows: &Target{Type: TypeDirect, PackageID: "cloudflare/security-audit-skills", Binary: "SKILL.md"},
+		Windows: &Target{Type: TypeDirect, PackageID: "cloudflare/security-audit-skill", Binary: "SKILL.md"},
 		Linux:   &Target{Type: TypeSkill, PackageID: "cloudflare/security-audit-skill", Binary: "SKILL.md"},
+		Darwin:  &Target{Type: TypeSkill, PackageID: "cloudflare/security-audit-skill", Binary: "SKILL.md"},
 	},
 	{
 		ID: "scrapling", Name: "Scrapling", Category: "Agentes", Description: "Framework e CLI de web scraping indetectável e adaptativo para agentes IA (D4Vinci)",

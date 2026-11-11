@@ -1,6 +1,6 @@
 # Catálogo Universal e Suítes
 
-O **Multitool** consolida **165 ferramentas** rigorosamente curadas para engenharia de software moderna, agentes de inteligência artificial, segurança e produtividade.
+O **Multitool** consolida **167 ferramentas** rigorosamente curadas para engenharia de software moderna, agentes de inteligência artificial, segurança e produtividade.
 
 ---
 
@@ -72,6 +72,7 @@ Harnesses, frameworks e observabilidade para agentes autônomos:
 - `skillscli`: Descoberta, instalação e gerenciamento de skills para agentes IA (Vercel Labs).
 - `scrapling`: Framework e CLI de web scraping indetectável e adaptativo para agentes IA (D4Vinci).
 - `claudemem`: Sistema de compressão de memória persistente e grafo de conhecimento para Claude Code (thedotmack).
+- `astryx`: Design system e CLI open-source da Meta para desenvolvimento e agentes de IA (@astryxdesign/cli).
 
 ### 4. `@skills` (Coleção Curada de 24 Skills)
 Coleção de metodologias e habilidades para agentes de código:
@@ -128,7 +129,7 @@ Abaixo estão alguns destaques da compatibilidade cruzada:
 | `claudecode` | Claude Code | Agentes | `@anthropic-ai/claude-code` (npm) | `@anthropic-ai/claude-code` (npm) |
 | `hermes` | Hermes Agent | Agentes | `hermes-agent` (npm) | script (`hermes-agent.nousresearch.com`) |
 | `orca` | Orca | Agentes | `stablyai/orca` (direct) | script (`orca-linux.AppImage`) |
-| `artcraft` | ArtCraft | Desktop | `storytold/artcraft` (direct) | script (`storytold/artcraft`) |
+| `craftlauncher` | Craft Launcher | Desktop | `storytold/craft-launcher` (direct) | script (`storytold/craft-launcher`) |
 | `agentdesktop` | Agent Desktop | Agentes | `agent-desktop` (npm) | `agent-desktop` (npm) |
 | `agentbrowser` | Agent Browser | Agentes | `agent-browser` (npm) | `agent-browser` (npm) |
 | `skillscli` | Skills CLI | Agentes | `skills` (npm) | `skills` (npm) |
@@ -148,3 +149,5 @@ Abaixo estão alguns destaques da compatibilidade cruzada:
 | `x64dbg` | x64dbg | Análise | `x64dbg.x64dbg` (winget) | *Não disponível* |
 | `waydroid` | Waydroid | Infraestrutura | *Não disponível* | script (`waydroid`) |
 | `atkinson` | Atkinson Hyperlegible | Fontes | `googlefonts/atkinson` (direct) | *Não disponível* |
+| `astryx` | Astryx | Agentes | `@astryxdesign/cli` (npm) | `@astryxdesign/cli` (npm) |
+| `claudedesktop` | Claude Desktop | Desktop | `Anthropic.Claude` (winget) | `com.anthropic.Claude` (flatpak) |

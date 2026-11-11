@@ -571,7 +571,7 @@ func (r *Runner) ensureRuntime(toolID string, target *catalog.Target) error {
 			wingetID: "Git.Git",
 		}
 	case catalog.TypeDirect:
-		if toolID != "orca" && toolID != "openmausbot" && toolID != "apktool" && toolID != "ghidra" && toolID != "artcraft" && toolID != "wabt" {
+		if toolID != "orca" && toolID != "openmausbot" && toolID != "apktool" && toolID != "ghidra" && toolID != "craftlauncher" && toolID != "wabt" {
 			req = &runtimePkg{
 				command:  "git",
 				apt:      []string{"git"},
@@ -812,7 +812,7 @@ func (r *Runner) installInternal(tool catalog.Tool, prefix string, showVisual bo
 		err = r.installGitSkillWithActivity(actFn, tool.ID, target.PackageID)
 
 	case catalog.TypeDirect:
-		if tool.ID == "artcraft" || tool.ID == "orca" || tool.ID == "openmausbot" || tool.ID == "apktool" || tool.ID == "ghidra" || tool.ID == "wabt" {
+		if tool.ID == "craftlauncher" || tool.ID == "orca" || tool.ID == "openmausbot" || tool.ID == "apktool" || tool.ID == "ghidra" || tool.ID == "wabt" {
 			err = r.installDirectWindowsWithActivity(actFn, tool.ID)
 		} else {
 			err = r.installGitSkillWithActivity(actFn, tool.ID, target.PackageID)
@@ -1050,7 +1050,7 @@ func (r *Runner) installScriptWithActivity(actFn func(string), id string, target
 		if r.sysInfo.OS == system.OSLinux {
 			return r.execWithActivity(actFn, "sh", "-c", "curl -fsSL https://get.docker.com | sh")
 		}
-	case "opengym", "openstock", "openmaicapp", "artcraft":
+	case "opengym", "openstock", "openmaicapp", "craftlauncher":
 		if r.sysInfo.OS == system.OSLinux {
 			repo := target.PackageID
 			return r.execWithActivity(actFn, "sh", "-c", fmt.Sprintf("mkdir -p $HOME/.local/share/apps && git clone --depth 1 https://github.com/%s $HOME/.local/share/apps/%s", repo, id))
@@ -1204,7 +1204,7 @@ func (r *Runner) uninstallScript(tool catalog.Tool, target *catalog.Target) erro
 			_ = os.RemoveAll(filepath.Join(home, ".gbrain"))
 		}
 
-	case "opengym", "openstock", "openmaicapp", "artcraft":
+	case "opengym", "openstock", "openmaicapp", "craftlauncher":
 		if home != "" {
 			_ = os.RemoveAll(filepath.Join(home, ".local", "share", "apps", tool.ID))
 		}
@@ -1364,7 +1364,7 @@ func (r *Runner) uninstallInternal(tool catalog.Tool, prefix string, showVisual 
 				_ = os.Remove(filepath.Join(localApp, "multitool", "bin", "ghidraRun.bat"))
 			}
 			err = r.reg.MarkUninstalled(tool.ID)
-		} else if tool.ID == "artcraft" || tool.ID == "orca" || tool.ID == "openmausbot" {
+		} else if tool.ID == "craftlauncher" || tool.ID == "orca" || tool.ID == "openmausbot" {
 			err = r.reg.MarkUninstalled(tool.ID)
 		} else if tool.ID == "wabt" {
 			localApp := os.Getenv("LOCALAPPDATA")
@@ -1519,7 +1519,7 @@ func (r *Runner) updateInternal(tool catalog.Tool, prefix string, showVisual boo
 		err = r.installGitSkillWithActivity(actFn, tool.ID, target.PackageID)
 
 	case catalog.TypeDirect:
-		if tool.ID == "artcraft" || tool.ID == "orca" || tool.ID == "openmausbot" || tool.ID == "apktool" || tool.ID == "ghidra" || tool.ID == "wabt" {
+		if tool.ID == "craftlauncher" || tool.ID == "orca" || tool.ID == "openmausbot" || tool.ID == "apktool" || tool.ID == "ghidra" || tool.ID == "wabt" {
 			err = r.installDirectWindowsWithActivity(actFn, tool.ID)
 		} else {
 			err = r.installGitSkillWithActivity(actFn, tool.ID, target.PackageID)
@@ -1707,9 +1707,9 @@ func (r *Runner) installDirectWindowsWithActivity(actFn func(string), toolID str
 		}
 		return r.execWithActivity(actFn, setupPath, "/S")
 
-	case "artcraft":
-		setupURL := "https://github.com/storytold/artcraft/releases/download/artcraft-v0.41.0/ArtCraft_0.41.0_x64-setup.exe"
-		setupPath := filepath.Join(os.TempDir(), "ArtCraft-setup.exe")
+	case "craftlauncher":
+		setupURL := "https://github.com/storytold/craft-launcher/releases/latest/download/CraftLauncher-setup.exe"
+		setupPath := filepath.Join(os.TempDir(), "CraftLauncher-setup.exe")
 		defer os.Remove(setupPath)
 
 		if err := r.execWithActivity(actFn, "curl.exe", "-fsSL", setupURL, "-o", setupPath); err != nil {
@@ -1755,11 +1755,11 @@ func (r *Runner) installGitSkillWithActivity(actFn func(string), id, packageID s
 	dest := r.getSkillDir(id)
 
 	if _, err := os.Stat(dest); err == nil {
-		if err := r.execWithActivity(actFn, "git", "-C", dest, "pull", "--ff-only"); err != nil {
+		if err := r.execWithActivity(actFn, "git", "-c", "credential.helper=", "-C", dest, "pull", "--ff-only"); err != nil {
 			return err
 		}
 	} else {
-		if err := r.execWithActivity(actFn, "git", "clone", "--depth", "1", repoURL, dest); err != nil {
+		if err := r.execWithActivity(actFn, "git", "-c", "credential.helper=", "clone", "--depth", "1", repoURL, dest); err != nil {
 			return err
 		}
 	}
