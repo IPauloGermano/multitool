@@ -251,6 +251,17 @@ func TestFindToolAndAliases(t *testing.T) {
 		{"codex-cli", "codex"},
 		{"https://github.com/openai/codex", "codex"},
 		{"@openai/codex", "codex"},
+		// GitHub Copilot CLI
+		{"copilot", "copilot"},
+		{"copilot-cli", "copilot"},
+		{"copilotcli", "copilot"},
+		{"github-copilot", "copilot"},
+		{"github-copilot-cli", "copilot"},
+		{"github/copilot", "copilot"},
+		{"github/copilot-cli", "copilot"},
+		{"@github/copilot", "copilot"},
+		{"https://github.com/github/copilot-cli", "copilot"},
+		{"https://github.com/github/copilot", "copilot"},
 		// Addy Osmani Agent Skills
 		{"addyosmani", "addyosmani"},
 		{"addyosmani/agent-skills", "addyosmani"},

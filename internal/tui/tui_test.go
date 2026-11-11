@@ -5,6 +5,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/IPauloGermano/multitool/internal/catalog"
 	"github.com/IPauloGermano/multitool/internal/registry"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -118,8 +119,9 @@ func TestTUISearch(t *testing.T) {
 		updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{r}})
 		m = updated.(Model)
 	}
-	if len(m.GetVisibleTools()) != 15 {
-		t.Errorf("Busca por @vibecode deveria retornar 15 ferramentas, obteve %d", len(m.GetVisibleTools()))
+	expectedVibe := len(catalog.Suites()["vibecode"])
+	if len(m.GetVisibleTools()) != expectedVibe {
+		t.Errorf("Busca por @vibecode deveria retornar %d ferramentas, obteve %d", expectedVibe, len(m.GetVisibleTools()))
 	}
 }
 

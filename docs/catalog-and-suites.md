@@ -1,6 +1,6 @@
 # Catálogo Universal e Suítes
 
-O **Multitool** consolida **167 ferramentas** rigorosamente curadas para engenharia de software moderna, agentes de inteligência artificial, segurança e produtividade.
+O **Multitool** consolida **168 ferramentas** rigorosamente curadas para engenharia de software moderna, agentes de inteligência artificial, segurança e produtividade.
 
 ---
 
@@ -39,6 +39,7 @@ Conjunto completo para desenvolvimento orientado a IA no terminal:
 - `omniroute`: Proxy local multiprovedor com roteamento inteligente.
 - `hermes`: Agente auto-evolutivo da Nous Research (TUI, gateway, cron e skills).
 - `orca`: Orquestrador e ambiente de trabalho para frotas de agentes IA em worktrees paralelos (Grok, Claude Code, Codex, Pi).
+- `copilot`: Agente e assistente de código no terminal da GitHub (@github/copilot).
 
 ### 2. `@mcp` (Model Context Protocol Toolkit)
 Ferramentas e pontes do ecossistema MCP:
@@ -151,3 +152,4 @@ Abaixo estão alguns destaques da compatibilidade cruzada:
 | `atkinson` | Atkinson Hyperlegible | Fontes | `googlefonts/atkinson` (direct) | *Não disponível* |
 | `astryx` | Astryx | Agentes | `@astryxdesign/cli` (npm) | `@astryxdesign/cli` (npm) |
 | `claudedesktop` | Claude Desktop | Desktop | `Anthropic.Claude` (winget) | `com.anthropic.Claude` (flatpak) |
+| `copilot` | GitHub Copilot CLI | Agentes | `GitHub.Copilot` (winget) | `@github/copilot` (npm) |

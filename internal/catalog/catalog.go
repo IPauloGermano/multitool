@@ -78,7 +78,7 @@ func (t Tool) IsSupportedOnCurrentOS() bool {
 
 var packages = map[string][]string{
 	"vibecode": {
-		"aider", "repomix", "astgrep", "ollama", "ripgrep", "jq", "llm", "goose", "claudecode", "opencode", "ohmypi", "9router", "omniroute", "hermes", "orca",
+		"aider", "repomix", "astgrep", "ollama", "ripgrep", "jq", "llm", "goose", "claudecode", "opencode", "ohmypi", "9router", "omniroute", "hermes", "orca", "copilot",
 	},
 	"mcp": {
 		"mcpm", "mcpinspector", "supergateway", "codebase_memory", "repomix", "context7", "rea", "awsagenttoolkit",
@@ -135,6 +135,18 @@ var toolAliases = map[string]string{
 	"codex-cli":                     "codex",
 	"https://github.com/openai/codex": "codex",
 	"@openai/codex":                 "codex",
+
+	// GitHub Copilot CLI
+	"copilot":                                "copilot",
+	"copilot-cli":                            "copilot",
+	"copilotcli":                             "copilot",
+	"github-copilot":                         "copilot",
+	"github-copilot-cli":                     "copilot",
+	"github/copilot":                         "copilot",
+	"github/copilot-cli":                     "copilot",
+	"@github/copilot":                        "copilot",
+	"https://github.com/github/copilot-cli":  "copilot",
+	"https://github.com/github/copilot":      "copilot",
 
 	// Addy Osmani Agent Skills
 	"addyosmani/agent-skills":        "addyosmani",
@@ -470,6 +482,12 @@ var catalogList = []Tool{
 		ID: "comfyui", Name: "ComfyUI", Category: "Agentes", Description: "Engine de nós para geração de imagens",
 		Windows: &Target{Type: TypePipx, PackageID: "comfy-cli", Binary: "comfy.exe"},
 		Linux:   &Target{Type: TypeNative, PackageID: "python3", Binary: "comfyui"},
+	},
+	{
+		ID: "copilot", Name: "GitHub Copilot CLI", Category: "Agentes", Description: "Agente e assistente de código no terminal da GitHub",
+		Windows: &Target{Type: TypeWinget, PackageID: "GitHub.Copilot", Binary: "copilot.exe"},
+		Linux:   &Target{Type: TypeNpm, PackageID: "@github/copilot", Binary: "copilot"},
+		Darwin:  &Target{Type: TypeBrew, PackageID: "copilot-cli", Binary: "copilot"},
 	},
 	{
 		ID: "context7", Name: "Context7", Category: "Agentes", Description: "Docs atualizadas para LLMs via MCP",
@@ -1486,14 +1504,21 @@ func GetUpstreamRepo(toolID string) string {
 		}
 	}
 
-	// 2. Verifica se há aliases no formato owner/repo apontando para este ID
+	// 2. Procura primeiro por alias explícito com URL canônica https://github.com/
 	for alias, tid := range toolAliases {
-		if tid == tool.ID && strings.Contains(alias, "/") && !strings.Contains(alias, " ") && !strings.HasPrefix(alias, "http") {
+		if tid == tool.ID && strings.HasPrefix(alias, "https://github.com/") {
+			return alias
+		}
+	}
+
+	// 3. Verifica se há aliases no formato owner/repo apontando para este ID (ignorando escopos como @org/pkg)
+	for alias, tid := range toolAliases {
+		if tid == tool.ID && strings.Contains(alias, "/") && !strings.Contains(alias, " ") && !strings.HasPrefix(alias, "http") && !strings.HasPrefix(alias, "@") {
 			return "https://github.com/" + alias
 		}
 	}
 
-	// 3. Procura por links do GitHub no PackageID de qualquer plataforma
+	// 4. Procura por links do GitHub no PackageID de qualquer plataforma
 	for _, target := range []*Target{tool.Linux, tool.Windows, tool.Darwin} {
 		if target != nil {
 			if strings.HasPrefix(target.PackageID, "https://github.com/") {
