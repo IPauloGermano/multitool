@@ -1,6 +1,6 @@
 # Catálogo Universal e Suítes
 
-O **Multitool** consolida **168 ferramentas** rigorosamente curadas para engenharia de software moderna, agentes de inteligência artificial, segurança e produtividade.
+O **Multitool** consolida **169 ferramentas** rigorosamente curadas para engenharia de software moderna, agentes de inteligência artificial, segurança e produtividade.
 
 ---
 
@@ -153,3 +153,4 @@ Abaixo estão alguns destaques da compatibilidade cruzada:
 | `astryx` | Astryx | Agentes | `@astryxdesign/cli` (npm) | `@astryxdesign/cli` (npm) |
 | `claudedesktop` | Claude Desktop | Desktop | `Anthropic.Claude` (winget) | `com.anthropic.Claude` (flatpak) |
 | `copilot` | GitHub Copilot CLI | Agentes | `GitHub.Copilot` (winget) | `@github/copilot` (npm) |
+| `remotion` | Remotion | Infraestrutura | `@remotion/cli` (npm) | `@remotion/cli` (npm) |

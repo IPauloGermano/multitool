@@ -325,6 +325,18 @@ func TestTUINoLineOverflow(t *testing.T) {
 			}
 		}
 
+		// 1b. Testa aba Instalados (onde aparecem as ferramentas com tag [instalado])
+		updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'i'}})
+		m = updated.(Model)
+		instLines := strings.Split(m.viewport.View(), "\n")
+		for idx, line := range instLines {
+			lineWidth := lipgloss.Width(line)
+			if lineWidth > w {
+				t.Errorf("[Width %d] Linha %d dos instalados excede largura da tela: width=%d > %d\nLinha: %q",
+					w, idx, lineWidth, w, line)
+			}
+		}
+
 		// 2. Testa aba Pacotes
 		updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'p'}})
 		m = updated.(Model)
@@ -446,5 +458,69 @@ func TestTUIUninstallModeEnter(t *testing.T) {
 	}
 	if !m.selected[firstTool.ID] {
 		t.Errorf("Esperava ferramenta %s selecionada, obteve %v", firstTool.ID, m.selected)
+	}
+}
+
+func TestTUIInstalledToolsAppearOnlyInInstalledTab(t *testing.T) {
+	tempDir := t.TempDir()
+	reg, _ := registry.New(filepath.Join(tempDir, "installed.json"))
+	_ = reg.MarkInstalled("docker")
+	_ = reg.MarkInstalled("ghidra")
+
+	m := NewModel(reg, true)
+
+	// 1. Em TabAll ('t'), ferramentas instaladas não devem aparecer
+	for _, tool := range m.GetVisibleTools() {
+		if tool.ID == "docker" || tool.ID == "ghidra" {
+			t.Errorf("Ferramenta instalada %s não deveria aparecer na aba Todas", tool.ID)
+		}
+	}
+
+	// 2. Em TabTopo '3' (Sistema), 'docker' é Sistema e não deve aparecer pois está instalada
+	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'3'}})
+	m = updated.(Model)
+	for _, tool := range m.GetVisibleTools() {
+		if tool.ID == "docker" {
+			t.Errorf("Ferramenta instalada docker não deveria aparecer na aba Sistema")
+		}
+	}
+
+	// 3. Na aba Instalados ('i'), ferramentas instaladas DEVEM aparecer
+	updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'i'}})
+	m = updated.(Model)
+	foundDocker := false
+	foundGhidra := false
+	for _, tool := range m.GetVisibleTools() {
+		if tool.ID == "docker" {
+			foundDocker = true
+		}
+		if tool.ID == "ghidra" {
+			foundGhidra = true
+		}
+	}
+	if !foundDocker || !foundGhidra {
+		t.Errorf("Esperava docker e ghidra na aba Instalados, encontrou docker=%v, ghidra=%v", foundDocker, foundGhidra)
+	}
+
+	// 4. Ao desinstalar 'docker', ela deve sumir de Instalados e voltar a aparecer em TabAll e Sistema
+	_ = reg.MarkUninstalled("docker")
+	m.refreshVisible()
+	for _, tool := range m.GetVisibleTools() {
+		if tool.ID == "docker" {
+			t.Errorf("docker desinstalado ainda aparece na aba Instalados")
+		}
+	}
+
+	updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'3'}})
+	m = updated.(Model)
+	reappeared := false
+	for _, tool := range m.GetVisibleTools() {
+		if tool.ID == "docker" {
+			reappeared = true
+			break
+		}
+	}
+	if !reappeared {
+		t.Errorf("docker desinstalado deveria ter voltado a aparecer na aba Sistema")
 	}
 }

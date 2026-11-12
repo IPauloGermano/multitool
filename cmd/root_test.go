@@ -67,6 +67,42 @@ func TestRootCommands(t *testing.T) {
 		t.Errorf("Esperava 'git' na listagem: %s", buf.String())
 	}
 
+	// 4b. Teste 'list' ocultando instalados e 'list --all' / 'instalados'
+	_ = reg.MarkInstalled("ollama")
+	buf.Reset()
+	rootCmd = NewRootCmd(reg)
+	rootCmd.SetOut(buf)
+	rootCmd.SetArgs([]string{"list"})
+	if err := rootCmd.Execute(); err != nil {
+		t.Fatalf("Erro no list: %v", err)
+	}
+	if strings.Contains(buf.String(), "ollama") {
+		t.Errorf("Ferramenta instalada 'ollama' não deveria aparecer no 'list' padrão")
+	}
+
+	buf.Reset()
+	rootCmd = NewRootCmd(reg)
+	rootCmd.SetOut(buf)
+	rootCmd.SetArgs([]string{"list", "--all"})
+	if err := rootCmd.Execute(); err != nil {
+		t.Fatalf("Erro no list --all: %v", err)
+	}
+	if !strings.Contains(buf.String(), "ollama") {
+		t.Errorf("Esperava 'ollama' no 'list --all'")
+	}
+
+	buf.Reset()
+	rootCmd = NewRootCmd(reg)
+	rootCmd.SetOut(buf)
+	rootCmd.SetArgs([]string{"instalados"})
+	if err := rootCmd.Execute(); err != nil {
+		t.Fatalf("Erro no alias instalados: %v", err)
+	}
+	if !strings.Contains(buf.String(), "ollama") {
+		t.Errorf("Esperava 'ollama' no comando 'instalados'")
+	}
+	_ = reg.MarkUninstalled("ollama")
+
 	// 5. Teste 'search'
 	buf.Reset()
 	rootCmd = NewRootCmd(reg)

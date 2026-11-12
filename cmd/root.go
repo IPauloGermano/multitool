@@ -18,8 +18,8 @@ import (
 )
 
 var (
-	Version   = "2.4.1"
-	BuildDate = "2026-11-02"
+	Version   = "2.4.2"
+	BuildDate = "2026-11-11"
 
 	flagList         bool
 	flagInstalled    bool
@@ -29,6 +29,7 @@ var (
 	flagDryRun       bool
 	flagJSON         bool
 	flagAllPlatforms bool
+	flagAll          bool
 
 	styleTitle = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#2563EB"))
 	styleDim   = lipgloss.NewStyle().Foreground(lipgloss.Color("#9CA3AF"))
@@ -38,6 +39,16 @@ var (
 )
 
 func NewRootCmd(reg *registry.Registry) *cobra.Command {
+	flagList = false
+	flagInstalled = false
+	flagInstall = nil
+	flagUninstall = nil
+	flagUpdate = nil
+	flagDryRun = false
+	flagJSON = false
+	flagAllPlatforms = false
+	flagAll = false
+
 	rootCmd := &cobra.Command{
 		Use:   "multitool",
 		Short: "multitool - Orquestrador Universal de Ferramentas, IA e Agentes",
@@ -49,7 +60,7 @@ agentes de IA, compiladores e aplicativos de sistema.`,
 			r := runner.New(reg, flagDryRun)
 
 			if flagList {
-				return runList(out, reg, flagJSON, flagAllPlatforms)
+				return runList(out, reg, flagJSON, flagAllPlatforms, flagAll)
 			}
 			if flagInstalled {
 				return runInstalled(out, reg, flagJSON)
@@ -74,6 +85,7 @@ agentes de IA, compiladores e aplicativos de sistema.`,
 
 	rootCmd.Flags().BoolVarP(&flagList, "list", "l", false, "Lista as ferramentas disponíveis")
 	rootCmd.Flags().BoolVar(&flagAllPlatforms, "all-platforms", false, "Exibe catálogo de todas as plataformas")
+	rootCmd.Flags().BoolVarP(&flagAll, "all", "a", false, "Exibe todas as ferramentas, incluindo já instaladas")
 	rootCmd.Flags().BoolVar(&flagInstalled, "installed", false, "Lista apenas as ferramentas instaladas")
 	rootCmd.Flags().StringSliceVarP(&flagInstall, "install", "i", nil, "Instala ferramentas ou @pacotes (ex: --install btop @vibecode)")
 	rootCmd.Flags().StringSliceVarP(&flagUninstall, "uninstall", "u", nil, "Desinstala ferramentas ou @pacotes")
@@ -84,14 +96,16 @@ agentes de IA, compiladores e aplicativos de sistema.`,
 		Use:   "list",
 		Short: "Lista as ferramentas disponíveis no catálogo",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runList(cmd.OutOrStdout(), reg, flagJSON, flagAllPlatforms)
+			return runList(cmd.OutOrStdout(), reg, flagJSON, flagAllPlatforms, flagAll)
 		},
 	}
 	listCmd.Flags().BoolVar(&flagAllPlatforms, "all-platforms", false, "Exibe catálogo de todas as plataformas")
+	listCmd.Flags().BoolVarP(&flagAll, "all", "a", false, "Exibe todas as ferramentas, incluindo já instaladas")
 
 	installedCmd := &cobra.Command{
-		Use:   "installed",
-		Short: "Lista as ferramentas instaladas no sistema",
+		Use:     "installed",
+		Aliases: []string{"instalados"},
+		Short:   "Lista as ferramentas instaladas no sistema",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runInstalled(cmd.OutOrStdout(), reg, flagJSON)
 		},
@@ -353,12 +367,22 @@ func runSync(out io.Writer, r *runner.Runner, asJSON, dryRun bool) error {
 	return nil
 }
 
-func runList(out io.Writer, reg *registry.Registry, asJSON, allPlatforms bool) error {
+func runList(out io.Writer, reg *registry.Registry, asJSON, allPlatforms, showAll bool) error {
 	var tools []catalog.Tool
 	if allPlatforms {
 		tools = catalog.DefaultCatalog()
 	} else {
 		tools = catalog.SupportedCatalog()
+	}
+
+	if !showAll && !allPlatforms {
+		var available []catalog.Tool
+		for _, t := range tools {
+			if !reg.IsInstalled(t.ID) {
+				available = append(available, t)
+			}
+		}
+		tools = available
 	}
 
 	if asJSON {

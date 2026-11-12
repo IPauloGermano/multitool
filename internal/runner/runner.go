@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -926,6 +927,14 @@ func (r *Runner) findTargetBinaryPath(tool catalog.Tool, target *catalog.Target)
 				return pID
 			}
 		}
+		if tool.ID == "craftlauncher" {
+			if localApp := os.Getenv("LOCALAPPDATA"); localApp != "" {
+				pArt := filepath.Join(localApp, "Programs", "ArtCraft", "Launcher", "artcraft-launcher.exe")
+				if _, err := os.Stat(pArt); err == nil {
+					return pArt
+				}
+			}
+		}
 	}
 	if target.Binary != "" {
 		if p, err := r.executor.LookPath(target.Binary); err == nil {
@@ -1364,7 +1373,15 @@ func (r *Runner) uninstallInternal(tool catalog.Tool, prefix string, showVisual 
 				_ = os.Remove(filepath.Join(localApp, "multitool", "bin", "ghidraRun.bat"))
 			}
 			err = r.reg.MarkUninstalled(tool.ID)
-		} else if tool.ID == "craftlauncher" || tool.ID == "orca" || tool.ID == "openmausbot" {
+		} else if tool.ID == "craftlauncher" {
+			localApp := os.Getenv("LOCALAPPDATA")
+			if localApp != "" {
+				_ = os.Remove(filepath.Join(localApp, "multitool", "bin", "artcraft-launcher.bat"))
+				_ = os.Remove(filepath.Join(localApp, "multitool", "bin", "craft-launcher.bat"))
+				_ = os.Remove(filepath.Join(localApp, "multitool", "bin", "craftlauncher.bat"))
+			}
+			err = r.reg.MarkUninstalled(tool.ID)
+		} else if tool.ID == "orca" || tool.ID == "openmausbot" {
 			err = r.reg.MarkUninstalled(tool.ID)
 		} else if tool.ID == "wabt" {
 			localApp := os.Getenv("LOCALAPPDATA")
@@ -1632,6 +1649,31 @@ func extractZipStripRoot(zipPath, destDir string) error {
 	return nil
 }
 
+// resolveGitHubLatestTag resolve a tag da release mais recente do GitHub seguindo o redirect
+// de /releases/latest, evitando erros de 404 em assets com versão no nome de arquivo.
+func resolveGitHubLatestTag(repo, defaultTag string) string {
+	client := &http.Client{
+		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			return http.ErrUseLastResponse
+		},
+		Timeout: 4 * time.Second,
+	}
+	resp, err := client.Head(fmt.Sprintf("https://github.com/%s/releases/latest", repo))
+	if err == nil {
+		defer resp.Body.Close()
+		if resp.StatusCode >= 300 && resp.StatusCode < 400 {
+			loc := resp.Header.Get("Location")
+			if idx := strings.LastIndex(loc, "/"); idx != -1 {
+				tag := strings.TrimSpace(loc[idx+1:])
+				if tag != "" {
+					return tag
+				}
+			}
+		}
+	}
+	return defaultTag
+}
+
 func (r *Runner) installDirectWindows(toolID string) error {
 	return r.installDirectWindowsWithActivity(nil, toolID)
 }
@@ -1708,14 +1750,28 @@ func (r *Runner) installDirectWindowsWithActivity(actFn func(string), toolID str
 		return r.execWithActivity(actFn, setupPath, "/S")
 
 	case "craftlauncher":
-		setupURL := "https://github.com/storytold/craft-launcher/releases/latest/download/CraftLauncher-setup.exe"
-		setupPath := filepath.Join(os.TempDir(), "CraftLauncher-setup.exe")
+		tag := resolveGitHubLatestTag("storytold/craft-launcher", "v0.19.0")
+		version := strings.TrimPrefix(tag, "v")
+		arch := "x64"
+		if runtime.GOARCH == "arm64" || (r.sysInfo != nil && r.sysInfo.Arch == "arm64") {
+			arch = "arm64"
+		}
+		setupURL := fmt.Sprintf("https://github.com/storytold/craft-launcher/releases/download/%s/artcraft-launcher-%s-windows-%s.msi", tag, version, arch)
+		setupPath := filepath.Join(os.TempDir(), fmt.Sprintf("artcraft-launcher-%s-windows-%s.msi", version, arch))
 		defer os.Remove(setupPath)
 
 		if err := r.execWithActivity(actFn, "curl.exe", "-fsSL", setupURL, "-o", setupPath); err != nil {
 			return err
 		}
-		return r.execWithActivity(actFn, setupPath, "/S")
+		if err := r.execWithActivity(actFn, "msiexec.exe", "/i", setupPath, "/qn", "/norestart"); err != nil {
+			return err
+		}
+
+		batContent := fmt.Sprintf("@echo off\r\nstart \"\" \"%s\" %%*\r\n", filepath.Join(localApp, "Programs", "ArtCraft", "Launcher", "artcraft-launcher.exe"))
+		_ = os.WriteFile(filepath.Join(binDir, "artcraft-launcher.bat"), []byte(batContent), 0755)
+		_ = os.WriteFile(filepath.Join(binDir, "craft-launcher.bat"), []byte(batContent), 0755)
+		_ = os.WriteFile(filepath.Join(binDir, "craftlauncher.bat"), []byte(batContent), 0755)
+		return nil
 
 	case "wabt":
 		wabtDir := filepath.Join(localApp, "multitool", "wabt")

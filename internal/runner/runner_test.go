@@ -630,14 +630,18 @@ func TestCraftLauncherWindowsAndLinux(t *testing.T) {
 	hasSilent := false
 	for _, cmd := range mockWin.executed {
 		for _, arg := range cmd {
-			if arg == "/S" {
+			if arg == "/qn" || arg == "/S" {
 				hasSilent = true
 				break
 			}
 		}
 	}
 	if !hasSilent {
-		t.Errorf("Esperava flag silenciosa /S no instalador Windows do craftlauncher")
+		t.Errorf("Esperava flag silenciosa /qn ou /S no instalador Windows do craftlauncher")
+	}
+	batPath := filepath.Join(localAppWin, "multitool", "bin", "craftlauncher.bat")
+	if _, err := os.Stat(batPath); err != nil {
+		t.Errorf("Esperava wrapper %s criado no Windows", batPath)
 	}
 
 	if err := rWin.Uninstall(*tool); err != nil {
@@ -645,6 +649,9 @@ func TestCraftLauncherWindowsAndLinux(t *testing.T) {
 	}
 	if regWin.IsInstalled("craftlauncher") {
 		t.Errorf("craftlauncher deveria estar desmarcado no Windows")
+	}
+	if _, err := os.Stat(batPath); !os.IsNotExist(err) {
+		t.Errorf("Wrapper %s deveria ter sido removido no uninstall", batPath)
 	}
 
 	// 2. Teste no Linux

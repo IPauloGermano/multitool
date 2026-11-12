@@ -44,10 +44,10 @@ Atalhos: [↑/↓] Navegar • [Espaço] Marcar • [d] Detalhes • [Enter] Exe
 | `r` | Alterna entre os modos de operação: `[ MODO: INSTALAR ]` ↔ `[ MODO: DESINSTALAR ]`. |
 | `/` | Ativa a busca difusa em tempo real (digite o nome, descrição ou ferramenta). |
 | `Esc` | Fecha o modal de detalhes ativo, limpa o filtro de busca ou encerra o programa. |
-| `1` a `5` | Filtra por topo: `1`=IA, `2`=Código, `3`=Sistema, `4`=Apps, `5`=Segurança. |
-| `t` | Aba "Todas": exibe todas as ferramentas suportadas pela plataforma. |
+| `1` a `5` | Filtra por topo: `1`=IA, `2`=Código, `3`=Sistema, `4`=Apps, `5`=Segurança (exibe apenas ferramentas disponíveis para instalação). |
+| `t` | Aba "Todas": exibe ferramentas disponíveis para instalação no SO atual. |
 | `p` | Aba "Pacotes": exibe e gerencia suítes integradas (`@vibecode`, `@dev`, `@mcp`, etc.). |
-| `i` | Aba "Instalados": exibe apenas ferramentas registradas no sistema. |
+| `i` | Aba "Instalados": exibe exclusivamente as ferramentas já instaladas no sistema. |
 | `c` | Aba "Carrinho": exibe apenas as ferramentas marcadas para execução. |
 | `q` | Fecha o modal ativo ou encerra o programa. |
 
@@ -93,17 +93,22 @@ O comando também re-linka automaticamente as skills locais existentes para novo
 
 ### Listagem: `list` e `installed`
 
-* **Listar ferramentas suportadas no SO atual**:
+* **Listar ferramentas disponíveis para instalação no SO atual**:
   ```bash
   multitool list
+  ```
+* **Listar todas as ferramentas do catálogo (incluindo instaladas)**:
+  ```bash
+  multitool list --all
   ```
 * **Listar o catálogo completo de todas as plataformas**:
   ```bash
   multitool list --all-platforms
   ```
-* **Listar apenas o que já está instalado**:
+* **Listar apenas o que já está instalado** (aceita alias em português `instalados`):
   ```bash
   multitool installed
+  multitool instalados
   ```
 * **Exportar saída em JSON para scripts**:
   ```bash

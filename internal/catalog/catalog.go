@@ -148,6 +148,18 @@ var toolAliases = map[string]string{
 	"https://github.com/github/copilot-cli":  "copilot",
 	"https://github.com/github/copilot":      "copilot",
 
+	// Remotion
+	"remotion":                                    "remotion",
+	"remotion-cli":                                "remotion",
+	"remotioncli":                                 "remotion",
+	"remotion-dev/remotion":                       "remotion",
+	"remotion-dev":                                "remotion",
+	"remotion/remotion":                           "remotion",
+	"remotion/cli":                                "remotion",
+	"@remotion/cli":                               "remotion",
+	"https://github.com/remotion-dev/remotion":     "remotion",
+	"https://github.com/remotion-dev/remotion.git": "remotion",
+
 	// Addy Osmani Agent Skills
 	"addyosmani/agent-skills":        "addyosmani",
 	"https://github.com/addyosmani/agent-skills": "addyosmani",
@@ -163,6 +175,18 @@ var toolAliases = map[string]string{
 	"webassembly/wabt":              "wabt",
 	"webassembly-wabt":              "wabt",
 	"wat2wasm":                      "wabt",
+
+	// GCC & GDB (MinGW-w64 / WinLibs)
+	"mingw":                                  "gcc",
+	"mingw-w64":                              "gcc",
+	"winlibs":                                "gcc",
+	"winlibs-gcc":                            "gcc",
+	"w64devkit":                              "gcc",
+	"skeeto/w64devkit":                       "gcc",
+	"skeeto.w64devkit":                       "gcc",
+	"brechtsanders/winlibs_mingw":            "gcc",
+	"https://github.com/brechtsanders/winlibs_mingw": "gcc",
+	"winlibs-gdb":                            "gdb",
 	"wasm2wat":                      "wabt",
 	"storytold/craft-launcher":            "craftlauncher",
 	"storytold-craft-launcher":            "craftlauncher",
@@ -171,6 +195,8 @@ var toolAliases = map[string]string{
 	"https://github.com/storytold/craft-launcher": "craftlauncher",
 	"https://github.com/storytold/craft-launcher.git": "craftlauncher",
 	"artcraft-launcher":                   "craftlauncher",
+	"artcraft":                            "craftlauncher",
+	"artcraftlauncher":                    "craftlauncher",
 	"diagram-design":                "diagramdesign",
 	"cathrynlavery/diagram-design":  "diagramdesign",
 	"vercel-labs/agent-desktop":       "agentdesktop",
@@ -501,7 +527,7 @@ var catalogList = []Tool{
 	},
 	{
 		ID: "craftlauncher", Name: "Craft Launcher", Category: "Desktop", Description: "Launcher oficial da suíte criativa open-source Craft (ArtCraft)",
-		Windows: &Target{Type: TypeDirect, PackageID: "storytold/craft-launcher", Binary: "craft-launcher.exe"},
+		Windows: &Target{Type: TypeDirect, PackageID: "storytold/craft-launcher", Binary: "artcraft-launcher.exe"},
 		Linux:   &Target{Type: TypeScript, PackageID: "storytold/craft-launcher", Binary: "craft-launcher"},
 	},
 	{
@@ -615,14 +641,14 @@ var catalogList = []Tool{
 		Darwin:  &Target{Type: TypeScript, PackageID: "garrytan/gbrain", Binary: "gbrain"},
 	},
 	{
-		ID: "gcc", Name: "GCC (w64devkit)", Category: "Infraestrutura", Description: "Compilador C/C++ para Windows",
-		Windows: &Target{Type: TypeWinget, PackageID: "skeeto.w64devkit", Binary: "gcc.exe"},
+		ID: "gcc", Name: "GCC (WinLibs)", Category: "Infraestrutura", Description: "Compilador C/C++ MinGW-w64 para Windows (gcc)",
+		Windows: &Target{Type: TypeWinget, PackageID: "BrechtSanders.WinLibs.POSIX.UCRT", Binary: "gcc.exe"},
 		Linux:   &Target{Type: TypeNative, PackageID: "gcc", Binary: "gcc"},
 		Darwin:  &Target{Type: TypeBrew, PackageID: "gcc", Binary: "gcc"},
 	},
 	{
-		ID: "gdb", Name: "GDB", Category: "Infraestrutura", Description: "Debugger C/C++",
-		Windows: &Target{Type: TypeWinget, PackageID: "skeeto.w64devkit", Binary: "gdb.exe"},
+		ID: "gdb", Name: "GDB", Category: "Infraestrutura", Description: "Debugger C/C++ MinGW-w64 (gdb)",
+		Windows: &Target{Type: TypeWinget, PackageID: "BrechtSanders.WinLibs.POSIX.UCRT", Binary: "gdb.exe"},
 		Linux:   &Target{Type: TypeNative, PackageID: "gdb", Binary: "gdb"},
 		Darwin:  &Target{Type: TypeBrew, PackageID: "gdb", Binary: "gdb"},
 	},
@@ -990,6 +1016,12 @@ var catalogList = []Tool{
 		ID: "rea", Name: "REA", Category: "Agentes", Description: "Toolkit e MCP server de engenharia reversa para agentes IA",
 		Windows: &Target{Type: TypeNpm, PackageID: "rea-agents", Binary: "rea.cmd"},
 		Linux:   &Target{Type: TypeNpm, PackageID: "rea-agents", Binary: "rea"},
+	},
+	{
+		ID: "remotion", Name: "Remotion", Category: "Infraestrutura", Description: "Criação e renderização programática de vídeos com React e TypeScript",
+		Windows: &Target{Type: TypeNpm, PackageID: "@remotion/cli", Binary: "remotion.cmd"},
+		Linux:   &Target{Type: TypeNpm, PackageID: "@remotion/cli", Binary: "remotion"},
+		Darwin:  &Target{Type: TypeNpm, PackageID: "@remotion/cli", Binary: "remotion"},
 	},
 	{
 		ID: "repomix", Name: "Repomix", Category: "Agentes", Description: "Empacotador de repositório em contexto de IA",

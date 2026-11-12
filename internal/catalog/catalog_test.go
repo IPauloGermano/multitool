@@ -77,8 +77,8 @@ func TestTargetPackageIDsNoDuplicates(t *testing.T) {
 	for _, tool := range tools {
 		if tool.Windows != nil && tool.Windows.PackageID != "" {
 			key := string(tool.Windows.Type) + ":" + tool.Windows.PackageID
-			// MinGW devkit provê gcc e gdb no Windows; Docker Desktop provê tanto a CLI quanto a GUI
-			isAllowedShared := tool.Windows.PackageID == "skeeto.w64devkit" || tool.Windows.PackageID == "Docker.DockerDesktop"
+			// WinLibs (MinGW-w64) provê gcc e gdb no Windows; Docker Desktop provê tanto a CLI quanto a GUI
+			isAllowedShared := tool.Windows.PackageID == "BrechtSanders.WinLibs.POSIX.UCRT" || tool.Windows.PackageID == "Docker.DockerDesktop"
 			if prevID, exists := winPkgs[key]; exists && !isAllowedShared {
 				t.Errorf("Windows PackageID duplicado %s compartilhado por %s e %s", key, prevID, tool.ID)
 			}
@@ -185,6 +185,8 @@ func TestFindToolAndAliases(t *testing.T) {
 		{"https://github.com/x64dbg/x64dbg", "x64dbg"},
 		{"craftlauncher", "craftlauncher"},
 		{"craft-launcher", "craftlauncher"},
+		{"artcraft", "craftlauncher"},
+		{"artcraft-launcher", "craftlauncher"},
 		{"storytold/craft-launcher", "craftlauncher"},
 		{"https://github.com/storytold/craft-launcher", "craftlauncher"},
 		{"qbittorrent", "qbittorrent"},
@@ -269,6 +271,29 @@ func TestFindToolAndAliases(t *testing.T) {
 		{"https://github.com/addyosmani/agent-skills.git", "addyosmani"},
 		{"agent-skills", "addyosmani"},
 		{"addyosmani-skills", "addyosmani"},
+		// Remotion
+		{"remotion", "remotion"},
+		{"remotion-cli", "remotion"},
+		{"remotioncli", "remotion"},
+		{"remotion-dev/remotion", "remotion"},
+		{"remotion-dev", "remotion"},
+		{"remotion/cli", "remotion"},
+		{"@remotion/cli", "remotion"},
+		{"https://github.com/remotion-dev/remotion", "remotion"},
+		{"https://github.com/remotion-dev/remotion.git", "remotion"},
+		// GCC & GDB
+		{"gcc", "gcc"},
+		{"mingw", "gcc"},
+		{"mingw-w64", "gcc"},
+		{"winlibs", "gcc"},
+		{"winlibs-gcc", "gcc"},
+		{"w64devkit", "gcc"},
+		{"skeeto/w64devkit", "gcc"},
+		{"skeeto.w64devkit", "gcc"},
+		{"brechtsanders/winlibs_mingw", "gcc"},
+		{"https://github.com/brechtsanders/winlibs_mingw", "gcc"},
+		{"gdb", "gdb"},
+		{"winlibs-gdb", "gdb"},
 	}
 
 	for _, tc := range testCases {

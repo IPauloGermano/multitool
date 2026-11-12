@@ -293,13 +293,31 @@ func (m *Model) refreshVisible() {
 
 	switch m.tab {
 	case TabAll:
-		list = m.allTools
+		for _, t := range m.allTools {
+			if !m.reg.IsInstalled(t.ID) {
+				list = append(list, t)
+			}
+		}
 	case TabTopo:
-		list = catalog.ToolsByTopo(m.activeTopo)
+		for _, t := range catalog.ToolsByTopo(m.activeTopo) {
+			if !m.reg.IsInstalled(t.ID) {
+				list = append(list, t)
+			}
+		}
 	case TabInstalled:
+		seen := make(map[string]bool)
 		for _, t := range m.allTools {
 			if m.reg.IsInstalled(t.ID) {
 				list = append(list, t)
+				seen[t.ID] = true
+			}
+		}
+		for _, id := range m.reg.ListInstalled() {
+			if !seen[id] {
+				if t := catalog.FindTool(id); t != nil {
+					list = append(list, *t)
+					seen[id] = true
+				}
 			}
 		}
 	case TabCart:
