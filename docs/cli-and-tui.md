@@ -55,6 +55,8 @@ Atalhos: [↑/↓] Navegar • [Espaço] Marcar • [d] Detalhes • [Enter] Exe
 
 ## ⌨️ 2. Guia de Comandos CLI
 
+Em `install`, `uninstall` e `update`, qualquer falha no lote resulta em código de saída diferente de zero. Os demais itens continuam sendo processados; o erro final identifica as ferramentas que falharam.
+
 ### Diagnóstico do Sistema: `system`
 Exibe os dados detalhados da detecção do sistema operacional:
 ```bash

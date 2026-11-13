@@ -37,6 +37,8 @@ O Multitool foi projetado em **Go puro**, sem dependências de CGO, permitindo c
 
 A detecção ocorre dinamicamente no arranque do binário em 4 etapas lineares:
 
+A detecção apenas lê o sistema. Os diretórios de skills são criados pelo runner durante o provisionamento real, nunca pela descoberta de agentes.
+
 ```mermaid
 flowchart TD
     Start["Arranque"] --> CheckOS{"runtime.GOOS"}
@@ -105,8 +107,8 @@ type Target struct {
     Type      TargetType `json:"type"`
     PackageID string     `json:"package_id"`
     Binary    string     `json:"binary"`
-    Script    string     `json:"script,omitempty"`
     SHA256    string     `json:"sha256,omitempty"` // Checksum de integridade
+    ArtifactSHA256 map[string]string `json:"artifact_sha256,omitempty"`
 }
 
 type Tool struct {
@@ -142,7 +144,12 @@ O módulo `Runner` centraliza a execução de comandos, testes em mock (`Command
 * **Paralelismo Inteligente em `@skills`**:
   - Clones de ferramentas `TypeSkill` em lote são processados concorrentemente através de um worker pool com limite de 4 goroutines (`sync.WaitGroup` e semáforo), reduzindo em mais de 75% o tempo de instalação de suítes de skills.
 * **Validação Criptográfica de Integridade (SHA-256)**:
-  - Ferramentas baixadas via script direto ou AppImages podem definir `SHA256: "..."` em seus alvos. O runner calcula o hash SHA-256 e aborta a operação caso detecte divergência de integridade.
+  - Downloads diretos usam diretórios temporários exclusivos. O runner verifica `SHA256` antes de executar, extrair ou publicar o artefato; divergências abortam a operação e removem os temporários.
+  - `ArtifactSHA256` permite hashes por nome de arquivo, inclusive para receitas com vários downloads ou assets diferentes por arquitetura. Use este campo ou `SHA256`, não ambos. Downloads sem hash emitem aviso; o catálogo ainda não fornece hashes. Scripts de bootstrap podem baixar outros arquivos sob a política do instalador upstream.
+* **Erros em Lotes**:
+  - As variantes `RunBatch*WithErrors` preservam os contadores e acumulam erros por ferramenta com `errors.Join`. A CLI retorna erro após qualquer falha, sem interromper os demais itens do lote.
+* **Consultas de Releases**:
+  - `ReleaseTagResolver` permite substituir a consulta de versões junto com o executor de comandos. Somente o executor real consulta o GitHub, com timeout de 4 segundos.
 * **Sincronização de Estado com o Host (`multitool sync`)**:
   - Inspeciona o `$PATH` do sistema operacional para identificar ferramentas do catálogo pré-instaladas fora do Multitool, registrando-as automaticamente em `installed.json` e re-linkando skills existentes para agentes recém-descobertos.
 * **Privilégios Sudo**: No Linux, para pacotes do tipo `TypeNative`, o comando é prefixado com `sudo` apenas se `sysInfo.NeedsSudo == true` (`os.Geteuid() != 0`).
@@ -155,7 +162,9 @@ O módulo `Runner` centraliza a execução de comandos, testes em mock (`Command
 
 ## 5. Registro de Estado Persistente (`internal/registry`)
 
-O estado das ferramentas instaladas é persistido em um arquivo JSON thread-safe com suporte a concorrência via `sync.RWMutex`:
+O estado das ferramentas instaladas usa `sync.RWMutex` e lock de arquivo (`flock` no Linux/macOS e `LockFileEx` no Windows). Cada alteração relê o JSON sob o lock para preservar atualizações de outros processos.
+
+A gravação usa um temporário no mesmo diretório, `Sync`, fechamento e substituição do destino. Linux/macOS usam `os.Rename` e sincronizam o diretório; Windows usa `MoveFileEx` com substituição e sincronização solicitada, além de tentativas limitadas para erros transitórios de compartilhamento. O arquivo `.lock` permanece no disco; o bloqueio é liberado pelo sistema quando o processo termina.
 
 * **Caminho no Linux**: `~/.local/share/multitool/installed.json`
 * **Caminho no Windows**: `%LOCALAPPDATA%\multitool\installed.json`

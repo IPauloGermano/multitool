@@ -91,6 +91,15 @@ go test -v ./internal/system
 go test -v ./cmd
 ```
 
+Para diagnosticar bloqueios, execute sem cache e com timeout:
+
+```powershell
+go test -count=1 -v -timeout 30s ./... *> "$env:TEMP\multitool-tests.log"
+Get-Content "$env:TEMP\multitool-tests.log"
+```
+
+O redirecionamento evita bloqueios na captura de grandes volumes de saída em terminais/ferramentas de automação. Os testes de runner e CLI isolam diretórios e logs em temporários; consultas de releases usam um executor ou transporte HTTP substituível. O runner de testes rejeita requisições HTTP não mockadas. Os testes do registro iniciam processos locais para validar o lock entre processos.
+
 ---
 
 ## 📦 4. Compilação Multiplataforma

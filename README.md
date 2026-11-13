@@ -30,7 +30,9 @@ Unificação e evolução integrada dos projetos `linux-multitool` e `windows-mu
 - **Paralelismo Inteligente no Clone de `@skills`**:
   - Processamento concorrente de skills via worker pool limitado (4 goroutines), acelerando drasticamente o provisionamento em lote.
 - **Validação de Integridade Criptográfica (SHA-256)**:
-  - Verificação de hash SHA-256 para binários diretos e AppImages contra corrupção e supply-chain tampering.
+  - Downloads diretos são preparados em diretório temporário exclusivo. Quando o alvo define `SHA256`, o hash do artefato é validado antes de executar, extrair ou copiar para o destino.
+  - Receitas com vários downloads usam `ArtifactSHA256`, indexado pelo nome do arquivo (por exemplo, `apktool.bat` e `apktool.jar`).
+  - Hashes são opcionais: o catálogo ainda não os fornece, e cada download sem hash emite aviso explícito. Para fixar um hash, fixe também a versão/URL do artefato. Em scripts de bootstrap, a verificação cobre o script baixado, não os downloads internos realizados por ele. Gerenciadores de pacotes mantêm sua própria política de integridade.
 - **Suítes Integradas (@pacotes)**:
   - `@vibecode`: Aider, Repomix, ast-grep, Ollama, Ripgrep, jq, LLM CLI, Goose, Claude Code, OpenCode, Oh My Pi, 9Router, OmniRoute, Hermes Agent, Orca, GitHub Copilot CLI.
   - `@mcp`: MCPM, MCP Inspector, Supergateway, Codebase Memory, Repomix, Context7, REA, Agent Toolkit for AWS.
