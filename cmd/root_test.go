@@ -2,6 +2,8 @@ package cmd
 
 import (
 	"bytes"
+	"fmt"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -11,7 +13,27 @@ import (
 	"github.com/IPauloGermano/multitool/internal/runner"
 )
 
+func TestMain(m *testing.M) {
+	os.Exit(func() int {
+		home, err := os.MkdirTemp("", "multitool-cmd-tests-*")
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			return 1
+		}
+		defer os.RemoveAll(home)
+		for key, value := range map[string]string{"HOME": home, "USERPROFILE": home, "LOCALAPPDATA": filepath.Join(home, "AppData", "Local")} {
+			if err := os.Setenv(key, value); err != nil {
+				fmt.Fprintln(os.Stderr, err)
+				return 1
+			}
+		}
+		runner.SetLogPath(filepath.Join(home, "audit.log"))
+		return m.Run()
+	}())
+}
+
 func TestRootCommands(t *testing.T) {
+	executor := &partialFailureExecutor{}
 	tempDir := t.TempDir()
 	regPath := filepath.Join(tempDir, "installed.json")
 	reg, err := registry.New(regPath)
@@ -21,7 +43,7 @@ func TestRootCommands(t *testing.T) {
 
 	// 1. Teste 'version'
 	buf := new(bytes.Buffer)
-	rootCmd := NewRootCmd(reg)
+	rootCmd := newRootCmd(reg, executor)
 	rootCmd.SetOut(buf)
 	rootCmd.SetArgs([]string{"version"})
 	if err := rootCmd.Execute(); err != nil {
@@ -33,7 +55,7 @@ func TestRootCommands(t *testing.T) {
 
 	// 2. Teste 'system'
 	buf.Reset()
-	rootCmd = NewRootCmd(reg)
+	rootCmd = newRootCmd(reg, executor)
 	rootCmd.SetOut(buf)
 	rootCmd.SetArgs([]string{"system"})
 	if err := rootCmd.Execute(); err != nil {
@@ -45,7 +67,7 @@ func TestRootCommands(t *testing.T) {
 
 	// 3. Teste 'suites'
 	buf.Reset()
-	rootCmd = NewRootCmd(reg)
+	rootCmd = newRootCmd(reg, executor)
 	rootCmd.SetOut(buf)
 	rootCmd.SetArgs([]string{"suites"})
 	if err := rootCmd.Execute(); err != nil {
@@ -57,7 +79,7 @@ func TestRootCommands(t *testing.T) {
 
 	// 4. Teste 'list'
 	buf.Reset()
-	rootCmd = NewRootCmd(reg)
+	rootCmd = newRootCmd(reg, executor)
 	rootCmd.SetOut(buf)
 	rootCmd.SetArgs([]string{"list"})
 	if err := rootCmd.Execute(); err != nil {
@@ -70,7 +92,7 @@ func TestRootCommands(t *testing.T) {
 	// 4b. Teste 'list' ocultando instalados e 'list --all' / 'instalados'
 	_ = reg.MarkInstalled("ollama")
 	buf.Reset()
-	rootCmd = NewRootCmd(reg)
+	rootCmd = newRootCmd(reg, executor)
 	rootCmd.SetOut(buf)
 	rootCmd.SetArgs([]string{"list"})
 	if err := rootCmd.Execute(); err != nil {
@@ -81,7 +103,7 @@ func TestRootCommands(t *testing.T) {
 	}
 
 	buf.Reset()
-	rootCmd = NewRootCmd(reg)
+	rootCmd = newRootCmd(reg, executor)
 	rootCmd.SetOut(buf)
 	rootCmd.SetArgs([]string{"list", "--all"})
 	if err := rootCmd.Execute(); err != nil {
@@ -92,7 +114,7 @@ func TestRootCommands(t *testing.T) {
 	}
 
 	buf.Reset()
-	rootCmd = NewRootCmd(reg)
+	rootCmd = newRootCmd(reg, executor)
 	rootCmd.SetOut(buf)
 	rootCmd.SetArgs([]string{"instalados"})
 	if err := rootCmd.Execute(); err != nil {
@@ -105,7 +127,7 @@ func TestRootCommands(t *testing.T) {
 
 	// 5. Teste 'search'
 	buf.Reset()
-	rootCmd = NewRootCmd(reg)
+	rootCmd = newRootCmd(reg, executor)
 	rootCmd.SetOut(buf)
 	rootCmd.SetArgs([]string{"search", "ripgrep"})
 	if err := rootCmd.Execute(); err != nil {
@@ -117,7 +139,7 @@ func TestRootCommands(t *testing.T) {
 
 	// 6. Teste 'info'
 	buf.Reset()
-	rootCmd = NewRootCmd(reg)
+	rootCmd = newRootCmd(reg, executor)
 	rootCmd.SetOut(buf)
 	rootCmd.SetArgs([]string{"info", "ollama"})
 	if err := rootCmd.Execute(); err != nil {
@@ -132,7 +154,7 @@ func TestRootCommands(t *testing.T) {
 
 	// 7. Teste 'install --dry-run'
 	buf.Reset()
-	rootCmd = NewRootCmd(reg)
+	rootCmd = newRootCmd(reg, executor)
 	rootCmd.SetOut(buf)
 	rootCmd.SetArgs([]string{"install", "btop", "--dry-run"})
 	if err := rootCmd.Execute(); err != nil {
@@ -144,7 +166,7 @@ func TestRootCommands(t *testing.T) {
 
 	// 8. Teste 'info' com dependências
 	buf.Reset()
-	rootCmd = NewRootCmd(reg)
+	rootCmd = newRootCmd(reg, executor)
 	rootCmd.SetOut(buf)
 	rootCmd.SetArgs([]string{"info", "ghidra"})
 	if err := rootCmd.Execute(); err != nil {
@@ -156,7 +178,7 @@ func TestRootCommands(t *testing.T) {
 
 	// 9. Teste 'install --dry-run' com resolução de dependências
 	buf.Reset()
-	rootCmd = NewRootCmd(reg)
+	rootCmd = newRootCmd(reg, executor)
 	rootCmd.SetOut(buf)
 	rootCmd.SetArgs([]string{"install", "ghidra", "--dry-run"})
 	if err := rootCmd.Execute(); err != nil {
@@ -165,7 +187,7 @@ func TestRootCommands(t *testing.T) {
 	if !reg.IsInstalled("ghidra") {
 		t.Errorf("ghidra deveria estar registrado após install dry-run")
 	}
-	rCheck := runner.New(reg, true)
+	rCheck := runner.NewWithExecutor(reg, executor, true)
 	temurinTool := catalog.FindTool("temurin")
 	if temurinTool != nil && !rCheck.IsDependencySatisfied(temurinTool) && !reg.IsInstalled("temurin") {
 		t.Errorf("dependência temurin deveria estar registrada após install dry-run de ghidra")
@@ -173,7 +195,7 @@ func TestRootCommands(t *testing.T) {
 
 	// 10. Teste 'info git' com alvo macOS
 	buf.Reset()
-	rootCmd = NewRootCmd(reg)
+	rootCmd = newRootCmd(reg, executor)
 	rootCmd.SetOut(buf)
 	rootCmd.SetArgs([]string{"info", "git"})
 	if err := rootCmd.Execute(); err != nil {
@@ -185,7 +207,7 @@ func TestRootCommands(t *testing.T) {
 
 	// 11. Teste 'sync --dry-run'
 	buf.Reset()
-	rootCmd = NewRootCmd(reg)
+	rootCmd = newRootCmd(reg, executor)
 	rootCmd.SetOut(buf)
 	rootCmd.SetArgs([]string{"sync", "--dry-run"})
 	if err := rootCmd.Execute(); err != nil {
@@ -197,7 +219,7 @@ func TestRootCommands(t *testing.T) {
 
 	// 12. Teste 'sync --json'
 	buf.Reset()
-	rootCmd = NewRootCmd(reg)
+	rootCmd = newRootCmd(reg, executor)
 	rootCmd.SetOut(buf)
 	rootCmd.SetArgs([]string{"sync", "--json"})
 	if err := rootCmd.Execute(); err != nil {

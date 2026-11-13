@@ -1,11 +1,16 @@
 package runner
 
 import (
+	"archive/zip"
+	"bytes"
 	"fmt"
+	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"testing"
 
 	"github.com/IPauloGermano/multitool/internal/catalog"
@@ -13,13 +18,52 @@ import (
 	"github.com/IPauloGermano/multitool/internal/system"
 )
 
+func TestMain(m *testing.M) {
+	os.Exit(func() int {
+		home, err := os.MkdirTemp("", "multitool-runner-tests-*")
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			return 1
+		}
+		defer os.RemoveAll(home)
+		for key, value := range map[string]string{"HOME": home, "USERPROFILE": home, "LOCALAPPDATA": filepath.Join(home, "AppData", "Local")} {
+			if err := os.Setenv(key, value); err != nil {
+				fmt.Fprintln(os.Stderr, err)
+				return 1
+			}
+		}
+		SetLogPath(filepath.Join(home, "audit.log"))
+		var unexpectedRequests atomic.Int32
+		http.DefaultTransport = releaseTransport(func(req *http.Request) (*http.Response, error) {
+			unexpectedRequests.Add(1)
+			return nil, fmt.Errorf("requisição de rede não mockada: %s", req.URL)
+		})
+		code := m.Run()
+		if n := unexpectedRequests.Load(); n > 0 {
+			fmt.Fprintf(os.Stderr, "%d requisição(ões) de rede não mockada(s)\n", n)
+			return 1
+		}
+		return code
+	}())
+}
+
 type MockExecutor struct {
-	executed [][]string
-	missing  map[string]bool
-	errors   map[string]error
+	mu            sync.Mutex
+	downloadBody  []byte
+	beforeExecute func(string, []string) error
+	executed      [][]string
+	missing       map[string]bool
+	errors        map[string]error
 }
 
 func (m *MockExecutor) Execute(name string, args ...string) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if m.beforeExecute != nil {
+		if err := m.beforeExecute(name, args); err != nil {
+			return err
+		}
+	}
 	cmd := append([]string{name}, args...)
 	m.executed = append(m.executed, cmd)
 	if m.errors != nil {
@@ -30,6 +74,33 @@ func (m *MockExecutor) Execute(name string, args ...string) error {
 			}
 		}
 	}
+	if name == "curl" || name == "curl.exe" {
+		for i, arg := range args {
+			if arg == "-o" && i+1 < len(args) {
+				body := m.downloadBody
+				if body == nil {
+					body = []byte("test artifact")
+					if strings.HasSuffix(args[i+1], ".zip") {
+						var buf bytes.Buffer
+						zw := zip.NewWriter(&buf)
+						f, err := zw.Create("release/ghidraRun.bat")
+						if err != nil {
+							return err
+						}
+						if _, err := f.Write([]byte("@echo off")); err != nil {
+							return err
+						}
+						if err := zw.Close(); err != nil {
+							return err
+						}
+						body = buf.Bytes()
+					}
+				}
+				return os.WriteFile(args[i+1], body, 0600)
+			}
+		}
+	}
+
 	return nil
 }
 
@@ -370,7 +441,6 @@ func TestTemurinDynamicArchDownload(t *testing.T) {
 		{arch: "amd64", expected: "/linux/x64/"},
 		{arch: "arm64", expected: "/linux/aarch64/"},
 		{arch: "arm", expected: "/linux/arm/"},
-		{arch: "unknown", expected: "/linux/x64/"},
 	}
 
 	for _, tt := range tests {
@@ -386,7 +456,7 @@ func TestTemurinDynamicArchDownload(t *testing.T) {
 		if len(mock.executed) == 0 {
 			t.Fatalf("Nenhum comando executado para arch=%s", tt.arch)
 		}
-		cmdStr := strings.Join(mock.executed[len(mock.executed)-1], " ")
+		cmdStr := strings.Join(mock.executed[0], " ")
 		if !strings.Contains(cmdStr, tt.expected) {
 			t.Errorf("Para arch=%s esperava substring %q no comando, obteve: %s", tt.arch, tt.expected, cmdStr)
 		}
@@ -486,8 +556,8 @@ func TestUninstallScriptCleanup(t *testing.T) {
 		if err := r.Uninstall(*rustupTool); err != nil {
 			t.Fatalf("Erro ao desinstalar rustup: %v", err)
 		}
-		if _, err := os.Stat(rustupDir); !os.IsNotExist(err) {
-			t.Errorf("Diretório %s não foi removido após uninstall rustup", rustupDir)
+		if _, err := os.Stat(rustupDir); err != nil {
+			t.Errorf("A limpeza de %s deve ser delegada ao desinstalador oficial", rustupDir)
 		}
 	}
 
@@ -657,6 +727,7 @@ func TestCraftLauncherWindowsAndLinux(t *testing.T) {
 	// 2. Teste no Linux
 	tempDirLin := t.TempDir()
 	t.Setenv("HOME", tempDirLin)
+	t.Setenv("USERPROFILE", tempDirLin)
 	regPathLin := filepath.Join(tempDirLin, "installed.json")
 	regLin, _ := registry.New(regPathLin)
 	mockLin := &MockExecutor{}

@@ -26,6 +26,8 @@ type Target struct {
 	PackageID string     `json:"package_id"`
 	Binary    string     `json:"binary"`
 	SHA256    string     `json:"sha256,omitempty"`
+	// ArtifactSHA256 identifica checksums por nome nas receitas com vários downloads.
+	ArtifactSHA256 map[string]string `json:"artifact_sha256,omitempty"`
 }
 
 type Tool struct {

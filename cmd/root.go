@@ -39,6 +39,10 @@ var (
 )
 
 func NewRootCmd(reg *registry.Registry) *cobra.Command {
+	return newRootCmd(reg, &runner.OSExecutor{})
+}
+
+func newRootCmd(reg *registry.Registry, executor runner.CommandExecutor) *cobra.Command {
 	flagList = false
 	flagInstalled = false
 	flagInstall = nil
@@ -57,7 +61,7 @@ para automação de instalação, remoção, atualização e auditoria de ferram
 agentes de IA, compiladores e aplicativos de sistema.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			out := cmd.OutOrStdout()
-			r := runner.New(reg, flagDryRun)
+			r := runner.NewWithExecutor(reg, executor, flagDryRun)
 
 			if flagList {
 				return runList(out, reg, flagJSON, flagAllPlatforms, flagAll)
@@ -116,7 +120,7 @@ agentes de IA, compiladores e aplicativos de sistema.`,
 		Short: "Instala uma ou mais ferramentas ou @suítes",
 		Args:  cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			r := runner.New(reg, flagDryRun)
+			r := runner.NewWithExecutor(reg, executor, flagDryRun)
 			return runInstall(r, args)
 		},
 	}
@@ -126,7 +130,7 @@ agentes de IA, compiladores e aplicativos de sistema.`,
 		Short: "Desinstala uma ou mais ferramentas ou @suítes",
 		Args:  cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			r := runner.New(reg, flagDryRun)
+			r := runner.NewWithExecutor(reg, executor, flagDryRun)
 			return runUninstall(r, args)
 		},
 	}
@@ -136,7 +140,7 @@ agentes de IA, compiladores e aplicativos de sistema.`,
 		Short: "Atualiza uma ou mais ferramentas ou @suítes",
 		Args:  cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			r := runner.New(reg, flagDryRun)
+			r := runner.NewWithExecutor(reg, executor, flagDryRun)
 			return runUpdate(r, args)
 		},
 	}
@@ -320,7 +324,7 @@ agentes de IA, compiladores e aplicativos de sistema.`,
 		Use:   "sync",
 		Short: "Detecta ferramentas pré-existentes no sistema host e sincroniza o estado",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			r := runner.New(reg, flagDryRun)
+			r := runner.NewWithExecutor(reg, executor, flagDryRun)
 			return runSync(cmd.OutOrStdout(), r, flagJSON, flagDryRun)
 		},
 	}
@@ -471,9 +475,9 @@ func runInstall(r *runner.Runner, args []string) error {
 		fmt.Println()
 	}
 
-	ok, fail := r.RunBatchInstall(eligible)
-	if fail > 0 && ok == 0 {
-		return fmt.Errorf("todas as %d instalações falharam", fail)
+	ok, fail, batchErr := r.RunBatchInstallWithErrors(eligible)
+	if batchErr != nil {
+		return fmt.Errorf("instalações: %d sucesso(s), %d falha(s): %w", ok, fail, batchErr)
 	}
 	return nil
 }
@@ -501,9 +505,9 @@ func runUninstall(r *runner.Runner, args []string) error {
 		return nil
 	}
 
-	ok, fail := r.RunBatchUninstall(tools)
-	if fail > 0 && ok == 0 {
-		return fmt.Errorf("todas as %d desinstalações falharam", fail)
+	ok, fail, batchErr := r.RunBatchUninstallWithErrors(tools)
+	if batchErr != nil {
+		return fmt.Errorf("desinstalações: %d sucesso(s), %d falha(s): %w", ok, fail, batchErr)
 	}
 	return nil
 }
@@ -526,9 +530,9 @@ func runUpdate(r *runner.Runner, args []string) error {
 		tools = append(tools, *t)
 	}
 
-	ok, fail := r.RunBatchUpdate(tools)
-	if fail > 0 && ok == 0 {
-		return fmt.Errorf("todas as %d atualizações falharam", fail)
+	ok, fail, batchErr := r.RunBatchUpdateWithErrors(tools)
+	if batchErr != nil {
+		return fmt.Errorf("atualizações: %d sucesso(s), %d falha(s): %w", ok, fail, batchErr)
 	}
 	return nil
 }
