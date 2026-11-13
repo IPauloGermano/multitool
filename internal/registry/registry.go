@@ -2,6 +2,7 @@ package registry
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -61,8 +62,12 @@ func New(customPath string) (*Registry, error) {
 func (r *Registry) load() error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
+	return r.loadLocked()
+}
 
-	data, err := os.ReadFile(r.filePath)
+// loadLocked é usado dentro da transação protegida pelo lock de processo.
+func (r *Registry) loadLocked() error {
+	data, err := readRegistryFile(r.filePath)
 	if err != nil {
 		return err
 	}
@@ -109,7 +114,66 @@ func (r *Registry) save() error {
 		return err
 	}
 
-	return os.WriteFile(r.filePath, data, 0644)
+	return writeAtomic(r.filePath, data)
+}
+
+func writeAtomic(path string, data []byte) error {
+	f, err := os.CreateTemp(filepath.Dir(path), ".installed-*.tmp")
+	if err != nil {
+		return err
+	}
+	name := f.Name()
+	defer os.Remove(name)
+	if _, err := f.Write(data); err != nil {
+		_ = f.Close()
+		return err
+	}
+	if err := f.Sync(); err != nil {
+		_ = f.Close()
+		return err
+	}
+	if err := f.Close(); err != nil {
+		return err
+	}
+	return replaceRegistryFile(name, path)
+}
+
+// mutate relê o estado após obter o lock para não perder alterações de outro
+// processo que tenha carregado o mesmo registro em um instante diferente.
+func (r *Registry) mutate(id string, item *InstalledItem) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if !r.dryRun {
+		if err := os.MkdirAll(filepath.Dir(r.filePath), 0755); err != nil {
+			return err
+		}
+		unlock, err := lockRegistryFile(r.filePath + ".lock")
+		if err != nil {
+			return fmt.Errorf("lock do registro: %w", err)
+		}
+		defer unlock()
+		if err := r.loadLocked(); err != nil {
+			if !os.IsNotExist(err) {
+				return err
+			}
+			r.Installed = make(map[string]InstalledItem)
+		}
+	}
+	previous, existed := r.Installed[id]
+	if item == nil {
+		delete(r.Installed, id)
+	} else {
+		r.Installed[id] = *item
+	}
+	if err := r.save(); err != nil {
+		if existed {
+			r.Installed[id] = previous
+		} else {
+			delete(r.Installed, id)
+		}
+		return fmt.Errorf("gravação do registro: %w", err)
+	}
+	return nil
 }
 
 func (r *Registry) IsInstalled(id string) bool {
@@ -120,20 +184,15 @@ func (r *Registry) IsInstalled(id string) bool {
 }
 
 func (r *Registry) MarkInstalled(id string) error {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	r.Installed[id] = InstalledItem{
+	item := InstalledItem{
 		Timestamp: time.Now().Unix(),
 		OS:        runtime.GOOS,
 	}
-	return r.save()
+	return r.mutate(id, &item)
 }
 
 func (r *Registry) MarkUninstalled(id string) error {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	delete(r.Installed, id)
-	return r.save()
+	return r.mutate(id, nil)
 }
 
 func (r *Registry) ListInstalled() []string {
