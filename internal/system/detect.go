@@ -221,7 +221,6 @@ func DetectAgentSkillTargets() []string {
 	claudeDir := filepath.Join(home, ".claude")
 	if fi, err := os.Stat(claudeDir); err == nil && fi.IsDir() {
 		target := filepath.Join(claudeDir, "skills")
-		_ = os.MkdirAll(target, 0755)
 		targets = append(targets, target)
 	}
 
@@ -238,7 +237,6 @@ func DetectAgentSkillTargets() []string {
 	}
 	if fi, err := os.Stat(openCodeDir); err == nil && fi.IsDir() {
 		target := filepath.Join(openCodeDir, "skills")
-		_ = os.MkdirAll(target, 0755)
 		targets = append(targets, target)
 	}
 
@@ -246,7 +244,6 @@ func DetectAgentSkillTargets() []string {
 	geminiDir := filepath.Join(home, ".gemini")
 	if fi, err := os.Stat(geminiDir); err == nil && fi.IsDir() {
 		target := filepath.Join(geminiDir, "skills")
-		_ = os.MkdirAll(target, 0755)
 		targets = append(targets, target)
 	}
 

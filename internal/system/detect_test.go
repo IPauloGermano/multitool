@@ -89,3 +89,31 @@ func TestGetSystemInfo(t *testing.T) {
 		t.Errorf("Expected Arch to be set, got empty")
 	}
 }
+
+func TestAgentDetectionIsReadOnly(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home)
+	t.Setenv("LOCALAPPDATA", filepath.Join(home, "AppData", "Local"))
+	for _, dir := range []string{
+		filepath.Join(home, ".claude"), filepath.Join(home, ".gemini"),
+		filepath.Join(home, ".config", "opencode"), filepath.Join(os.Getenv("LOCALAPPDATA"), "opencode"),
+	} {
+		if err := os.MkdirAll(dir, 0755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	previous := currentInfo
+	currentInfo = nil
+	t.Cleanup(func() { currentInfo = previous })
+	targets := DetectAgentSkillTargets()
+	if len(targets) != 3 {
+		t.Fatalf("expected 3 agent targets, got %v", targets)
+	}
+	_ = GetSystemInfo()
+	for _, target := range targets {
+		if _, err := os.Stat(target); !os.IsNotExist(err) {
+			t.Fatalf("detection created %s: %v", target, err)
+		}
+	}
+}
