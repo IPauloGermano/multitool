@@ -35,26 +35,26 @@ const (
 type PkgManager string
 
 const (
-	MgrWinget  PkgManager = "winget"
-	MgrApt     PkgManager = "apt"
-	MgrDnf     PkgManager = "dnf"
-	MgrPacman  PkgManager = "pacman"
-	MgrZypper  PkgManager = "zypper"
-	MgrEopkg   PkgManager = "eopkg"
-	MgrBrew    PkgManager = "brew"
-	MgrNone    PkgManager = "none"
+	MgrWinget PkgManager = "winget"
+	MgrApt    PkgManager = "apt"
+	MgrDnf    PkgManager = "dnf"
+	MgrPacman PkgManager = "pacman"
+	MgrZypper PkgManager = "zypper"
+	MgrEopkg  PkgManager = "eopkg"
+	MgrBrew   PkgManager = "brew"
+	MgrNone   PkgManager = "none"
 )
 
 type SystemInfo struct {
-	OS             OSType      `json:"os"`
-	Arch           string      `json:"arch"`
-	Distro         LinuxDistro `json:"distro,omitempty"`
-	DistroPretty   string      `json:"distro_pretty,omitempty"`
-	PrimaryManager PkgManager  `json:"primary_manager"`
-	HasSudo        bool        `json:"has_sudo"`
-	NeedsSudo      bool        `json:"needs_sudo"`
+	OS             OSType          `json:"os"`
+	Arch           string          `json:"arch"`
+	Distro         LinuxDistro     `json:"distro,omitempty"`
+	DistroPretty   string          `json:"distro_pretty,omitempty"`
+	PrimaryManager PkgManager      `json:"primary_manager"`
+	HasSudo        bool            `json:"has_sudo"`
+	NeedsSudo      bool            `json:"needs_sudo"`
 	AvailableTools map[string]bool `json:"available_tools"`
-	SkillDirs      []string    `json:"skill_dirs"`
+	SkillDirs      []string        `json:"skill_dirs"`
 }
 
 var currentInfo *SystemInfo
@@ -217,11 +217,23 @@ func DetectAgentSkillTargets() []string {
 		return targets
 	}
 
+	seen := make(map[string]bool)
+	addTarget := func(t string) {
+		clean := filepath.Clean(t)
+		key := clean
+		if runtime.GOOS == "windows" {
+			key = strings.ToLower(clean)
+		}
+		if !seen[key] {
+			seen[key] = true
+			targets = append(targets, clean)
+		}
+	}
+
 	// 1. Claude Code
 	claudeDir := filepath.Join(home, ".claude")
 	if fi, err := os.Stat(claudeDir); err == nil && fi.IsDir() {
-		target := filepath.Join(claudeDir, "skills")
-		targets = append(targets, target)
+		addTarget(filepath.Join(claudeDir, "skills"))
 	}
 
 	// 2. OpenCode
@@ -236,15 +248,71 @@ func DetectAgentSkillTargets() []string {
 		openCodeDir = filepath.Join(home, ".config", "opencode")
 	}
 	if fi, err := os.Stat(openCodeDir); err == nil && fi.IsDir() {
-		target := filepath.Join(openCodeDir, "skills")
-		targets = append(targets, target)
+		addTarget(filepath.Join(openCodeDir, "skills"))
 	}
 
 	// 3. Gemini CLI / Antigravity
 	geminiDir := filepath.Join(home, ".gemini")
+	hasGemini := false
 	if fi, err := os.Stat(geminiDir); err == nil && fi.IsDir() {
-		target := filepath.Join(geminiDir, "skills")
-		targets = append(targets, target)
+		hasGemini = true
+	}
+	hasAntigravity := false
+	if _, err := exec.LookPath("agy"); err == nil {
+		hasAntigravity = true
+	} else if _, err := exec.LookPath("antigravity"); err == nil {
+		hasAntigravity = true
+	} else if runtime.GOOS == "windows" {
+		if localAppData := os.Getenv("LOCALAPPDATA"); localAppData != "" {
+			if fi, err := os.Stat(filepath.Join(localAppData, "Programs", "antigravity")); err == nil && fi.IsDir() {
+				hasAntigravity = true
+			} else if fi, err := os.Stat(filepath.Join(localAppData, "agy")); err == nil && fi.IsDir() {
+				hasAntigravity = true
+			}
+		}
+	}
+
+	if hasGemini || hasAntigravity {
+		// Diretório padrão Gemini CLI
+		addTarget(filepath.Join(geminiDir, "skills"))
+
+		// Antigravity global customization discovery root (~/.gemini/config/skills)
+		configDir := filepath.Join(geminiDir, "config")
+		if fi, err := os.Stat(configDir); err == nil && fi.IsDir() {
+			addTarget(filepath.Join(configDir, "skills"))
+		} else if hasAntigravity {
+			addTarget(filepath.Join(configDir, "skills"))
+		}
+
+		// Antigravity app directory (~/.gemini/antigravity/skills)
+		antigravityDir := filepath.Join(geminiDir, "antigravity")
+		if fi, err := os.Stat(antigravityDir); err == nil && fi.IsDir() {
+			addTarget(filepath.Join(antigravityDir, "skills"))
+		}
+	}
+
+	// 4. Codex e Agent Skills
+	codexDir := filepath.Join(home, ".codex")
+	agentsDir := filepath.Join(home, ".agents")
+	hasCodex := false
+	if fi, err := os.Stat(codexDir); err == nil && fi.IsDir() {
+		hasCodex = true
+	} else if _, err := exec.LookPath("codex"); err == nil {
+		hasCodex = true
+	}
+
+	hasAgents := false
+	if fi, err := os.Stat(agentsDir); err == nil && fi.IsDir() {
+		hasAgents = true
+	}
+
+	if hasCodex {
+		// Codex carrega prioritariamente de ~/.codex/skills
+		addTarget(filepath.Join(codexDir, "skills"))
+		// E também compartilha o padrão aberto ~/.agents/skills
+		addTarget(filepath.Join(agentsDir, "skills"))
+	} else if hasAgents {
+		addTarget(filepath.Join(agentsDir, "skills"))
 	}
 
 	return targets

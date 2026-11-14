@@ -14,23 +14,139 @@ import (
 // -------------------------------------------------------------
 // AGENT SKILLS LINKING
 // -------------------------------------------------------------
+
+func cleanTargetPath(p string) string {
+	p = strings.TrimPrefix(p, `\\?\`)
+	p = strings.TrimPrefix(p, `\??\`)
+	if abs, err := filepath.Abs(p); err == nil {
+		p = abs
+	}
+	return filepath.Clean(p)
+}
+
+// FindSkillsInDir localiza todos os diretórios com SKILL.md dentro de um repositório clonado.
+func FindSkillsInDir(skillDir string) map[string]string {
+	results := make(map[string]string)
+	baseName := filepath.Base(skillDir)
+
+	// 1. Skill direta no topo do repositório
+	if _, err := os.Stat(filepath.Join(skillDir, "SKILL.md")); err == nil {
+		results[baseName] = skillDir
+		return results
+	}
+
+	ignoreDirs := map[string]bool{
+		".git": true, "node_modules": true, "tests": true, "fixtures": true,
+		"demos": true, "docs": true, ".github": true, ".cargo": true, ".vscode": true,
+	}
+
+	// 2. Diretórios canônicos padrão de coleções de skills
+	candidates := []string{
+		filepath.Join(skillDir, "skills"),
+		filepath.Join(skillDir, ".agents", "skills"),
+		filepath.Join(skillDir, ".claude", "skills"),
+		filepath.Join(skillDir, ".openclaw", "skills"),
+	}
+
+	foundInCandidates := false
+	for _, cand := range candidates {
+		if fi, err := os.Stat(cand); err == nil && fi.IsDir() {
+			_ = filepath.Walk(cand, func(path string, info os.FileInfo, err error) error {
+				if err != nil {
+					return nil
+				}
+				if info.IsDir() && ignoreDirs[info.Name()] {
+					return filepath.SkipDir
+				}
+				if !info.IsDir() && info.Name() == "SKILL.md" {
+					dir := filepath.Dir(path)
+					name := filepath.Base(dir)
+					if _, exists := results[name]; !exists {
+						results[name] = dir
+						foundInCandidates = true
+					}
+				}
+				return nil
+			})
+		}
+	}
+
+	// 3. Fallback: varredura em subpastas caso não esteja nas pastas padrão
+	if !foundInCandidates {
+		_ = filepath.Walk(skillDir, func(path string, info os.FileInfo, err error) error {
+			if err != nil {
+				return nil
+			}
+			if info.IsDir() && (ignoreDirs[info.Name()] || strings.HasPrefix(info.Name(), ".")) {
+				return filepath.SkipDir
+			}
+			if !info.IsDir() && info.Name() == "SKILL.md" {
+				dir := filepath.Dir(path)
+				name := filepath.Base(dir)
+				if _, exists := results[name]; !exists {
+					results[name] = dir
+				}
+			}
+			return nil
+		})
+	}
+
+	// 4. Se o repositório possuir 1 única skill interna, mapeia também o ID/baseName do pacote
+	if _, exists := results[baseName]; !exists {
+		if len(results) == 1 {
+			for _, dir := range results {
+				results[baseName] = dir
+				break
+			}
+		} else if len(results) == 0 {
+			results[baseName] = skillDir
+		} else {
+			results[baseName] = skillDir
+		}
+	}
+
+	return results
+}
+
 func LinkSkillToTargets(skillDir string, targets []string) (int, error) {
 	linked := 0
-	skillName := filepath.Base(skillDir)
+	skills := FindSkillsInDir(skillDir)
 
 	for _, targetDir := range targets {
 		if err := os.MkdirAll(targetDir, 0755); err != nil {
 			return linked, fmt.Errorf("criar diretório de skills %s: %w", targetDir, err)
 		}
-		dest := filepath.Join(targetDir, skillName)
-		if _, err := os.Lstat(dest); err == nil {
-			continue
-		}
 
-		if err := os.Symlink(skillDir, dest); err != nil {
-			return linked, fmt.Errorf("criar link de skill %s: %w", dest, err)
+		for skillName, sDir := range skills {
+			dest := filepath.Join(targetDir, skillName)
+			if fi, err := os.Lstat(dest); err == nil {
+				resolved, rerr := os.Readlink(dest)
+				if rerr == nil {
+					resClean := cleanTargetPath(resolved)
+					sClean := cleanTargetPath(sDir)
+					if !filepath.IsAbs(resClean) {
+						resClean = cleanTargetPath(filepath.Join(filepath.Dir(dest), resClean))
+					}
+					matches := resClean == sClean
+					if runtime.GOOS == "windows" {
+						matches = strings.EqualFold(resClean, sClean)
+					}
+					if matches {
+						continue
+					}
+					_ = os.Remove(dest)
+				} else if fi.IsDir() {
+					continue
+				}
+			}
+
+			if err := os.Symlink(sDir, dest); err != nil {
+				if fallbackErr := createSkillLinkFallback(sDir, dest, err); fallbackErr != nil {
+					return linked, fmt.Errorf("criar link de skill %s: %w", dest, fallbackErr)
+				}
+			}
+			linked++
 		}
-		linked++
 	}
 	return linked, nil
 }
@@ -646,7 +762,43 @@ func (r *Runner) installGitSkillWithActivity(actFn func(string), id, packageID s
 
 func (r *Runner) uninstallGitSkill(id string) error {
 	dest := r.getSkillDir(id)
-	targets := r.sysInfo.SkillDirs
-	UnlinkSkillFromTargets(id, targets)
+	expectedClean := cleanTargetPath(dest)
+
+	for _, target := range r.sysInfo.SkillDirs {
+		entries, err := os.ReadDir(target)
+		if err != nil {
+			// Se o diretório alvo não existir, apenas tenta remover link direto se houver
+			link := filepath.Join(target, id)
+			_ = os.Remove(link)
+			continue
+		}
+
+		for _, entry := range entries {
+			link := filepath.Join(target, entry.Name())
+			resolved, err := os.Readlink(link)
+			if err != nil {
+				// Se o link tiver o nome exato do pacote e for inválido ou diretório removível
+				if entry.Name() == id {
+					_ = os.Remove(link)
+				}
+				continue
+			}
+
+			resolvedClean := cleanTargetPath(resolved)
+			if !filepath.IsAbs(resolvedClean) {
+				resolvedClean = cleanTargetPath(filepath.Join(filepath.Dir(link), resolvedClean))
+			}
+
+			sep := string(filepath.Separator)
+			matches := resolvedClean == expectedClean || strings.HasPrefix(resolvedClean, expectedClean+sep)
+			if runtime.GOOS == "windows" {
+				matches = strings.EqualFold(resolvedClean, expectedClean) || strings.HasPrefix(strings.ToLower(resolvedClean), strings.ToLower(expectedClean)+sep)
+			}
+
+			if matches || entry.Name() == id {
+				_ = os.Remove(link)
+			}
+		}
+	}
 	return os.RemoveAll(dest)
 }

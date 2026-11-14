@@ -37,7 +37,7 @@ Unificação e evolução integrada dos projetos `linux-multitool` e `windows-mu
   - `@vibecode`: Aider, Repomix, ast-grep, Ollama, Ripgrep, jq, LLM CLI, Goose, Claude Code, OpenCode, Oh My Pi, 9Router, OmniRoute, Hermes Agent, Orca, GitHub Copilot CLI.
   - `@mcp`: MCPM, MCP Inspector, Supergateway, Codebase Memory, Repomix, Context7, REA, Agent Toolkit for AWS.
   - `@agentstack`: LangGraph CLI, CrewAI, AX, Bubblewrap, Promptfoo, Arize Phoenix, OpenTelemetry Collector, Podman, ECC, Paperclip, HyperFrames, Orca, OpenMausBot, OpenShell, Agent Desktop, Agent Browser, Skills CLI, Scrapling, Claude-Mem, Astryx.
-  - `@skills`: Coleção de 24 skills (incluindo Scientific Agent Skills, Elephant-Goldfish Model (EGM), Hallmark, AWS Agent Toolkit, Android Skills, Superpowers, Impeccable, REA, etc.) com linking automático para Claude Code (`~/.claude/skills`), OpenCode (`~/.config/opencode/skills`) e Gemini (`~/.gemini/skills`).
+  - `@skills`: Coleção de 24 skills (incluindo Scientific Agent Skills, Elephant-Goldfish Model (EGM), Hallmark, AWS Agent Toolkit, Android Skills, Superpowers, Impeccable, REA, etc.) com linking automático para Claude Code (`~/.claude/skills`), OpenCode (`~/.config/opencode/skills`), Gemini/Antigravity (`~/.gemini/skills`, `~/.gemini/config/skills`) e Codex (`~/.codex/skills`, `~/.agents/skills`).
   - `@dev`: Git, GitHub CLI, fzf, Btop, Node.js, Go, Temurin JDK, Docker, VS Code, Neovim, Wave Terminal, Ghostty, Jujutsu, uv, Rustup, bat.
   - `@toolchain`: GCC, Make, GDB, CMake, Clang.
   - `@termstack`: Wave Terminal, Ghostty, bat, fzf, Zsh, Oh My Zsh.

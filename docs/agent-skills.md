@@ -49,9 +49,16 @@ flowchart TD
 | :--- | :--- | :--- |
 | **Claude Code** | `~/.claude/skills/<id>` | `%USERPROFILE%\.claude\skills\<id>` |
 | **OpenCode** | `~/.config/opencode/skills/<id>` | `%LOCALAPPDATA%\opencode\skills\<id>` |
-| **Gemini CLI / Antigravity** | `~/.gemini/skills/<id>` | `%USERPROFILE%\.gemini\skills\<id>` |
+| **Gemini CLI / Antigravity** | `~/.gemini/skills/<id>` e `~/.gemini/config/skills/<id>` | `%USERPROFILE%\.gemini\skills\<id>` e `%USERPROFILE%\.gemini\config\skills\<id>` |
+| **Codex** | `~/.codex/skills/<id>` e `~/.agents/skills/<id>` | `%USERPROFILE%\.codex\skills\<id>` e `%USERPROFILE%\.agents\skills\<id>` |
 
-Se o agente for instalado posteriormente, basta executar `multitool update @skills` para que os links sejam atualizados e criados automaticamente.
+Se o agente for instalado posteriormente, basta executar `multitool update @skills` (ou `multitool sync`) para que os links sejam atualizados e criados automaticamente.
+
+O **Codex** é detectado pela presença de `~/.codex`, `~/.agents` ou do executável `codex` no PATH, provisionando os destinos em `~/.codex/skills` e `~/.agents/skills`. O **Antigravity** é detectado via `~/.gemini`, `~/.gemini/config`, `~/.gemini/antigravity` ou binário `agy`/`antigravity`, provisionando os destinos em `~/.gemini/skills` e `~/.gemini/config/skills`.
+
+Além disso, o Multitool realiza **descoberta granular de sub-skills**: se um repositório como Superpowers ou AddyOsmani contiver múltiplos pacotes em pastas internas (ex: `skills/<nome>/SKILL.md`), cada skill individual é linkada diretamente no primeiro nível do agente, garantindo que o `SKILL.md` seja descoberto nativamente por todos os runtimes de IA.
+
+No Windows, quando o usuário não possui permissão para criar symlinks, o Multitool usa uma junção de diretório NTFS para caminhos locais. Skills já existentes no destino são preservadas, inclusive na desinstalação.
 
 ---
 
@@ -62,7 +69,7 @@ Ao executar:
 multitool uninstall superpowers
 ```
 O Multitool:
-1. Localiza todos os symlinks nos agentes instalados (`.claude`, `.config/opencode`, `.gemini`).
-2. Remove os links de forma limpa.
+1. Localiza todos os symlinks nos agentes instalados (`.claude`, `.config/opencode`, `.gemini`, `.codex`, `.agents`).
+2. Remove todos os links criados (incluindo sub-skills granularmente mapeadas) de forma limpa.
 3. Remove o clone do diretório neutro central.
 4. Desregistra a ferramenta no arquivo `installed.json`.
