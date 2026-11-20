@@ -109,6 +109,10 @@ func TestFindToolAndAliases(t *testing.T) {
 		wantID string
 	}{
 		{"git", "git"},
+		{"reanimate", "reanimate"},
+		{"niazmorshed2007/reanimate", "reanimate"},
+		{"https://github.com/NiazMorshed2007/reanimate", "reanimate"},
+		{"https://github.com/NiazMorshed2007/reanimate.git", "reanimate"},
 		{"Git", "git"},
 		{"diagram-design", "diagramdesign"},
 		{"cathrynlavery/diagram-design", "diagramdesign"},

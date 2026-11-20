@@ -1,6 +1,6 @@
 # Catálogo Universal e Suítes
 
-O **Multitool** consolida **169 ferramentas** rigorosamente curadas para engenharia de software moderna, agentes de inteligência artificial, segurança e produtividade.
+O **Multitool** consolida **170 ferramentas** rigorosamente curadas para engenharia de software moderna, agentes de inteligência artificial, segurança e produtividade.
 
 ---
 
@@ -75,7 +75,7 @@ Harnesses, frameworks e observabilidade para agentes autônomos:
 - `claudemem`: Sistema de compressão de memória persistente e grafo de conhecimento para Claude Code (thedotmack).
 - `astryx`: Design system e CLI open-source da Meta para desenvolvimento e agentes de IA (@astryxdesign/cli).
 
-### 4. `@skills` (Coleção Curada de 24 Skills)
+### 4. `@skills` (Coleção Curada de 25 Skills)
 Coleção de metodologias e habilidades para agentes de código:
 - `superpowers`: Metodologia de desenvolvimento com TDD e planos.
 - `impeccable`: Design e frontend limpo sem slop.
@@ -101,6 +101,7 @@ Coleção de metodologias e habilidades para agentes de código:
 - `androidskills`: Skills oficiais do Google para agentes de IA no desenvolvimento Android.
 - `egm`: Framework de Spec-Driven Development com agentes IA (Elephant & Goldfish) do Google.
 - `scientificagentskills`: Skills científicas e bancos de dados para agentes de IA na pesquisa (K-Dense AI).
+- `reanimate`: Reconstrução e comparação quadro a quadro de animações (NiazMorshed2007).
 
 ### 5. `@dev` (Ferramentas Essenciais de Desenvolvimento)
 - `git`, `gh`, `fzf`, `btop`, `nodejs`, `golang`, `temurin`, `docker`, `vscode`, `neovim`, `waveterm`, `ghostty`, `jj`, `uv`, `rustup`, `bat`.
@@ -154,3 +155,4 @@ Abaixo estão alguns destaques da compatibilidade cruzada:
 | `claudedesktop` | Claude Desktop | Desktop | `Anthropic.Claude` (winget) | `com.anthropic.Claude` (flatpak) |
 | `copilot` | GitHub Copilot CLI | Agentes | `GitHub.Copilot` (winget) | `@github/copilot` (npm) |
 | `remotion` | Remotion | Infraestrutura | `@remotion/cli` (npm) | `@remotion/cli` (npm) |
+| `reanimate` | Reanimate | Skills | *Não disponível* | `NiazMorshed2007/reanimate` (skill) |
