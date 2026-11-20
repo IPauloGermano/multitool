@@ -754,7 +754,11 @@ func (r *Runner) installGitSkillWithActivity(actFn func(string), id, packageID s
 			return err
 		}
 		if linked > 0 {
-			fmt.Printf("  ↳ %d skill(s) linkada(s) para agentes locais.\n", linked)
+			if actFn != nil {
+				actFn(fmt.Sprintf("%d skill(s) linkada(s) para agentes locais", linked))
+			} else {
+				fmt.Printf("  ↳ %d skill(s) linkada(s) para agentes locais.\n", linked)
+			}
 		}
 	}
 	return nil

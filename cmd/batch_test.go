@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"errors"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -14,6 +15,7 @@ type partialFailureExecutor struct {
 	failedPackage string
 	failure       error
 	commands      []string
+	missing       map[string]bool
 }
 
 func (e *partialFailureExecutor) Execute(name string, args ...string) error {
@@ -27,7 +29,12 @@ func (e *partialFailureExecutor) Execute(name string, args ...string) error {
 	return nil
 }
 
-func (*partialFailureExecutor) LookPath(name string) (string, error) { return "/mock/" + name, nil }
+func (e *partialFailureExecutor) LookPath(name string) (string, error) {
+	if e.missing != nil && e.missing[name] {
+		return "", exec.ErrNotFound
+	}
+	return "/mock/" + name, nil
+}
 
 func TestCLIPartialBatchReturnsError(t *testing.T) {
 	for _, operation := range []string{"install", "uninstall", "update"} {
@@ -37,7 +44,16 @@ func TestCLIPartialBatchReturnsError(t *testing.T) {
 				t.Fatal(err)
 			}
 			sentinel := errors.New("package failed")
-			executor := &partialFailureExecutor{failedPackage: catalog.FindTool("ripgrep").TargetForCurrentOS().PackageID, failure: sentinel}
+			executor := &partialFailureExecutor{
+				failedPackage: catalog.FindTool("ripgrep").TargetForCurrentOS().PackageID,
+				failure:       sentinel,
+			}
+			if operation == "install" {
+				executor.missing = map[string]bool{
+					"rg": true, "rg.exe": true, "ripgrep": true,
+					"git": true, "git.exe": true,
+				}
+			}
 			command := newRootCmd(reg, executor)
 			command.SetArgs([]string{operation, "ripgrep", "git"})
 			command.SilenceUsage = true

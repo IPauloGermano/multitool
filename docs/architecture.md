@@ -141,8 +141,16 @@ O módulo `Runner` centraliza a execução de comandos, testes em mock (`Command
 
 * **Auto-provisionamento Proativo de Runtimes (`ensureRuntime`)**:
   - Quando uma ferramenta do tipo `TypeNpm`, `TypePipx`, `TypeCargo`, `TypeFlatpak` ou `TypeSkill` é acionada e o comando correspondente (`npm`, `pipx`, `cargo`, `flatpak`, `git`) não existe no PATH do hospedeiro (`LookPath`), o Multitool auto-provisiona o runtime automaticamente via gerenciador nativo da plataforma (`apt`, `dnf`, `pacman`, `zypper`, `eopkg`, `brew`, `winget`).
-* **Paralelismo Inteligente em `@skills`**:
-  - Clones de ferramentas `TypeSkill` em lote são processados concorrentemente através de um worker pool com limite de 4 goroutines (`sync.WaitGroup` e semáforo), reduzindo em mais de 75% o tempo de instalação de suítes de skills.
+* **Executor Desacoplado (`CommandError`) & Diagnósticos Limpos**:
+  - `OSExecutor` executa processos externos, sincroniza o dreno dos pipes de saída e retorna erros estruturados `*CommandError` com as últimas linhas capturadas (`RecentLines`), sem acoplar regras de domínio de gerenciadores (como códigos HRESULT do Winget) e sem escrever sobre o `Spinner` ativo.
+  - O `Runner` interpreta códigos benignos (ex: `0x8A15002B`, `0x8A150061`, `0x8A15010D`, `0x8A15010E`, `3010`, `1641` definidos em `internal/runner/winget_codes.go`) e só imprime o bloco de diagnóstico (`│`) após o `sp.Stop(...)` em falhas reais.
+  - Em modo `--verbose` (`-v`), o spinner é desativado e `stdout`/`stderr` dos instaladores são exibidos em tempo real.
+* **Fast-Path de Detecção Prévia (`isToolPresentOnHost`)**:
+  - Antes de invocar gerenciadores externos durante `install`, o runner verifica se o binário ou diretório de skill já existe no host. Em caso positivo (e sem `--force`/`--reinstall`), sincroniza `installed.json` imediatamente sem esperar pelo gerenciador externo.
+* **Paralelismo Inteligente em `@skills` e Downloads Portáteis `TypeDirect`**:
+  - Clones de skills Git (Linux/macOS `TypeSkill` e Windows `TypeDirect`) e downloads portáteis isolados (`apktool`, `ghidra`, `wabt`, quando suas dependências estão satisfeitas) são processados concorrentemente em worker pools de 4 goroutines, mantendo instaladores MSI/NSIS (`craftlauncher`, `orca`, `openmausbot`) serializados.
+* **Auditoria de Saúde (`multitool doctor` / `check`)**:
+  - Verifica gerenciador primário, runtimes auxiliares, presença do diretório local de binários no `PATH`, validade dos binários registrados em `installed.json` e integridade dos symlinks/junções de skills.
 * **Validação Criptográfica de Integridade (SHA-256)**:
   - Downloads diretos usam diretórios temporários exclusivos. O runner verifica `SHA256` antes de executar, extrair ou publicar o artefato; divergências abortam a operação e removem os temporários.
   - `ArtifactSHA256` permite hashes por nome de arquivo, inclusive para receitas com vários downloads ou assets diferentes por arquitetura. Use este campo ou `SHA256`, não ambos. Downloads sem hash emitem aviso; o catálogo ainda não fornece hashes. Scripts de bootstrap podem baixar outros arquivos sob a política do instalador upstream.

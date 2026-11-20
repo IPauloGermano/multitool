@@ -3,6 +3,7 @@ package runner
 import (
 	"fmt"
 	"os"
+	"regexp"
 	"strings"
 	"sync"
 	"time"
@@ -32,12 +33,38 @@ func getTerminalWidth() int {
 	return w
 }
 
+var ansiEscapeRE = regexp.MustCompile(`\x1b\[[0-9;?]*[ -/]*[@-~]`)
+
 // cleanActivity limpa caracteres de controle que poderiam desalinhar o terminal.
 func cleanActivity(s string) string {
+	s = ansiEscapeRE.ReplaceAllString(s, "")
 	s = strings.ReplaceAll(s, "\r", "")
 	s = strings.ReplaceAll(s, "\n", "")
 	s = strings.ReplaceAll(s, "\t", " ")
 	return strings.TrimSpace(s)
+}
+
+// extractOutputLine normaliza uma linha bruta de saída de processo externo,
+// tratando atualizações com '\r' (carriage return), códigos ANSI e ruído de spinner.
+func extractOutputLine(raw string) string {
+	cleaned := ansiEscapeRE.ReplaceAllString(raw, "")
+	if strings.Contains(cleaned, "\r") {
+		parts := strings.Split(cleaned, "\r")
+		cleaned = ""
+		for i := len(parts) - 1; i >= 0; i-- {
+			seg := strings.TrimSpace(parts[i])
+			if seg != "" {
+				cleaned = seg
+				break
+			}
+		}
+	}
+	cleaned = cleanActivity(cleaned)
+	switch cleaned {
+	case "", "-", `\`, "|", "/":
+		return ""
+	}
+	return cleaned
 }
 
 // truncateToWidth trunca uma string considerando caracteres unicode para não ultrapassar maxWidth.
@@ -106,6 +133,7 @@ type Spinner struct {
 	doneChan  chan struct{}
 	stopped   bool
 	mu        sync.Mutex
+	renderMu  sync.Mutex
 	isTTY     bool
 }
 
@@ -192,10 +220,34 @@ func (s *Spinner) Start() {
 					padStr = strings.Repeat(" ", padding)
 				}
 
-				fmt.Printf("\r\033[K%s%s%s %s", frameStr, lineBody, padStr, timeStr)
+				s.renderMu.Lock()
+				s.mu.Lock()
+				isStopped := s.stopped
+				s.mu.Unlock()
+				if !isStopped {
+					fmt.Printf("\r\033[K%s%s%s %s", frameStr, lineBody, padStr, timeStr)
+				}
+				s.renderMu.Unlock()
 			}
 		}
 	}()
+}
+
+// PrintLine imprime uma linha persistente acima do spinner ativo sem corromper o frame no terminal.
+func (s *Spinner) PrintLine(line string) {
+	s.renderMu.Lock()
+	defer s.renderMu.Unlock()
+
+	s.mu.Lock()
+	isTTY := s.isTTY
+	stopped := s.stopped
+	s.mu.Unlock()
+
+	if isTTY && !stopped {
+		fmt.Printf("\r\033[K%s\n", line)
+		return
+	}
+	fmt.Println(line)
 }
 
 // Update altera a mensagem sendo exibida no spinner.
@@ -233,6 +285,12 @@ func (s *Spinner) Stop(success bool, finalMsg string) {
 	if isTTY {
 		close(s.stopChan)
 		<-s.doneChan
+	}
+
+	s.renderMu.Lock()
+	defer s.renderMu.Unlock()
+
+	if isTTY {
 		fmt.Print("\r\033[K")
 	}
 

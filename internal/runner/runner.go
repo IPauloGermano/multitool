@@ -28,9 +28,36 @@ type TimeoutExecutor interface {
 	ExecuteWithTimeout(timeout time.Duration, name string, args ...string) error
 }
 
+// SilentExecutor executa comandos descartando stdout/stderr (ex: sondas de status).
+type SilentExecutor interface {
+	ExecuteSilent(name string, args ...string) error
+}
+
 // ReleaseTagResolver mantém consultas HTTP substituíveis junto com a execução.
 type ReleaseTagResolver interface {
 	ResolveLatestTag(repo, fallback string) string
+}
+
+// CommandError encapsula o erro de um comando externo junto às últimas linhas de saída
+// capturadas, permitindo que o Runner decida se e quando exibir o diagnóstico.
+type CommandError struct {
+	Command     string
+	Err         error
+	RecentLines []string
+}
+
+func (e *CommandError) Error() string {
+	if e == nil || e.Err == nil {
+		return ""
+	}
+	return e.Err.Error()
+}
+
+func (e *CommandError) Unwrap() error {
+	if e == nil {
+		return nil
+	}
+	return e.Err
 }
 
 type OSExecutor struct{}
@@ -51,6 +78,13 @@ func (o *OSExecutor) Execute(name string, args ...string) error {
 	return cmd.Run()
 }
 
+func (o *OSExecutor) ExecuteSilent(name string, args ...string) error {
+	cmd := exec.Command(name, args...)
+	cmd.Stdout = io.Discard
+	cmd.Stderr = io.Discard
+	return cmd.Run()
+}
+
 func (o *OSExecutor) ExecuteWithTimeout(timeout time.Duration, name string, args ...string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
@@ -64,6 +98,8 @@ func (o *OSExecutor) ExecuteWithTimeout(timeout time.Duration, name string, args
 func (o *OSExecutor) ExecuteWithActivity(activityFn func(line string), name string, args ...string) error {
 	return o.ExecuteWithActivityTimeout(0, activityFn, name, args...)
 }
+
+const maxRecentOutputLines = 10
 
 func (o *OSExecutor) ExecuteWithActivityTimeout(timeout time.Duration, activityFn func(line string), name string, args ...string) error {
 	var ctx context.Context
@@ -88,22 +124,26 @@ func (o *OSExecutor) ExecuteWithActivityTimeout(timeout time.Duration, activityF
 	cmd.Stdout = pw
 	cmd.Stderr = pw
 
-	var errBuf strings.Builder
-	var errMu sync.Mutex
+	var recentLines []string
+	var bufMu sync.Mutex
+	done := make(chan struct{})
 
 	go func() {
+		defer close(done)
 		scanner := bufio.NewScanner(pr)
 		buf := make([]byte, 64*1024)
 		scanner.Buffer(buf, 64*1024)
 		for scanner.Scan() {
-			text := scanner.Text()
-			clean := strings.TrimSpace(text)
+			clean := extractOutputLine(scanner.Text())
 			if clean != "" {
-				errMu.Lock()
-				if errBuf.Len() < 8192 {
-					errBuf.WriteString(clean + "\n")
+				bufMu.Lock()
+				if len(recentLines) >= maxRecentOutputLines {
+					copy(recentLines, recentLines[1:])
+					recentLines[len(recentLines)-1] = clean
+				} else {
+					recentLines = append(recentLines, clean)
 				}
-				errMu.Unlock()
+				bufMu.Unlock()
 				activityFn(clean)
 			}
 		}
@@ -111,20 +151,18 @@ func (o *OSExecutor) ExecuteWithActivityTimeout(timeout time.Duration, activityF
 
 	err := cmd.Run()
 	_ = pw.Close()
+	<-done
 	_ = pr.Close()
 
 	if err != nil {
-		errMu.Lock()
-		recentLog := errBuf.String()
-		errMu.Unlock()
-		if recentLog != "" {
-			lines := strings.Split(strings.TrimSpace(recentLog), "\n")
-			startIdx := 0
-			if len(lines) > 5 {
-				startIdx = len(lines) - 5
-			}
-			for _, l := range lines[startIdx:] {
-				fmt.Printf("   %s %s\n", styleError.Render("│"), l)
+		bufMu.Lock()
+		lines := append([]string(nil), recentLines...)
+		bufMu.Unlock()
+		if len(lines) > 0 {
+			return &CommandError{
+				Command:     name,
+				Err:         err,
+				RecentLines: lines,
 			}
 		}
 	}
@@ -143,8 +181,26 @@ type Runner struct {
 	sysInfo  *system.SystemInfo
 	executor CommandExecutor
 	dryRun   bool
+	force    bool
+	verbose  bool
 	cacheMu  sync.RWMutex
 	cmdCache map[string]bool
+}
+
+func (r *Runner) SetForce(force bool) {
+	r.force = force
+}
+
+func (r *Runner) Force() bool {
+	return r.force
+}
+
+func (r *Runner) SetVerbose(verbose bool) {
+	r.verbose = verbose
+}
+
+func (r *Runner) Verbose() bool {
+	return r.verbose
 }
 
 func New(reg *registry.Registry, dryRun bool) *Runner {
@@ -176,10 +232,20 @@ func NewWithExecutor(reg *registry.Registry, executor CommandExecutor, dryRun bo
 }
 
 func (r *Runner) execWithActivity(activityFn func(line string), name string, args ...string) error {
+	if r.verbose {
+		activityFn = nil
+	}
 	if ae, ok := r.executor.(interface {
 		ExecuteWithActivity(func(string), string, ...string) error
 	}); ok {
 		return ae.ExecuteWithActivity(activityFn, name, args...)
+	}
+	return r.executor.Execute(name, args...)
+}
+
+func (r *Runner) execSilent(name string, args ...string) error {
+	if se, ok := r.executor.(SilentExecutor); ok {
+		return se.ExecuteSilent(name, args...)
 	}
 	return r.executor.Execute(name, args...)
 }
@@ -204,6 +270,9 @@ func (r *Runner) execWithTimeout(timeout time.Duration, name string, args ...str
 }
 
 func (r *Runner) execWithActivityAndTimeout(timeout time.Duration, activityFn func(line string), name string, args ...string) error {
+	if r.verbose {
+		activityFn = nil
+	}
 	if ae, ok := r.executor.(interface {
 		ExecuteWithActivityTimeout(time.Duration, func(string), string, ...string) error
 	}); ok {
@@ -277,19 +346,69 @@ func (r *Runner) batchNeedsSudo(tools []catalog.Tool, isInstallOrUpdate bool) bo
 	return false
 }
 
+// isDirectWindowsBinary identifica ferramentas TypeDirect que possuem receita
+// própria de download/instalação de binário no Windows (em contraste com skills Git).
+func isDirectWindowsBinary(toolID string) bool {
+	switch toolID {
+	case "craftlauncher", "orca", "openmausbot", "apktool", "ghidra", "wabt":
+		return true
+	default:
+		return false
+	}
+}
+
+// isDirectPortableDownload identifica ferramentas TypeDirect que apenas baixam e
+// extraem arquivos portáteis em diretórios isolados do usuário (sem trava global de MSI/NSIS),
+// sendo seguras para instalação concorrente em worker pool.
+func isDirectPortableDownload(toolID string) bool {
+	switch toolID {
+	case "apktool", "ghidra", "wabt":
+		return true
+	default:
+		return false
+	}
+}
+
+// isGitSkillTarget indica se o alvo representa uma skill clonada via Git
+// (TypeSkill no Linux/macOS ou TypeDirect não-binário no Windows).
+func isGitSkillTarget(toolID string, target *catalog.Target) bool {
+	if target == nil {
+		return false
+	}
+	if target.Type == catalog.TypeSkill {
+		return true
+	}
+	return target.Type == catalog.TypeDirect && !isDirectWindowsBinary(toolID)
+}
+
+func (r *Runner) allDependenciesSatisfied(tool catalog.Tool) bool {
+	for _, depID := range tool.Dependencies {
+		depTool := catalog.FindTool(depID)
+		if depTool != nil && depTool.IsSupportedOnCurrentOS() && !r.IsDependencySatisfied(depTool) {
+			return false
+		}
+	}
+	return true
+}
+
+func (r *Runner) isParallelDirectTarget(tool catalog.Tool, target *catalog.Target) bool {
+	return target != nil && target.Type == catalog.TypeDirect && isDirectPortableDownload(tool.ID) && r.allDependenciesSatisfied(tool)
+}
+
 func (r *Runner) isToolPresentOnHost(tool catalog.Tool, target *catalog.Target) bool {
 	if target == nil {
 		return false
+	}
+	if isGitSkillTarget(tool.ID, target) {
+		fi, err := os.Stat(r.getSkillDir(tool.ID))
+		return err == nil && fi.IsDir()
 	}
 	switch target.Type {
 	case catalog.TypeFlatpak:
 		if !r.haveCommand("flatpak") {
 			return false
 		}
-		return r.executor.Execute("flatpak", "info", target.PackageID) == nil
-	case catalog.TypeSkill:
-		fi, err := os.Stat(r.getSkillDir(tool.ID))
-		return err == nil && fi.IsDir()
+		return r.execSilent("flatpak", "info", target.PackageID) == nil
 	default:
 		if tool.ID == "temurin" && r.haveCommand("java") {
 			return true
@@ -348,60 +467,44 @@ func (r *Runner) IsDependencySatisfied(depTool *catalog.Tool) bool {
 	return false
 }
 
-// isWingetAlreadyInstalled verifica se o erro do winget indica que o pacote já está instalado
-// e na versão mais recente (APPINSTALLER_CLI_ERROR_UPDATE_NOT_APPLICABLE 0x8a15002b).
-func isWingetAlreadyInstalled(err error) bool {
-	if err == nil {
-		return false
+func diagnosticLines(err error) []string {
+	var cmdErr *CommandError
+	if !errors.As(err, &cmdErr) || len(cmdErr.RecentLines) == 0 {
+		return nil
 	}
-	var ee *exec.ExitError
-	if errors.As(err, &ee) {
-		code := uint32(ee.ExitCode())
-		if code == 0x8a15002b {
-			return true
-		}
+	lines := cmdErr.RecentLines
+	if len(lines) > 5 {
+		lines = lines[len(lines)-5:]
 	}
-	errStr := strings.ToLower(err.Error())
-	return strings.Contains(errStr, "8a15002b")
+	return lines
 }
 
-// isWingetRebootRequired verifica se o instalador do winget retornou sucesso com reinicialização pendente (3010 / 1641).
-func isWingetRebootRequired(err error) bool {
-	if err == nil {
-		return false
+func printCommandDiagnostics(err error) {
+	for _, l := range diagnosticLines(err) {
+		fmt.Printf("   %s %s\n", styleError.Render("│"), l)
 	}
-	var ee *exec.ExitError
-	if errors.As(err, &ee) {
-		code := uint32(ee.ExitCode())
-		if code == 3010 || code == 1641 {
-			return true
-		}
-	}
-	return false
 }
 
-// isWingetPackageNotFound verifica se o winget indicou que o pacote não foi encontrado ao desinstalar
-// (APPINSTALLER_CLI_ERROR_NO_APPLICATIONS_FOUND 0x8a150014 ou NO_UNINSTALL_INFO_FOUND 0x8a15002f).
-func isWingetPackageNotFound(err error) bool {
-	if err == nil {
-		return false
-	}
-	var ee *exec.ExitError
-	if errors.As(err, &ee) {
-		code := uint32(ee.ExitCode())
-		if code == 0x8a150014 || code == 0x8a15002f {
-			return true
+func printCommandDiagnosticsToSpinner(sp *Spinner, err error) {
+	for _, l := range diagnosticLines(err) {
+		line := fmt.Sprintf("   %s %s", styleError.Render("│"), l)
+		if sp != nil {
+			sp.PrintLine(line)
+		} else {
+			fmt.Println(line)
 		}
 	}
-	errStr := strings.ToLower(err.Error())
-	return strings.Contains(errStr, "8a150014") || strings.Contains(errStr, "8a15002f")
 }
 
 func (r *Runner) Install(tool catalog.Tool) error {
-	return r.installInternal(tool, "", true)
+	return r.installInternalWithQuiet(tool, "", true, false)
 }
 
 func (r *Runner) installInternal(tool catalog.Tool, prefix string, showVisual bool) error {
+	return r.installInternalWithQuiet(tool, prefix, showVisual, false)
+}
+
+func (r *Runner) installInternalWithQuiet(tool catalog.Tool, prefix string, showVisual bool, quiet bool) error {
 	target := r.targetForTool(tool)
 	if target == nil {
 		return fmt.Errorf("ferramenta %s (%s) não é compatível com %s", tool.Name, tool.ID, r.sysInfo.OS)
@@ -411,19 +514,45 @@ func (r *Runner) installInternal(tool catalog.Tool, prefix string, showVisual bo
 	start := time.Now()
 
 	if r.dryRun {
-		fmt.Printf("[DRY-RUN] Simulando instalação de %s via %s (%s)\n", tool.Name, target.Type, target.PackageID)
+		if !quiet {
+			fmt.Printf("[DRY-RUN] Simulando instalação de %s via %s (%s)\n", tool.Name, target.Type, target.PackageID)
+		}
 		LogOp("install %s fim rc=0 dry-run", tool.ID)
 		return r.reg.MarkInstalled(tool.ID)
 	}
 
+	// Fast-path: se a ferramenta já está presente no sistema host e --force não foi passado,
+	// sincroniza o registro imediatamente sem acionar o gerenciador externo.
+	if !r.force && r.isToolPresentOnHost(tool, target) {
+		if isGitSkillTarget(tool.ID, target) && len(r.sysInfo.SkillDirs) > 0 {
+			_, _ = LinkSkillToTargets(r.getSkillDir(tool.ID), r.sysInfo.SkillDirs)
+		}
+		elapsed := time.Since(start).Round(time.Millisecond)
+		if !quiet {
+			msg := fmt.Sprintf("%s já presente no sistema (%s) — use --force para reinstalar.", tool.Name, elapsed)
+			if prefix != "" {
+				msg = prefix + " " + msg
+			}
+			if showVisual {
+				fmt.Printf("%s %s\n", styleSuccess.Render("✔"), msg)
+			} else {
+				fmt.Printf("✔ %s\n", msg)
+			}
+		}
+		LogOp("install %s fim rc=0 duracao=%s fast_path=true", tool.ID, elapsed)
+		return r.reg.MarkInstalled(tool.ID)
+	}
+
 	var sp *Spinner
-	if showVisual {
+	if showVisual && !r.verbose && !quiet {
 		sp = NewSpinner(prefix, fmt.Sprintf("Instalando %s (%s)...", tool.Name, target.Type))
 		sp.Start()
-	} else if prefix != "" {
-		fmt.Printf("➜ %s Instalando %s...\n", prefix, tool.Name)
-	} else {
-		fmt.Printf("=== Instalando %s (%s) ===\n", tool.Name, tool.ID)
+	} else if !quiet {
+		if prefix != "" {
+			fmt.Printf("➜ %s Instalando %s via %s (%s)...\n", prefix, tool.Name, target.Type, target.PackageID)
+		} else {
+			fmt.Printf("=== Instalando %s (%s) ===\n", tool.Name, tool.ID)
+		}
 	}
 
 	// Auto-provisionamento de dependências de software
@@ -433,12 +562,15 @@ func (r *Runner) installInternal(tool catalog.Tool, prefix string, showVisual bo
 			if !r.IsDependencySatisfied(depTool) {
 				if sp != nil {
 					sp.Update(fmt.Sprintf("Instalando dependência '%s' para '%s'...", depTool.Name, tool.Name))
-				} else {
+				} else if !quiet {
 					fmt.Printf("➜ Instalando dependência obrigatória '%s' para '%s'...\n", depTool.Name, tool.Name)
 				}
-				if err := r.installInternal(*depTool, prefix, false); err != nil {
+				if err := r.installInternalWithQuiet(*depTool, prefix, false, quiet); err != nil {
 					if sp != nil {
 						sp.Stop(false, fmt.Sprintf("Falha ao instalar dependência %s: %v", depID, err))
+					}
+					if !quiet {
+						printCommandDiagnostics(err)
 					}
 					return fmt.Errorf("falha ao instalar dependência %s: %w", depID, err)
 				}
@@ -456,8 +588,11 @@ func (r *Runner) installInternal(tool catalog.Tool, prefix string, showVisual bo
 	if err := r.ensureRuntime(tool.ID, target); err != nil {
 		if sp != nil {
 			sp.Stop(false, fmt.Sprintf("Falha ao provisionar runtime para %s: %v", tool.Name, err))
-		} else {
+		} else if !quiet {
 			fmt.Printf("✖ Falha ao provisionar runtime para %s: %v\n", tool.Name, err)
+		}
+		if !quiet {
+			printCommandDiagnostics(err)
 		}
 		LogOp("install %s fim rc=1 erro_runtime=%v", tool.ID, err)
 		return err
@@ -472,6 +607,9 @@ func (r *Runner) installInternal(tool catalog.Tool, prefix string, showVisual bo
 		actFn = func(line string) {
 			sp.UpdateActivity(line)
 		}
+	} else if quiet {
+		// No worker pool silencioso, captura saída em buffer sem poluir stdout
+		actFn = func(string) {}
 	}
 
 	var err error
@@ -479,8 +617,12 @@ func (r *Runner) installInternal(tool catalog.Tool, prefix string, showVisual bo
 	var rebootRequired bool
 	switch target.Type {
 	case catalog.TypeWinget:
-		err = r.execWithActivity(actFn, "winget", "install", "--exact", "--id", target.PackageID,
-			"--accept-source-agreements", "--accept-package-agreements", "--silent")
+		args := []string{"install", "--exact", "--id", target.PackageID,
+			"--accept-source-agreements", "--accept-package-agreements", "--silent"}
+		if r.force {
+			args = append(args, "--force")
+		}
+		err = r.execWithActivity(actFn, "winget", args...)
 		if isWingetAlreadyInstalled(err) {
 			err = nil
 			alreadyInstalled = true
@@ -496,10 +638,20 @@ func (r *Runner) installInternal(tool catalog.Tool, prefix string, showVisual bo
 		err = r.execWithActivity(actFn, "npm", "install", "-g", target.PackageID)
 
 	case catalog.TypePipx:
-		err = r.execWithActivity(actFn, "pipx", "install", target.PackageID)
+		args := []string{"install"}
+		if r.force {
+			args = append(args, "--force")
+		}
+		args = append(args, target.PackageID)
+		err = r.execWithActivity(actFn, "pipx", args...)
 
 	case catalog.TypeCargo:
-		err = r.execWithActivity(actFn, "cargo", "install", target.PackageID)
+		args := []string{"install"}
+		if r.force {
+			args = append(args, "--force")
+		}
+		args = append(args, target.PackageID)
+		err = r.execWithActivity(actFn, "cargo", args...)
 
 	case catalog.TypeFlatpak:
 		err = r.execWithActivity(actFn, "flatpak", "--noninteractive", "install", "-y", "flathub", target.PackageID)
@@ -508,7 +660,7 @@ func (r *Runner) installInternal(tool catalog.Tool, prefix string, showVisual bo
 		err = r.installGitSkillWithActivity(actFn, tool.ID, target.PackageID)
 
 	case catalog.TypeDirect:
-		if tool.ID == "craftlauncher" || tool.ID == "orca" || tool.ID == "openmausbot" || tool.ID == "apktool" || tool.ID == "ghidra" || tool.ID == "wabt" {
+		if isDirectWindowsBinary(tool.ID) {
 			err = r.installDirectWindowsTargetWithActivity(actFn, tool.ID, target)
 		} else {
 			err = r.installGitSkillWithActivity(actFn, tool.ID, target.PackageID)
@@ -529,8 +681,11 @@ func (r *Runner) installInternal(tool catalog.Tool, prefix string, showVisual bo
 	if err != nil {
 		if sp != nil {
 			sp.Stop(false, fmt.Sprintf("Falha ao instalar %s (%s): %v", tool.Name, elapsed, err))
-		} else {
+		} else if !quiet {
 			fmt.Printf("✖ Falha ao instalar %s (%s): %v\n", tool.Name, elapsed, err)
+		}
+		if !quiet {
+			printCommandDiagnostics(err)
 		}
 		LogOp("install %s fim rc=1 erro=%v", tool.ID, err)
 		return err
@@ -544,7 +699,7 @@ func (r *Runner) installInternal(tool catalog.Tool, prefix string, showVisual bo
 		} else {
 			sp.Stop(true, fmt.Sprintf("%s instalado com sucesso em %s.", tool.Name, elapsed))
 		}
-	} else {
+	} else if !quiet {
 		if alreadyInstalled {
 			fmt.Printf("✔ %s já está instalado na versão mais recente (%s).\n", tool.Name, elapsed)
 		} else if rebootRequired {
@@ -596,9 +751,17 @@ func (r *Runner) findTargetBinaryPath(tool catalog.Tool, target *catalog.Target)
 			if _, err := os.Stat(pName); err == nil {
 				return pName
 			}
+			pNameBin := filepath.Join(base, tool.Name, "bin", target.Binary)
+			if _, err := os.Stat(pNameBin); err == nil {
+				return pNameBin
+			}
 			pID := filepath.Join(base, tool.ID, target.Binary)
 			if _, err := os.Stat(pID); err == nil {
 				return pID
+			}
+			pIDBin := filepath.Join(base, tool.ID, "bin", target.Binary)
+			if _, err := os.Stat(pIDBin); err == nil {
+				return pIDBin
 			}
 		}
 		if tool.ID == "craftlauncher" {
@@ -642,7 +805,7 @@ func (r *Runner) uninstallInternal(tool catalog.Tool, prefix string, showVisual 
 	}
 
 	var sp *Spinner
-	if showVisual {
+	if showVisual && !r.verbose {
 		sp = NewSpinner(prefix, fmt.Sprintf("Desinstalando %s...", tool.Name))
 		sp.Start()
 	} else if prefix != "" {
@@ -777,6 +940,7 @@ func (r *Runner) uninstallInternal(tool catalog.Tool, prefix string, showVisual 
 		} else {
 			fmt.Printf("✖ Falha ao desinstalar %s (%s): %v\n", tool.Name, elapsed, err)
 		}
+		printCommandDiagnostics(err)
 		LogOp("uninstall %s fim rc=1 erro=%v", tool.ID, err)
 		return err
 	}
@@ -814,11 +978,11 @@ func (r *Runner) updateInternal(tool catalog.Tool, prefix string, showVisual boo
 	}
 
 	var sp *Spinner
-	if showVisual {
+	if showVisual && !r.verbose {
 		sp = NewSpinner(prefix, fmt.Sprintf("Atualizando %s via %s...", tool.Name, target.Type))
 		sp.Start()
 	} else if prefix != "" {
-		fmt.Printf("➜ %s Atualizando %s...\n", prefix, tool.Name)
+		fmt.Printf("➜ %s Atualizando %s via %s (%s)...\n", prefix, tool.Name, target.Type, target.PackageID)
 	} else {
 		fmt.Printf("=== Atualizando %s (%s) ===\n", tool.Name, tool.ID)
 	}
@@ -833,6 +997,7 @@ func (r *Runner) updateInternal(tool catalog.Tool, prefix string, showVisual boo
 		} else {
 			fmt.Printf("✖ Falha ao provisionar runtime para %s: %v\n", tool.Name, err)
 		}
+		printCommandDiagnostics(err)
 		LogOp("update %s fim rc=1 erro_runtime=%v", tool.ID, err)
 		return err
 	}
@@ -853,7 +1018,8 @@ func (r *Runner) updateInternal(tool catalog.Tool, prefix string, showVisual boo
 	var rebootRequired bool
 	switch target.Type {
 	case catalog.TypeWinget:
-		err = r.execWithActivity(actFn, "winget", "upgrade", "--exact", "--id", target.PackageID, "--silent")
+		err = r.execWithActivity(actFn, "winget", "upgrade", "--exact", "--id", target.PackageID,
+			"--accept-source-agreements", "--accept-package-agreements", "--silent")
 		if isWingetAlreadyInstalled(err) {
 			err = nil
 			alreadyUpToDate = true
@@ -909,6 +1075,7 @@ func (r *Runner) updateInternal(tool catalog.Tool, prefix string, showVisual boo
 		} else {
 			fmt.Printf("✖ Falha ao atualizar %s (%s): %v\n", tool.Name, elapsed, err)
 		}
+		printCommandDiagnostics(err)
 		LogOp("update %s fim rc=1 erro=%v", tool.ID, err)
 		return err
 	}
@@ -945,39 +1112,56 @@ func (r *Runner) RunBatchInstallWithErrors(tools []catalog.Tool) (int, int, erro
 		return 0, 0, nil
 	}
 
-	// Se o lote consistir puramente de ferramentas TypeSkill e total > 1: executa em pool concorrente
-	allSkills := true
-	for _, t := range tools {
-		tgt := r.targetForTool(t)
-		if tgt == nil || tgt.Type != catalog.TypeSkill {
-			allSkills = false
-			break
+	if !r.verbose && total > 1 {
+		// Se o lote consistir puramente de skills Git (TypeSkill ou TypeDirect skill no Windows): executa em pool concorrente
+		allSkills := true
+		for _, t := range tools {
+			tgt := r.targetForTool(t)
+			if !isGitSkillTarget(t.ID, tgt) {
+				allSkills = false
+				break
+			}
 		}
-	}
+		if allSkills {
+			return r.runBatchInstallPool(tools, "skills", "Clonando", 4)
+		}
 
-	if allSkills && total > 1 {
-		return r.runBatchInstallSkillsParallel(tools)
+		// Se o lote consistir puramente de downloads portáteis TypeDirect (sem trava MSI/NSIS): executa em pool concorrente
+		allDirect := true
+		for _, t := range tools {
+			tgt := r.targetForTool(t)
+			if !r.isParallelDirectTarget(t, tgt) {
+				allDirect = false
+				break
+			}
+		}
+		if allDirect {
+			return r.runBatchInstallPool(tools, "downloads diretos", "Baixando", 4)
+		}
 	}
 
 	return r.runBatchInstallPartitioned(tools)
 }
 
-func (r *Runner) runBatchInstallSkillsParallel(tools []catalog.Tool) (int, int, error) {
+func (r *Runner) runBatchInstallPool(tools []catalog.Tool, label, verb string, maxWorkers int) (int, int, error) {
 	var failures []error
 	total := len(tools)
 	overallStart := time.Now()
+	if maxWorkers <= 0 {
+		maxWorkers = 4
+	}
 
-	sp := NewSpinner("", fmt.Sprintf("Clonando concorrentemente %d skills (worker pool de 4)...", total))
+	sp := NewSpinner("", fmt.Sprintf("%s concorrentemente %d %s (worker pool de %d)...", verb, total, label, maxWorkers))
 	sp.Start()
 
-	type skillResult struct {
+	type poolResult struct {
 		tool catalog.Tool
 		err  error
 		dur  time.Duration
 	}
 
-	results := make(chan skillResult, total)
-	sem := make(chan struct{}, 4)
+	results := make(chan poolResult, total)
+	sem := make(chan struct{}, maxWorkers)
 	var wg sync.WaitGroup
 
 	for _, t := range tools {
@@ -988,8 +1172,8 @@ func (r *Runner) runBatchInstallSkillsParallel(tools []catalog.Tool) (int, int, 
 			defer func() { <-sem }()
 
 			start := time.Now()
-			err := r.installInternal(tool, "", false)
-			results <- skillResult{
+			err := r.installInternalWithQuiet(tool, "", false, true)
+			results <- poolResult{
 				tool: tool,
 				err:  err,
 				dur:  time.Since(start).Round(time.Millisecond),
@@ -1008,22 +1192,23 @@ func (r *Runner) runBatchInstallSkillsParallel(tools []catalog.Tool) (int, int, 
 		count++
 		pct := float64(count) / float64(total)
 		bar := RenderProgressBar(14, pct)
-		sp.Update(fmt.Sprintf("%s [%d/%d skills] Clonando concorrentemente...", bar, count, total))
+		sp.Update(fmt.Sprintf("%s [%d/%d %s] %s concorrentemente...", bar, count, total, label, verb))
 
 		if res.err != nil {
 			failures = append(failures, fmt.Errorf("%s: %w", res.tool.ID, res.err))
 			fail++
-			fmt.Printf("  ↳ %s [%d/%d] %s (%s): %v\n",
-				styleError.Render("✖"), count, total, res.tool.Name, res.dur, res.err)
+			sp.PrintLine(fmt.Sprintf("  ↳ %s [%d/%d] %s (%s): %v",
+				styleError.Render("✖"), count, total, res.tool.Name, res.dur, res.err))
+			printCommandDiagnosticsToSpinner(sp, res.err)
 		} else {
 			ok++
-			fmt.Printf("  ↳ %s [%d/%d] %s (%s)\n",
-				styleSuccess.Render("✔"), count, total, res.tool.Name, res.dur)
+			sp.PrintLine(fmt.Sprintf("  ↳ %s [%d/%d] %s (%s)",
+				styleSuccess.Render("✔"), count, total, res.tool.Name, res.dur))
 		}
 	}
 
 	overallDur := time.Since(overallStart).Round(time.Millisecond)
-	sp.Stop(fail == 0, fmt.Sprintf("Resumo das Skills: %d instalada(s), %d falha(s) em %s.", ok, fail, overallDur))
+	sp.Stop(fail == 0, fmt.Sprintf("Resumo (%s): %d instalado(s), %d falha(s) em %s.", label, ok, fail, overallDur))
 	return ok, fail, errors.Join(failures...)
 }
 
@@ -1044,27 +1229,53 @@ func (r *Runner) runBatchInstallPartitioned(tools []catalog.Tool) (int, int, err
 		t := tools[i]
 		tgt := r.targetForTool(t)
 
-		// Se encontrar um bloco contíguo de skills > 1
-		if tgt != nil && tgt.Type == catalog.TypeSkill {
-			j := i
-			for j < total {
-				curTgt := r.targetForTool(tools[j])
-				if curTgt == nil || curTgt.Type != catalog.TypeSkill {
-					break
+		if !r.verbose {
+			// Bloco contíguo de skills Git (> 1)
+			if isGitSkillTarget(t.ID, tgt) {
+				j := i
+				for j < total {
+					curTgt := r.targetForTool(tools[j])
+					if !isGitSkillTarget(tools[j].ID, curTgt) {
+						break
+					}
+					j++
 				}
-				j++
+
+				skillChunk := tools[i:j]
+				if len(skillChunk) > 1 {
+					chunkOk, chunkFail, chunkErr := r.runBatchInstallPool(skillChunk, "skills", "Clonando", 4)
+					if chunkErr != nil {
+						failures = append(failures, chunkErr)
+					}
+					ok += chunkOk
+					fail += chunkFail
+					i = j
+					continue
+				}
 			}
 
-			skillChunk := tools[i:j]
-			if len(skillChunk) > 1 {
-				chunkOk, chunkFail, chunkErr := r.runBatchInstallSkillsParallel(skillChunk)
-				if chunkErr != nil {
-					failures = append(failures, chunkErr)
+			// Bloco contíguo de downloads portáteis TypeDirect (> 1) com dependências satisfeitas
+			if r.isParallelDirectTarget(t, tgt) {
+				j := i
+				for j < total {
+					curTgt := r.targetForTool(tools[j])
+					if !r.isParallelDirectTarget(tools[j], curTgt) {
+						break
+					}
+					j++
 				}
-				ok += chunkOk
-				fail += chunkFail
-				i = j
-				continue
+
+				directChunk := tools[i:j]
+				if len(directChunk) > 1 {
+					chunkOk, chunkFail, chunkErr := r.runBatchInstallPool(directChunk, "downloads diretos", "Baixando", 4)
+					if chunkErr != nil {
+						failures = append(failures, chunkErr)
+					}
+					ok += chunkOk
+					fail += chunkFail
+					i = j
+					continue
+				}
 			}
 		}
 

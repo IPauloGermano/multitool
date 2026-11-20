@@ -19,6 +19,9 @@ func TestBatchPartialFailuresAreJoined(t *testing.T) {
 	for _, operation := range []string{"install", "uninstall", "update", "parallel-skills", "mixed"} {
 		t.Run(operation, func(t *testing.T) {
 			mock := &MockExecutor{errors: map[string]error{"bad-one": first, "bad-two": second}}
+			if operation == "uninstall" {
+				mock.present = map[string]bool{"bad-one": true, "good": true, "bad-two": true, "after-failure": true}
+			}
 			r := securityRunner(t, mock, system.OSLinux)
 			r.sysInfo.NeedsSudo = false
 			r.sysInfo.SkillDirs = nil

@@ -22,13 +22,16 @@ Unificação e evolução integrada dos projetos `linux-multitool` e `windows-mu
   - Busca difusa em tempo real com `/`.
   - Carrinho persistente de compras para execução em lote (`Espaço` marca/desmarca, `Enter` executa).
 - **CLI Moderna com Cobra**:
-  - Subcomandos completos: `install`, `uninstall`, `update`, `list`, `installed`, `search`, `info` (ou `docs`), `suites`, `system`, `sync`, `version`.
+  - Subcomandos completos: `install`, `uninstall`, `update`, `list`, `installed`, `search`, `info` (ou `docs`), `suites`, `system`, `sync`, `doctor` (ou `check`), `version`.
   - Flag `--dry-run` para simulação segura sem alterar o sistema.
+  - Flag `--force` / `--reinstall` para reinstalar ferramentas já presentes no sistema (com fast-path automático quando ausente).
+  - Flag `-v` / `--verbose` para exibir a saída completa dos instaladores em tempo real.
   - Flag `--json` para automações em scripts, CI e pipelines.
-- **Sincronização e Auto-descoberta no Host (`multitool sync`)**:
-  - Varre o `$PATH` do sistema e auto-detecta ferramentas do catálogo instaladas previamente fora do Multitool, sincronizando o registro e re-linkando skills existentes para novos agentes.
-- **Paralelismo Inteligente no Clone de `@skills`**:
-  - Processamento concorrente de skills via worker pool limitado (4 goroutines), acelerando drasticamente o provisionamento em lote.
+- **Sincronização, Auditoria de Saúde e Auto-descoberta no Host (`multitool sync` / `multitool doctor`)**:
+  - `sync`: Varre o `$PATH` do sistema e auto-detecta ferramentas do catálogo instaladas previamente fora do Multitool, sincronizando o registro e re-linkando skills existentes para novos agentes.
+  - `doctor` (alias `check`): Audita runtimes base, integridade das ferramentas em `installed.json`, diretório local no `PATH` e symlinks/junções de skills de IA.
+- **Paralelismo Inteligente em `@skills` e Downloads Diretos**:
+  - Processamento concorrente de skills Git (Linux/macOS/Windows) e downloads portáteis `TypeDirect` (`apktool`, `ghidra`, `wabt`) via worker pool limitado (4 goroutines), acelerando drasticamente o provisionamento em lote.
 - **Validação de Integridade Criptográfica (SHA-256)**:
   - Downloads diretos são preparados em diretório temporário exclusivo. Quando o alvo define `SHA256`, o hash do artefato é validado antes de executar, extrair ou copiar para o destino.
   - Receitas com vários downloads usam `ArtifactSHA256`, indexado pelo nome do arquivo (por exemplo, `apktool.bat` e `apktool.jar`).
@@ -156,8 +159,16 @@ multitool info hermes
 # Listar suítes integradas (@vibecode, @mcp, etc.)
 multitool suites
 
-# Instalar ferramentas ou suítes
+# Auditar integridade de runtimes, binários instalados e symlinks de skills
+multitool doctor
+multitool doctor --json
+
+# Instalar ferramentas ou suítes (pula ferramentas já presentes no host automaticamente)
 multitool install btop @vibecode
+
+# Forçar reinstalação ou ver saída completa em tempo real
+multitool install cmake --force
+multitool install @dev --verbose
 
 # Simulação segura sem alterações no sistema (--dry-run)
 multitool install @agentstack --dry-run

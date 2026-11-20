@@ -74,3 +74,21 @@ func TestCleanActivity(t *testing.T) {
 		t.Errorf("Esperava string sanitizada, obteve: %q", cleaned)
 	}
 }
+
+func TestExtractOutputLine(t *testing.T) {
+	if got := extractOutputLine("\x1b[32mDownloading 10%\x1b[0m\r\x1b[32mDownloading 100%\x1b[0m"); got != "Downloading 100%" {
+		t.Errorf("Esperava 'Downloading 100%%', obteve: %q", got)
+	}
+	for _, noise := range []string{"-", `\`, "|", "/", "   ", "\r\n"} {
+		if got := extractOutputLine(noise); got != "" {
+			t.Errorf("Esperava ruído %q filtrado, obteve: %q", noise, got)
+		}
+	}
+}
+
+func TestSpinnerPrintLine(t *testing.T) {
+	sp := NewSpinner("[1/2]", "Processando")
+	sp.Start()
+	sp.PrintLine("  ↳ ✔ item 1")
+	sp.Stop(true, "Concluído")
+}

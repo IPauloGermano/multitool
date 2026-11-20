@@ -30,13 +30,24 @@ var (
 	flagJSON         bool
 	flagAllPlatforms bool
 	flagAll          bool
+	flagForce        bool
+	flagReinstall    bool
+	flagVerbose      bool
 
-	styleTitle = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#2563EB"))
-	styleDim   = lipgloss.NewStyle().Foreground(lipgloss.Color("#9CA3AF"))
-	styleGreen = lipgloss.NewStyle().Foreground(lipgloss.Color("#10B981")).Bold(true)
-	styleCyan  = lipgloss.NewStyle().Foreground(lipgloss.Color("#06B6D4"))
-	styleRed   = lipgloss.NewStyle().Foreground(lipgloss.Color("#EF4444")).Bold(true)
+	styleTitle  = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#2563EB"))
+	styleDim    = lipgloss.NewStyle().Foreground(lipgloss.Color("#9CA3AF"))
+	styleGreen  = lipgloss.NewStyle().Foreground(lipgloss.Color("#10B981")).Bold(true)
+	styleYellow = lipgloss.NewStyle().Foreground(lipgloss.Color("#F59E0B")).Bold(true)
+	styleCyan   = lipgloss.NewStyle().Foreground(lipgloss.Color("#06B6D4"))
+	styleRed    = lipgloss.NewStyle().Foreground(lipgloss.Color("#EF4444")).Bold(true)
 )
+
+func newConfiguredRunner(reg *registry.Registry, executor runner.CommandExecutor) *runner.Runner {
+	r := runner.NewWithExecutor(reg, executor, flagDryRun)
+	r.SetForce(flagForce || flagReinstall)
+	r.SetVerbose(flagVerbose)
+	return r
+}
 
 func NewRootCmd(reg *registry.Registry) *cobra.Command {
 	return newRootCmd(reg, &runner.OSExecutor{})
@@ -52,6 +63,9 @@ func newRootCmd(reg *registry.Registry, executor runner.CommandExecutor) *cobra.
 	flagJSON = false
 	flagAllPlatforms = false
 	flagAll = false
+	flagForce = false
+	flagReinstall = false
+	flagVerbose = false
 
 	rootCmd := &cobra.Command{
 		Use:   "multitool",
@@ -61,7 +75,7 @@ para automação de instalação, remoção, atualização e auditoria de ferram
 agentes de IA, compiladores e aplicativos de sistema.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			out := cmd.OutOrStdout()
-			r := runner.NewWithExecutor(reg, executor, flagDryRun)
+			r := newConfiguredRunner(reg, executor)
 
 			if flagList {
 				return runList(out, reg, flagJSON, flagAllPlatforms, flagAll)
@@ -86,11 +100,14 @@ agentes de IA, compiladores e aplicativos de sistema.`,
 
 	rootCmd.PersistentFlags().BoolVar(&flagDryRun, "dry-run", false, "Simula operações sem alterar o sistema")
 	rootCmd.PersistentFlags().BoolVar(&flagJSON, "json", false, "Exibe saída estruturada em JSON")
+	rootCmd.PersistentFlags().BoolVarP(&flagVerbose, "verbose", "v", false, "Exibe a saída completa dos comandos em tempo real")
 
 	rootCmd.Flags().BoolVarP(&flagList, "list", "l", false, "Lista as ferramentas disponíveis")
 	rootCmd.Flags().BoolVar(&flagAllPlatforms, "all-platforms", false, "Exibe catálogo de todas as plataformas")
 	rootCmd.Flags().BoolVarP(&flagAll, "all", "a", false, "Exibe todas as ferramentas, incluindo já instaladas")
 	rootCmd.Flags().BoolVar(&flagInstalled, "installed", false, "Lista apenas as ferramentas instaladas")
+	rootCmd.Flags().BoolVarP(&flagForce, "force", "f", false, "Força reinstalação mesmo se a ferramenta já estiver presente")
+	rootCmd.Flags().BoolVar(&flagReinstall, "reinstall", false, "Alias para --force (força reinstalação)")
 	rootCmd.Flags().StringSliceVarP(&flagInstall, "install", "i", nil, "Instala ferramentas ou @pacotes (ex: --install btop @vibecode)")
 	rootCmd.Flags().StringSliceVarP(&flagUninstall, "uninstall", "u", nil, "Desinstala ferramentas ou @pacotes")
 	rootCmd.Flags().StringSliceVar(&flagUpdate, "update", nil, "Atualiza ferramentas ou @pacotes")
@@ -120,17 +137,19 @@ agentes de IA, compiladores e aplicativos de sistema.`,
 		Short: "Instala uma ou mais ferramentas ou @suítes",
 		Args:  cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			r := runner.NewWithExecutor(reg, executor, flagDryRun)
+			r := newConfiguredRunner(reg, executor)
 			return runInstall(r, args)
 		},
 	}
+	installCmd.Flags().BoolVarP(&flagForce, "force", "f", false, "Força reinstalação mesmo se a ferramenta já estiver presente")
+	installCmd.Flags().BoolVar(&flagReinstall, "reinstall", false, "Alias para --force (força reinstalação)")
 
 	uninstallCmd := &cobra.Command{
 		Use:   "uninstall [id|@pacote...]",
 		Short: "Desinstala uma ou mais ferramentas ou @suítes",
 		Args:  cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			r := runner.NewWithExecutor(reg, executor, flagDryRun)
+			r := newConfiguredRunner(reg, executor)
 			return runUninstall(r, args)
 		},
 	}
@@ -140,7 +159,7 @@ agentes de IA, compiladores e aplicativos de sistema.`,
 		Short: "Atualiza uma ou mais ferramentas ou @suítes",
 		Args:  cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			r := runner.NewWithExecutor(reg, executor, flagDryRun)
+			r := newConfiguredRunner(reg, executor)
 			return runUpdate(r, args)
 		},
 	}
@@ -324,13 +343,71 @@ agentes de IA, compiladores e aplicativos de sistema.`,
 		Use:   "sync",
 		Short: "Detecta ferramentas pré-existentes no sistema host e sincroniza o estado",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			r := runner.NewWithExecutor(reg, executor, flagDryRun)
+			r := newConfiguredRunner(reg, executor)
 			return runSync(cmd.OutOrStdout(), r, flagJSON, flagDryRun)
 		},
 	}
 
-	rootCmd.AddCommand(listCmd, installedCmd, installCmd, uninstallCmd, updateCmd, searchCmd, infoCmd, suitesCmd, systemCmd, syncCmd, versionCmd)
+	doctorCmd := &cobra.Command{
+		Use:     "doctor",
+		Aliases: []string{"check"},
+		Short:   "Audita a integridade de runtimes, ferramentas registradas e symlinks de skills",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			r := newConfiguredRunner(reg, executor)
+			return runDoctor(cmd.OutOrStdout(), r, flagJSON)
+		},
+	}
+
+	rootCmd.AddCommand(listCmd, installedCmd, installCmd, uninstallCmd, updateCmd, searchCmd, infoCmd, suitesCmd, systemCmd, syncCmd, doctorCmd, versionCmd)
 	return rootCmd
+}
+
+func runDoctor(out io.Writer, r *runner.Runner, asJSON bool) error {
+	report := r.Doctor()
+
+	if asJSON {
+		data, _ := json.MarshalIndent(report, "", "  ")
+		fmt.Fprintln(out, string(data))
+		return nil
+	}
+
+	fmt.Fprintf(out, "\n%s\n", styleTitle.Render(" DIAGNÓSTICO DE SAÚDE (DOCTOR) "))
+	fmt.Fprintf(out, "• Plataforma: %s (%s) | Gerenciador: %s\n\n",
+		styleCyan.Render(report.OS), report.Arch, styleGreen.Render(report.PrimaryManager))
+
+	renderSection := func(title string, checks []runner.DoctorCheck, emptyMsg string) {
+		fmt.Fprintf(out, "%s\n", styleTitle.Render(title))
+		if len(checks) == 0 {
+			fmt.Fprintf(out, "  %s\n\n", styleDim.Render(emptyMsg))
+			return
+		}
+		for _, c := range checks {
+			var icon string
+			switch c.Status {
+			case runner.DoctorOK:
+				icon = styleGreen.Render("✔")
+			case runner.DoctorWarn:
+				icon = styleYellow.Render("⚠")
+			default:
+				icon = styleRed.Render("✖")
+			}
+			fmt.Fprintf(out, "  %s %-22s %s\n", icon, c.Name, c.Detail)
+			if c.Hint != "" {
+				fmt.Fprintf(out, "      %s %s\n", styleDim.Render("↳"), styleDim.Render(c.Hint))
+			}
+		}
+		fmt.Fprintln(out)
+	}
+
+	renderSection("Runtimes & Gerenciadores", report.Runtimes, "Nenhum runtime verificado.")
+	renderSection("Ferramentas Registradas", report.Tools, "Nenhuma ferramenta registrada em installed.json.")
+	renderSection("Skills de IA & Symlinks", report.Skills, "Nenhuma skill registrada ou problema de link detectado.")
+
+	fmt.Fprintf(out, "Resumo: %s ok, %s aviso(s), %s falha(s).\n\n",
+		styleGreen.Render(fmt.Sprintf("%d", report.Summary.OK)),
+		styleYellow.Render(fmt.Sprintf("%d", report.Summary.Warn)),
+		styleRed.Render(fmt.Sprintf("%d", report.Summary.Fail)))
+	return nil
 }
 
 func runSync(out io.Writer, r *runner.Runner, asJSON, dryRun bool) error {

@@ -21,7 +21,13 @@ func TestMain(m *testing.M) {
 			return 1
 		}
 		defer os.RemoveAll(home)
-		for key, value := range map[string]string{"HOME": home, "USERPROFILE": home, "LOCALAPPDATA": filepath.Join(home, "AppData", "Local")} {
+		for key, value := range map[string]string{
+			"HOME":              home,
+			"USERPROFILE":       home,
+			"LOCALAPPDATA":      filepath.Join(home, "AppData", "Local"),
+			"ProgramFiles":      filepath.Join(home, "Program Files"),
+			"ProgramFiles(x86)": filepath.Join(home, "Program Files (x86)"),
+		} {
 			if err := os.Setenv(key, value); err != nil {
 				fmt.Fprintln(os.Stderr, err)
 				return 1
@@ -227,5 +233,37 @@ func TestRootCommands(t *testing.T) {
 	}
 	if !strings.Contains(buf.String(), "synced") {
 		t.Errorf("Esperava formato JSON no sync --json: %s", buf.String())
+	}
+
+	// 13. Teste 'doctor' e alias 'check' (texto e JSON)
+	buf.Reset()
+	rootCmd = newRootCmd(reg, executor)
+	rootCmd.SetOut(buf)
+	rootCmd.SetArgs([]string{"doctor"})
+	if err := rootCmd.Execute(); err != nil {
+		t.Fatalf("Erro no doctor: %v", err)
+	}
+	if !strings.Contains(buf.String(), "DIAGNÓSTICO DE SAÚDE") {
+		t.Errorf("Esperava cabeçalho do doctor: %s", buf.String())
+	}
+
+	buf.Reset()
+	rootCmd = newRootCmd(reg, executor)
+	rootCmd.SetOut(buf)
+	rootCmd.SetArgs([]string{"check", "--json"})
+	if err := rootCmd.Execute(); err != nil {
+		t.Fatalf("Erro no check --json: %v", err)
+	}
+	if !strings.Contains(buf.String(), `"summary"`) || !strings.Contains(buf.String(), `"runtimes"`) {
+		t.Errorf("Esperava formato JSON válido no check --json: %s", buf.String())
+	}
+
+	// 14. Teste flags --force, --reinstall e --verbose no install
+	buf.Reset()
+	rootCmd = newRootCmd(reg, executor)
+	rootCmd.SetOut(buf)
+	rootCmd.SetArgs([]string{"install", "btop", "--force", "--verbose", "--dry-run"})
+	if err := rootCmd.Execute(); err != nil {
+		t.Fatalf("Erro no install --force --verbose --dry-run: %v", err)
 	}
 }

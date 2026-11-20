@@ -107,7 +107,13 @@ func (r *Runner) SyncInstalled() ([]SyncResult, int, error) {
 		detected := false
 		detectMethod := ""
 
-		if tool.ID == "temurin" && r.haveCommand("java") {
+		if isGitSkillTarget(tool.ID, target) {
+			skillDir := r.getSkillDir(tool.ID)
+			if fi, err := os.Stat(skillDir); err == nil && fi.IsDir() {
+				detected = true
+				detectMethod = "diretório local de skills"
+			}
+		} else if tool.ID == "temurin" && r.haveCommand("java") {
 			detected = true
 			detectMethod = "PATH (java)"
 		} else if localApp := os.Getenv("LOCALAPPDATA"); localApp != "" && target.Binary != "" && (func() bool {
@@ -123,12 +129,6 @@ func (r *Runner) SyncInstalled() ([]SyncResult, int, error) {
 		} else if binPath := r.findTargetBinaryPath(tool, target); binPath != "" {
 			detected = true
 			detectMethod = fmt.Sprintf("disco (%s)", filepath.Dir(binPath))
-		} else if target.Type == catalog.TypeSkill {
-			skillDir := r.getSkillDir(tool.ID)
-			if fi, err := os.Stat(skillDir); err == nil && fi.IsDir() {
-				detected = true
-				detectMethod = "diretório local de skills"
-			}
 		}
 
 		if detected {

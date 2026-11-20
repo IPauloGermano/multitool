@@ -26,7 +26,13 @@ func TestMain(m *testing.M) {
 			return 1
 		}
 		defer os.RemoveAll(home)
-		for key, value := range map[string]string{"HOME": home, "USERPROFILE": home, "LOCALAPPDATA": filepath.Join(home, "AppData", "Local")} {
+		for key, value := range map[string]string{
+			"HOME":              home,
+			"USERPROFILE":       home,
+			"LOCALAPPDATA":      filepath.Join(home, "AppData", "Local"),
+			"ProgramFiles":      filepath.Join(home, "Program Files"),
+			"ProgramFiles(x86)": filepath.Join(home, "Program Files (x86)"),
+		} {
 			if err := os.Setenv(key, value); err != nil {
 				fmt.Fprintln(os.Stderr, err)
 				return 1
@@ -53,6 +59,8 @@ type MockExecutor struct {
 	beforeExecute func(string, []string) error
 	executed      [][]string
 	missing       map[string]bool
+	present       map[string]bool
+	allPresent    bool
 	errors        map[string]error
 }
 
@@ -104,11 +112,27 @@ func (m *MockExecutor) Execute(name string, args ...string) error {
 	return nil
 }
 
+var mockDefaultRuntimes = map[string]bool{
+	"npm": true, "pipx": true, "cargo": true, "git": true,
+	"curl": true, "curl.exe": true, "flatpak": true, "winget": true,
+	"brew": true, "apt-get": true, "dnf": true, "pacman": true,
+	"zypper": true, "eopkg": true, "java": true, "java.exe": true,
+	"rustup": true, "sudo": true, "systemctl": true, "sh": true,
+	"bash": true, "unzip": true, "python3": true, "tar.exe": true,
+	"msiexec.exe": true,
+}
+
 func (m *MockExecutor) LookPath(file string) (string, error) {
 	if m.missing != nil && m.missing[file] {
 		return "", exec.ErrNotFound
 	}
-	return "/usr/bin/" + file, nil
+	if m.present != nil && m.present[file] {
+		return "/usr/bin/" + file, nil
+	}
+	if m.allPresent || mockDefaultRuntimes[file] {
+		return "/usr/bin/" + file, nil
+	}
+	return "", exec.ErrNotFound
 }
 
 func TestRunnerDryRun(t *testing.T) {
@@ -324,8 +348,9 @@ func TestSyncInstalled(t *testing.T) {
 	regPath := filepath.Join(tempDir, "installed.json")
 	reg, _ := registry.New(regPath)
 
-	// Mock onde apenas 'git' e 'btop' existem no PATH
+	// Mock onde ferramentas existem no PATH exceto as listadas em missing
 	mock := &MockExecutor{
+		allPresent: true,
 		missing: map[string]bool{
 			"ripgrep": true,
 			"jq":      true,
@@ -624,15 +649,10 @@ func TestGhidraWindowsInstallAndUninstall(t *testing.T) {
 	localApp := filepath.Join(tempDir, "AppData", "Local")
 	t.Setenv("LOCALAPPDATA", localApp)
 
-	// Simula diretórios e wrappers de ghidra para desinstalação
 	ghidraDir := filepath.Join(localApp, "multitool", "ghidra")
 	binDir := filepath.Join(localApp, "multitool", "bin")
-	_ = os.MkdirAll(ghidraDir, 0755)
-	_ = os.MkdirAll(binDir, 0755)
 	ghidraBat := filepath.Join(binDir, "ghidra.bat")
 	ghidraRunBat := filepath.Join(binDir, "ghidraRun.bat")
-	_ = os.WriteFile(ghidraBat, []byte("@echo off"), 0755)
-	_ = os.WriteFile(ghidraRunBat, []byte("@echo off"), 0755)
 
 	// 1. Instalação no Windows
 	if err := r.Install(*tool); err != nil {
@@ -974,15 +994,26 @@ func TestUninstallWhenRuntimeMissingAndNoUnnecessarySudo(t *testing.T) {
 }
 
 func TestWingetExitCodeHelpers(t *testing.T) {
-	errAlready := fmt.Errorf("exit status 0x8a15002b")
-	if !isWingetAlreadyInstalled(errAlready) {
-		t.Errorf("Esperava isWingetAlreadyInstalled=true para 0x8a15002b")
+	for _, code := range []string{"0x8a15002b", "0x8a150061", "0x8a15010d", "0x8a15010e", "-1978335189"} {
+		errAlready := fmt.Errorf("exit status %s", code)
+		if !isWingetAlreadyInstalled(errAlready) {
+			t.Errorf("Esperava isWingetAlreadyInstalled=true para %s", code)
+		}
+		wrapped := &CommandError{Command: "winget", Err: errAlready, RecentLines: []string{"No available upgrade found."}}
+		if !isWingetAlreadyInstalled(wrapped) {
+			t.Errorf("Esperava isWingetAlreadyInstalled=true para CommandError envolvendo %s", code)
+		}
 	}
 
 	if isWingetAlreadyInstalled(nil) {
 		t.Errorf("Esperava isWingetAlreadyInstalled=false para nil")
 	}
 
+	for _, code := range []string{"exit status 3010", "exit status 1641"} {
+		if !isWingetRebootRequired(fmt.Errorf("%s", code)) {
+			t.Errorf("Esperava isWingetRebootRequired=true para %s", code)
+		}
+	}
 	if isWingetRebootRequired(nil) {
 		t.Errorf("Esperava isWingetRebootRequired=false para nil")
 	}

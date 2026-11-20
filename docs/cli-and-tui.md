@@ -154,11 +154,29 @@ multitool suites
 
 ---
 
+### Auditoria de Saúde: `doctor` (ou `check`)
+Verifica a integridade dos runtimes base, confere se as ferramentas registradas em `installed.json` continuam acessíveis no sistema e audita symlinks/junções de skills de IA:
+```bash
+multitool doctor
+multitool check --json
+```
+
+---
+
 ### Operações em Lote: `install`, `uninstall`, `update`
 
-* **Instalar uma ou mais ferramentas**:
+* **Instalar uma ou mais ferramentas** (ferramentas já presentes no host são detectadas via *fast-path* e registradas instantaneamente sem acionar o gerenciador externo):
   ```bash
   multitool install btop ripgrep
+  ```
+* **Forçar reinstalação (`--force`, `-f` ou `--reinstall`)**:
+  ```bash
+  multitool install cmake --force
+  multitool install @toolchain --reinstall
+  ```
+* **Exibir saída completa em tempo real (`--verbose` ou `-v`)**:
+  ```bash
+  multitool install @vibecode --verbose
   ```
 * **Instalar uma ou várias suítes**:
   ```bash
