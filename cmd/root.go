@@ -18,8 +18,8 @@ import (
 )
 
 var (
-	Version   = "2.4.2"
-	BuildDate = "2026-11-11"
+	Version   = "2.5.0"
+	BuildDate = "2026-11-21"
 
 	flagList         bool
 	flagInstalled    bool

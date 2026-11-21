@@ -1,6 +1,6 @@
 # Catálogo Universal e Suítes
 
-O **Multitool** consolida **170 ferramentas** rigorosamente curadas para engenharia de software moderna, agentes de inteligência artificial, segurança e produtividade.
+O **Multitool** consolida **177 ferramentas** rigorosamente curadas para engenharia de software moderna, agentes de inteligência artificial, segurança e produtividade.
 
 ---
 
@@ -51,6 +51,10 @@ Ferramentas e pontes do ecossistema MCP:
 - `rea`: MCP e toolkit de engenharia reversa para agentes IA.
 - `repomix`: Empacotamento de contexto.
 - `awsagenttoolkit`: Servidores MCP, skills e plugins oficiais da AWS para agentes de IA.
+- `inspo`: Servidor MCP com arquivo curado de sites reais, design systems e componentes para agentes IA (`Nutlope/inspo`).
+- `motionai`: Motion AI Kit — instalador de skills e servidor MCP oficial da Motion para animações e agentes IA (`motiondivision/ai-kit`).
+- `shadcn`: CLI e servidor MCP oficial do shadcn/ui para buscar e instalar componentes via agentes IA (`shadcn`).
+- `magicuimcp`: Servidor MCP oficial do Magic UI para consulta e geração de componentes animados por agentes IA (`@magicuidesign/mcp`).
 
 ### 3. `@agentstack` (Agent Engineering & Sandbox)
 Harnesses, frameworks e observabilidade para agentes autônomos:
@@ -75,7 +79,7 @@ Harnesses, frameworks e observabilidade para agentes autônomos:
 - `claudemem`: Sistema de compressão de memória persistente e grafo de conhecimento para Claude Code (thedotmack).
 - `astryx`: Design system e CLI open-source da Meta para desenvolvimento e agentes de IA (@astryxdesign/cli).
 
-### 4. `@skills` (Coleção Curada de 25 Skills)
+### 4. `@skills` (Coleção Curada de 28 Skills)
 Coleção de metodologias e habilidades para agentes de código:
 - `superpowers`: Metodologia de desenvolvimento com TDD e planos.
 - `impeccable`: Design e frontend limpo sem slop.
@@ -102,6 +106,9 @@ Coleção de metodologias e habilidades para agentes de código:
 - `egm`: Framework de Spec-Driven Development com agentes IA (Elephant & Goldfish) do Google.
 - `scientificagentskills`: Skills científicas e bancos de dados para agentes de IA na pesquisa (K-Dense AI).
 - `reanimate`: Reconstrução e comparação quadro a quadro de animações (NiazMorshed2007).
+- `vercelagentskills`: Coleção oficial de skills da Vercel para React, Next.js, web design e deploy (`vercel-labs/agent-skills`).
+- `stitchskills`: Coleção oficial do Google Labs de skills de design, build e utilitários para Google Stitch MCP (`google-labs-code/stitch-skills`).
+- `claudebughunter`: Coleção de 83 skills de bug hunting, análise de vulnerabilidades e red-team (`elementalsouls/Claude-BugHunter`).
 
 ### 5. `@dev` (Ferramentas Essenciais de Desenvolvimento)
 - `git`, `gh`, `fzf`, `btop`, `nodejs`, `golang`, `temurin`, `docker`, `vscode`, `neovim`, `waveterm`, `ghostty`, `jj`, `uv`, `rustup`, `bat`.
@@ -156,3 +163,10 @@ Abaixo estão alguns destaques da compatibilidade cruzada:
 | `copilot` | GitHub Copilot CLI | Agentes | `GitHub.Copilot` (winget) | `@github/copilot` (npm) |
 | `remotion` | Remotion | Infraestrutura | `@remotion/cli` (npm) | `@remotion/cli` (npm) |
 | `reanimate` | Reanimate | Skills | *Não disponível* | `NiazMorshed2007/reanimate` (skill) |
+| `inspo` | Inspo MCP | Agentes | `inspo-mcp` (npm) | `inspo-mcp` (npm) |
+| `motionai` | Motion AI Kit | Agentes | `motion-ai` (npm) | `motion-ai` (npm) |
+| `vercelagentskills` | Vercel Agent Skills | Skills | `vercel-labs/agent-skills` (direct) | `vercel-labs/agent-skills` (skill) |
+| `shadcn` | shadcn MCP | Agentes | `shadcn` (npm) | `shadcn` (npm) |
+| `magicuimcp` | Magic UI MCP | Agentes | `@magicuidesign/mcp` (npm) | `@magicuidesign/mcp` (npm) |
+| `stitchskills` | Stitch Skills | Skills | `google-labs-code/stitch-skills` (direct) | `google-labs-code/stitch-skills` (skill) |
+| `claudebughunter` | Claude BugHunter | Skills | `elementalsouls/Claude-BugHunter` (direct) | `elementalsouls/Claude-BugHunter` (skill) |

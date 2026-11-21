@@ -113,7 +113,7 @@ func (m *MockExecutor) Execute(name string, args ...string) error {
 }
 
 var mockDefaultRuntimes = map[string]bool{
-	"npm": true, "pipx": true, "cargo": true, "git": true,
+	"npm": true, "pipx": true, "cargo": true, "git": true, "go": true,
 	"curl": true, "curl.exe": true, "flatpak": true, "winget": true,
 	"brew": true, "apt-get": true, "dnf": true, "pacman": true,
 	"zypper": true, "eopkg": true, "java": true, "java.exe": true,
@@ -763,7 +763,7 @@ func TestCraftLauncherWindowsAndLinux(t *testing.T) {
 	hasClone := false
 	for _, cmd := range mockLin.executed {
 		cmdStr := strings.Join(cmd, " ")
-		if strings.Contains(cmdStr, "git clone") && strings.Contains(cmdStr, "storytold/craft-launcher") {
+		if cmd[0] == "git" && strings.Contains(cmdStr, "clone") && strings.Contains(cmdStr, "storytold/craft-launcher") {
 			hasClone = true
 			break
 		}

@@ -83,13 +83,13 @@ var packages = map[string][]string{
 		"aider", "repomix", "astgrep", "ollama", "ripgrep", "jq", "llm", "goose", "claudecode", "opencode", "ohmypi", "9router", "omniroute", "hermes", "orca", "copilot",
 	},
 	"mcp": {
-		"mcpm", "mcpinspector", "supergateway", "codebase_memory", "repomix", "context7", "rea", "awsagenttoolkit",
+		"mcpm", "mcpinspector", "supergateway", "codebase_memory", "repomix", "context7", "rea", "awsagenttoolkit", "inspo", "motionai", "shadcn", "magicuimcp",
 	},
 	"agentstack": {
 		"langgraph", "crewai", "ax", "bubblewrap", "promptfoo", "phoenix", "otelcol", "podman", "ecc", "paperclip", "hyperframes", "orca", "openmausbot", "openshell", "agentdesktop", "agentbrowser", "skillscli", "scrapling", "claudemem", "astryx",
 	},
 	"skills": {
-		"superpowers", "impeccable", "tasteskill", "emilkowalski", "archify", "opencodereview", "securityaudit", "contextmode", "ponytail", "reverseskill", "pocockskills", "diagramdesign", "ihaveadhd", "addyosmani", "humanizer", "openmaic", "openseo", "linkedin", "universalmodder", "androidskills", "hallmark", "awsagenttoolkit", "egm", "scientificagentskills", "reanimate",
+		"superpowers", "impeccable", "tasteskill", "emilkowalski", "archify", "opencodereview", "securityaudit", "contextmode", "ponytail", "reverseskill", "pocockskills", "diagramdesign", "ihaveadhd", "addyosmani", "humanizer", "openmaic", "openseo", "linkedin", "universalmodder", "androidskills", "hallmark", "awsagenttoolkit", "egm", "scientificagentskills", "reanimate", "vercelagentskills", "stitchskills", "claudebughunter",
 	},
 	"dev": {
 		"git", "gh", "fzf", "btop", "nodejs", "golang", "temurin", "docker", "vscode", "neovim", "waveterm", "ghostty", "jj", "uv", "rustup", "bat",
@@ -311,8 +311,65 @@ var toolAliases = map[string]string{
 	"langchain-ai/langgraph":                             "langgraph",
 	"reanimate":                                          "reanimate",
 	"niazmorshed2007/reanimate":                          "reanimate",
-	"https://github.com/NiazMorshed2007/reanimate":     "reanimate",
-	"https://github.com/NiazMorshed2007/reanimate.git": "reanimate",
+	"https://github.com/NiazMorshed2007/reanimate":       "reanimate",
+	"https://github.com/NiazMorshed2007/reanimate.git":   "reanimate",
+	// Inspo MCP
+	"inspo":                                    "inspo",
+	"inspo-mcp":                                "inspo",
+	"inspomcp":                                 "inspo",
+	"nutlope/inspo":                            "inspo",
+	"nutlope-inspo":                            "inspo",
+	"https://github.com/Nutlope/inspo":         "inspo",
+	// Motion AI Kit
+	"motionai":                                 "motionai",
+	"motion-ai":                                "motionai",
+	"motion-ai-kit":                            "motionai",
+	"motionaikit":                              "motionai",
+	"motion":                                   "motionai",
+	"motiondivision/ai-kit":                    "motionai",
+	"motion-dev/ai-kit":                        "motionai",
+	"https://github.com/motiondivision/ai-kit": "motionai",
+	"https://motion.dev/docs/ai-kit-install":   "motionai",
+	// Vercel Agent Skills
+	"vercelagentskills":                          "vercelagentskills",
+	"vercel-agent-skills":                        "vercelagentskills",
+	"vercel-skills":                              "vercelagentskills",
+	"vercelskills":                               "vercelagentskills",
+	"vercel-labs/agent-skills":                   "vercelagentskills",
+	"https://github.com/vercel-labs/agent-skills": "vercelagentskills",
+	// shadcn MCP
+	"shadcn":                           "shadcn",
+	"shadcn-mcp":                       "shadcn",
+	"shadcnmcp":                        "shadcn",
+	"shadcn-ui":                        "shadcn",
+	"shadcn/ui":                        "shadcn",
+	"shadcn-ui/ui":                     "shadcn",
+	"https://github.com/shadcn-ui/ui":  "shadcn",
+	"https://ui.shadcn.com/docs/mcp":   "shadcn",
+	// Magic UI MCP
+	"magicuimcp":                           "magicuimcp",
+	"magicui":                              "magicuimcp",
+	"magic-ui":                             "magicuimcp",
+	"magicui-mcp":                          "magicuimcp",
+	"magic-ui-mcp":                         "magicuimcp",
+	"@magicuidesign/mcp":                   "magicuimcp",
+	"magicuidesign/mcp":                    "magicuimcp",
+	"https://github.com/magicuidesign/mcp": "magicuimcp",
+	"https://magicui.design/docs/mcp":      "magicuimcp",
+	// Stitch Skills (Google Labs)
+	"stitchskills":                               "stitchskills",
+	"stitch-skills":                              "stitchskills",
+	"stitch":                                     "stitchskills",
+	"google-stitch":                              "stitchskills",
+	"google-labs-code/stitch-skills":             "stitchskills",
+	"https://github.com/google-labs-code/stitch-skills": "stitchskills",
+	// Claude BugHunter
+	"claudebughunter":                                "claudebughunter",
+	"claude-bughunter":                               "claudebughunter",
+	"bughunter":                                      "claudebughunter",
+	"bug-hunter":                                     "claudebughunter",
+	"elementalsouls/claude-bughunter":                "claudebughunter",
+	"https://github.com/elementalsouls/Claude-BugHunter": "claudebughunter",
 }
 
 var catalogList = []Tool{
@@ -385,7 +442,7 @@ var catalogList = []Tool{
 	{
 		ID: "astgrep", Name: "ast-grep", Category: "Agentes", Description: "Busca e reescrita de código baseada em AST",
 		Windows: &Target{Type: TypeNpm, PackageID: "@ast-grep/cli", Binary: "ast-grep.cmd"},
-		Linux:   &Target{Type: TypeNpm, PackageID: "@ast-grep/cli", Binary: "astgrep"},
+		Linux:   &Target{Type: TypeNpm, PackageID: "@ast-grep/cli", Binary: "ast-grep"},
 	},
 	{
 		ID: "astryx", Name: "Astryx", Category: "Agentes", Description: "Design system e CLI open-source da Meta para desenvolvimento e agentes de IA",
@@ -444,7 +501,7 @@ var catalogList = []Tool{
 	{
 		ID: "bubblewrap", Name: "Bubblewrap", Category: "Análise", Description: "Sandbox leve e sem privilégios para execução isolada",
 		Windows: nil,
-		Linux:   &Target{Type: TypeNative, PackageID: "bubblewrap", Binary: "bubblewrap"},
+		Linux:   &Target{Type: TypeNative, PackageID: "bubblewrap", Binary: "bwrap"},
 	},
 	{
 		ID: "cherrystudio", Name: "Cherry Studio", Category: "Agentes", Description: "Chat IA desktop multiplataforma",
@@ -473,6 +530,12 @@ var catalogList = []Tool{
 		Darwin:  &Target{Type: TypeBrew, PackageID: "llvm", Binary: "clang"},
 	},
 	{
+		ID: "claudebughunter", Name: "Claude BugHunter", Category: "Skills", Description: "Coleção de 83 skills de bug hunting, análise de vulnerabilidades e red-team para agentes IA",
+		Windows: &Target{Type: TypeDirect, PackageID: "elementalsouls/Claude-BugHunter", Binary: "SKILL.md"},
+		Linux:   &Target{Type: TypeSkill, PackageID: "elementalsouls/Claude-BugHunter", Binary: "SKILL.md"},
+		Darwin:  &Target{Type: TypeSkill, PackageID: "elementalsouls/Claude-BugHunter", Binary: "SKILL.md"},
+	},
+	{
 		ID: "claudecode", Name: "Claude Code", Category: "Agentes", Description: "Agente de código CLI da Anthropic",
 		Windows: &Target{Type: TypeNpm, PackageID: "@anthropic-ai/claude-code", Binary: "claude.cmd"},
 		Linux:   &Target{Type: TypeNpm, PackageID: "@anthropic-ai/claude-code", Binary: "claude"},
@@ -498,7 +561,7 @@ var catalogList = []Tool{
 	{
 		ID: "codebase_memory", Name: "Codebase Memory", Category: "Agentes", Description: "Grafo persistente de inteligência MCP",
 		Windows: &Target{Type: TypeNpm, PackageID: "codebase-memory-mcp", Binary: "codebase-memory-mcp.cmd"},
-		Linux:   &Target{Type: TypeNpm, PackageID: "codebase-memory-mcp", Binary: "codebase_memory"},
+		Linux:   &Target{Type: TypeNpm, PackageID: "codebase-memory-mcp", Binary: "codebase-memory-mcp"},
 	},
 	{
 		ID: "codeql", Name: "CodeQL", Category: "Análise", Description: "Análise semântica profunda de código do GitHub",
@@ -513,7 +576,7 @@ var catalogList = []Tool{
 	{
 		ID: "comfyui", Name: "ComfyUI", Category: "Agentes", Description: "Engine de nós para geração de imagens",
 		Windows: &Target{Type: TypePipx, PackageID: "comfy-cli", Binary: "comfy.exe"},
-		Linux:   &Target{Type: TypeNative, PackageID: "python3", Binary: "comfyui"},
+		Linux:   &Target{Type: TypePipx, PackageID: "comfy-cli", Binary: "comfy"},
 	},
 	{
 		ID: "copilot", Name: "GitHub Copilot CLI", Category: "Agentes", Description: "Agente e assistente de código no terminal da GitHub",
@@ -524,7 +587,7 @@ var catalogList = []Tool{
 	{
 		ID: "context7", Name: "Context7", Category: "Agentes", Description: "Docs atualizadas para LLMs via MCP",
 		Windows: &Target{Type: TypeNpm, PackageID: "ctx7", Binary: "ctx7.cmd"},
-		Linux:   &Target{Type: TypeNpm, PackageID: "ctx7", Binary: "context7"},
+		Linux:   &Target{Type: TypeNpm, PackageID: "ctx7", Binary: "ctx7"},
 	},
 	{
 		ID: "contextmode", Name: "Context Mode", Category: "Skills", Description: "Otimização de context window para agentes",
@@ -632,7 +695,7 @@ var catalogList = []Tool{
 	{
 		ID: "freetoken", Name: "FreeToken", Category: "Agentes", Description: "Servidor local de modelos (pipx)",
 		Windows: nil,
-		Linux:   &Target{Type: TypeScript, PackageID: "freetoken", Binary: "freetoken"},
+		Linux:   &Target{Type: TypePipx, PackageID: "freetoken", Binary: "ft"},
 	},
 	{
 		ID: "fzf", Name: "fzf", Category: "Infraestrutura", Description: "Busca difusa no terminal",
@@ -667,7 +730,7 @@ var catalogList = []Tool{
 		ID: "gethomepage", Name: "Homepage", Category: "Desktop", Description: "Dashboard de serviços (docker)",
 		Dependencies: []string{"docker"},
 		Windows:      nil,
-		Linux:        &Target{Type: TypeScript, PackageID: "gethomepage", Binary: "gethomepage"},
+		Linux:        &Target{Type: TypeScript, PackageID: "gethomepage/homepage", Binary: "gethomepage"},
 	},
 	{
 		ID: "gh", Name: "GitHub CLI", Category: "Versionamento", Description: "CLI oficial do GitHub",
@@ -684,7 +747,7 @@ var catalogList = []Tool{
 	{
 		ID: "ghostty", Name: "Ghostty", Category: "Terminais", Description: "Terminal rápido com aceleração GPU",
 		Windows: nil,
-		Linux:   &Target{Type: TypeScript, PackageID: "ghostty", Binary: "ghostty"},
+		Linux:   &Target{Type: TypeNative, PackageID: "ghostty", Binary: "ghostty"},
 		Darwin:  &Target{Type: TypeBrew, PackageID: "ghostty", Binary: "ghostty"},
 	},
 	{
@@ -716,7 +779,7 @@ var catalogList = []Tool{
 	},
 	{
 		ID: "goose", Name: "Goose", Category: "Agentes", Description: "Agente autônomo de código da Block/AAIF",
-		Windows: &Target{Type: TypeDirect, PackageID: "aaif-goose/goose", Binary: "goose.exe"},
+		Windows: &Target{Type: TypeDirect, PackageID: "block/goose", Binary: "goose.exe"},
 		Linux:   &Target{Type: TypeScript, PackageID: "goose", Binary: "goose"},
 	},
 	{
@@ -761,6 +824,12 @@ var catalogList = []Tool{
 		Linux:   &Target{Type: TypeSkill, PackageID: "pbakaus/impeccable", Binary: "SKILL.md"},
 	},
 	{
+		ID: "inspo", Name: "Inspo MCP", Category: "Agentes", Description: "Servidor MCP com arquivo curado de sites reais, design systems e componentes para agentes IA",
+		Windows: &Target{Type: TypeNpm, PackageID: "inspo-mcp", Binary: "inspo-mcp.cmd"},
+		Linux:   &Target{Type: TypeNpm, PackageID: "inspo-mcp", Binary: "inspo-mcp"},
+		Darwin:  &Target{Type: TypeNpm, PackageID: "inspo-mcp", Binary: "inspo-mcp"},
+	},
+	{
 		ID: "invokeai", Name: "InvokeAI", Category: "Agentes", Description: "Geração profissional de imagens por IA",
 		Windows: &Target{Type: TypePipx, PackageID: "invokeai", Binary: "invokeai.exe"},
 		Linux:   &Target{Type: TypeScript, PackageID: "invokeai", Binary: "invokeai"},
@@ -796,7 +865,7 @@ var catalogList = []Tool{
 		ID: "keep", Name: "Keep", Category: "Observabilidade", Description: "Gestão de alertas (Docker)",
 		Dependencies: []string{"docker"},
 		Windows:      nil,
-		Linux:        &Target{Type: TypeScript, PackageID: "keep", Binary: "keep"},
+		Linux:        &Target{Type: TypeScript, PackageID: "keephq/keep", Binary: "keep"},
 	},
 	{
 		ID: "langgraph", Name: "LangGraph CLI", Category: "Agentes", Description: "Framework de grafos de agentes",
@@ -821,7 +890,13 @@ var catalogList = []Tool{
 	{
 		ID: "localplayer", Name: "Local Player", Category: "Desktop", Description: "Player local (AppImage oficial)",
 		Windows: nil,
-		Linux:   &Target{Type: TypeScript, PackageID: "localplayer", Binary: "localplayer"},
+		Linux:   &Target{Type: TypeScript, PackageID: "IPauloGermano/local-player", Binary: "localplayer"},
+	},
+	{
+		ID: "magicuimcp", Name: "Magic UI MCP", Category: "Agentes", Description: "Servidor MCP oficial do Magic UI para consulta e geração de componentes animados por agentes IA",
+		Windows: &Target{Type: TypeNpm, PackageID: "@magicuidesign/mcp", Binary: "mcp.cmd"},
+		Linux:   &Target{Type: TypeNpm, PackageID: "@magicuidesign/mcp", Binary: "mcp"},
+		Darwin:  &Target{Type: TypeNpm, PackageID: "@magicuidesign/mcp", Binary: "mcp"},
 	},
 	{
 		ID: "make", Name: "Make", Category: "Infraestrutura", Description: "Automação de build",
@@ -832,12 +907,12 @@ var catalogList = []Tool{
 	{
 		ID: "margem", Name: "Margem", Category: "Desktop", Description: "Leitor desktop tipográfico (AppImage oficial)",
 		Windows: nil,
-		Linux:   &Target{Type: TypeScript, PackageID: "margem", Binary: "margem"},
+		Linux:   &Target{Type: TypeScript, PackageID: "IPauloGermano/margem", Binary: "margem"},
 	},
 	{
 		ID: "mcpinspector", Name: "MCP Inspector", Category: "Agentes", Description: "Inspetor oficial do Model Context Protocol",
 		Windows: &Target{Type: TypeNpm, PackageID: "@modelcontextprotocol/inspector", Binary: "mcp-inspector.cmd"},
-		Linux:   &Target{Type: TypeNpm, PackageID: "@modelcontextprotocol/inspector", Binary: "mcpinspector"},
+		Linux:   &Target{Type: TypeNpm, PackageID: "@modelcontextprotocol/inspector", Binary: "mcp-inspector"},
 	},
 	{
 		ID: "mcpm", Name: "MCPM", Category: "Agentes", Description: "Gerenciador de servidores MCP",
@@ -848,6 +923,12 @@ var catalogList = []Tool{
 		ID: "moonlight", Name: "Moonlight", Category: "Desktop", Description: "Streaming de jogos de alta performance",
 		Windows: &Target{Type: TypeWinget, PackageID: "MoonlightGameStreamingProject.Moonlight", Binary: "Moonlight.exe"},
 		Linux:   &Target{Type: TypeFlatpak, PackageID: "com.moonlight_stream.Moonlight", Binary: "moonlight"},
+	},
+	{
+		ID: "motionai", Name: "Motion AI Kit", Category: "Agentes", Description: "Instalador de skills e servidor MCP oficial da Motion para animações e agentes IA",
+		Windows: &Target{Type: TypeNpm, PackageID: "motion-ai", Binary: "motion-ai.cmd"},
+		Linux:   &Target{Type: TypeNpm, PackageID: "motion-ai", Binary: "motion-ai"},
+		Darwin:  &Target{Type: TypeNpm, PackageID: "motion-ai", Binary: "motion-ai"},
 	},
 	{
 		ID: "neovim", Name: "Neovim", Category: "Editores", Description: "Editor modal moderno",
@@ -873,8 +954,8 @@ var catalogList = []Tool{
 	},
 	{
 		ID: "ohmypi", Name: "Oh My Pi", Category: "Agentes", Description: "Agente de código com IDE embutida",
-		Windows: &Target{Type: TypeDirect, PackageID: "ohmypi/omp", Binary: "omp.exe"},
-		Linux:   &Target{Type: TypeScript, PackageID: "ohmypi", Binary: "ohmypi"},
+		Windows: &Target{Type: TypeDirect, PackageID: "can1357/oh-my-pi", Binary: "omp.exe"},
+		Linux:   &Target{Type: TypeScript, PackageID: "ohmypi", Binary: "omp"},
 	},
 	{
 		ID: "ohmyzsh", Name: "Oh My Zsh", Category: "Terminais", Description: "Framework Zsh + powerlevel10k + plugins fullstack",
@@ -944,7 +1025,7 @@ var catalogList = []Tool{
 	{
 		ID: "openssh", Name: "OpenSSH", Category: "Infraestrutura", Description: "Cliente SSH para Windows",
 		Windows: &Target{Type: TypeWinget, PackageID: "Microsoft.OpenSSH.Preview", Binary: "ssh.exe"},
-		Linux:   &Target{Type: TypeNative, PackageID: "openssh-client", Binary: "openssh"},
+		Linux:   &Target{Type: TypeNative, PackageID: "openssh-client", Binary: "ssh"},
 	},
 	{
 		ID: "openstock", Name: "OpenStock", Category: "Desktop", Description: "Bolsa de valores self-hosted (docker; .env manual)",
@@ -1042,7 +1123,7 @@ var catalogList = []Tool{
 	{
 		ID: "ripgrep", Name: "Ripgrep", Category: "Infraestrutura", Description: "Busca de texto ultrarrápida (rg)",
 		Windows: &Target{Type: TypeWinget, PackageID: "BurntSushi.ripgrep.MSVC", Binary: "rg.exe"},
-		Linux:   &Target{Type: TypeNative, PackageID: "ripgrep", Binary: "ripgrep"},
+		Linux:   &Target{Type: TypeNative, PackageID: "ripgrep", Binary: "rg"},
 		Darwin:  &Target{Type: TypeBrew, PackageID: "ripgrep", Binary: "rg"},
 	},
 	{
@@ -1053,7 +1134,7 @@ var catalogList = []Tool{
 	{
 		ID: "rustdesk", Name: "RustDesk", Category: "Desktop", Description: "Acesso e suporte a desktop remoto",
 		Windows: &Target{Type: TypeWinget, PackageID: "RustDesk.RustDesk", Binary: "rustdesk.exe"},
-		Linux:   &Target{Type: TypeScript, PackageID: "rustdesk", Binary: "rustdesk"},
+		Linux:   &Target{Type: TypeFlatpak, PackageID: "com.rustdesk.RustDesk", Binary: "rustdesk"},
 	},
 	{
 		ID: "rustup", Name: "Rustup", Category: "Infraestrutura", Description: "Toolchain Rust (rustc/cargo)",
@@ -1089,6 +1170,12 @@ var catalogList = []Tool{
 		Linux:   &Target{Type: TypePipx, PackageID: "semgrep", Binary: "semgrep"},
 	},
 	{
+		ID: "shadcn", Name: "shadcn MCP", Category: "Agentes", Description: "CLI e servidor MCP oficial do shadcn/ui para buscar e instalar componentes via agentes IA",
+		Windows: &Target{Type: TypeNpm, PackageID: "shadcn", Binary: "shadcn.cmd"},
+		Linux:   &Target{Type: TypeNpm, PackageID: "shadcn", Binary: "shadcn"},
+		Darwin:  &Target{Type: TypeNpm, PackageID: "shadcn", Binary: "shadcn"},
+	},
+	{
 		ID: "sourcesans3", Name: "Source Sans 3", Category: "Fontes", Description: "Sans serif da Adobe para interfaces",
 		Windows: &Target{Type: TypeDirect, PackageID: "adobe-fonts/source-sans", Binary: "SourceSans3.ttf"},
 		Linux:   nil,
@@ -1113,6 +1200,12 @@ var catalogList = []Tool{
 		ID: "stabilitymatrix", Name: "StabilityMatrix", Category: "Agentes", Description: "Gerenciador de Stable Diffusion",
 		Windows: &Target{Type: TypeWinget, PackageID: "LykosAI.StabilityMatrix", Binary: "StabilityMatrix.exe"},
 		Linux:   &Target{Type: TypeScript, PackageID: "stabilitymatrix", Binary: "stabilitymatrix"},
+	},
+	{
+		ID: "stitchskills", Name: "Stitch Skills", Category: "Skills", Description: "Coleção oficial do Google Labs de skills de design, build e utilitários para Google Stitch MCP",
+		Windows: &Target{Type: TypeDirect, PackageID: "google-labs-code/stitch-skills", Binary: "SKILL.md"},
+		Linux:   &Target{Type: TypeSkill, PackageID: "google-labs-code/stitch-skills", Binary: "SKILL.md"},
+		Darwin:  &Target{Type: TypeSkill, PackageID: "google-labs-code/stitch-skills", Binary: "SKILL.md"},
 	},
 	{
 		ID: "supergateway", Name: "Supergateway", Category: "Agentes", Description: "Bridge MCP entre stdio e SSE / WebSockets",
@@ -1142,7 +1235,7 @@ var catalogList = []Tool{
 	{
 		ID: "temurin", Name: "Temurin JDK 21", Category: "Infraestrutura", Description: "OpenJDK 21 da Adoptium",
 		Windows: &Target{Type: TypeWinget, PackageID: "EclipseAdoptium.Temurin.21.JDK", Binary: "java.exe"},
-		Linux:   &Target{Type: TypeScript, PackageID: "temurin", Binary: "temurin"},
+		Linux:   &Target{Type: TypeScript, PackageID: "temurin", Binary: "java"},
 	},
 	{
 		ID: "torbrowser", Name: "Tor Browser", Category: "Análise", Description: "Navegador focado em privacidade e anonimato",
@@ -1168,6 +1261,12 @@ var catalogList = []Tool{
 		ID: "uv", Name: "uv", Category: "Infraestrutura", Description: "Gerenciador Python ultrarrápido",
 		Windows: &Target{Type: TypeWinget, PackageID: "astral-sh.uv", Binary: "uv.exe"},
 		Linux:   &Target{Type: TypeScript, PackageID: "uv", Binary: "uv"},
+	},
+	{
+		ID: "vercelagentskills", Name: "Vercel Agent Skills", Category: "Skills", Description: "Coleção oficial de skills da Vercel para React, Next.js, web design e deploy com agentes IA",
+		Windows: &Target{Type: TypeDirect, PackageID: "vercel-labs/agent-skills", Binary: "SKILL.md"},
+		Linux:   &Target{Type: TypeSkill, PackageID: "vercel-labs/agent-skills", Binary: "SKILL.md"},
+		Darwin:  &Target{Type: TypeSkill, PackageID: "vercel-labs/agent-skills", Binary: "SKILL.md"},
 	},
 	{
 		ID: "vlc", Name: "VLC media player", Category: "Desktop", Description: "Reprodutor multimídia universal",
@@ -1234,15 +1333,29 @@ func SupportedCatalog() []Tool {
 	return list
 }
 
+var normalizedToolAliases map[string]string
+
+func normalizeToolQuery(raw string) string {
+	clean := strings.ToLower(strings.TrimSpace(raw))
+	clean = strings.TrimPrefix(clean, "https://github.com/")
+	clean = strings.TrimPrefix(clean, "http://github.com/")
+	clean = strings.TrimSuffix(clean, ".git")
+	clean = strings.TrimSuffix(clean, "/")
+	return clean
+}
+
+func init() {
+	normalizedToolAliases = make(map[string]string, len(toolAliases))
+	for alias, targetID := range toolAliases {
+		normalizedToolAliases[normalizeToolQuery(alias)] = targetID
+	}
+}
+
 func FindTool(id string) *Tool {
 	cleanID := strings.TrimSpace(id)
-	cleanID = strings.TrimPrefix(cleanID, "https://github.com/")
-	cleanID = strings.TrimPrefix(cleanID, "http://github.com/")
-	cleanID = strings.TrimSuffix(cleanID, ".git")
-	cleanID = strings.TrimSuffix(cleanID, "/")
-	cleanLower := strings.ToLower(cleanID)
+	cleanLower := normalizeToolQuery(cleanID)
 
-	if targetID, ok := toolAliases[cleanLower]; ok {
+	if targetID, ok := normalizedToolAliases[cleanLower]; ok {
 		cleanLower = targetID
 	}
 
@@ -1293,7 +1406,7 @@ func Expand(args []string) ([]string, error) {
 			}
 		} else {
 			clean := arg
-			if alias, ok := toolAliases[strings.ToLower(arg)]; ok {
+			if alias, ok := normalizedToolAliases[normalizeToolQuery(arg)]; ok {
 				clean = alias
 			}
 			if !seen[clean] {

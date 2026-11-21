@@ -75,7 +75,7 @@ func (r *Runner) ensureRuntime(toolID string, target *catalog.Target) error {
 			wingetID: "Git.Git",
 		}
 	case catalog.TypeDirect:
-		if toolID != "orca" && toolID != "openmausbot" && toolID != "apktool" && toolID != "ghidra" && toolID != "craftlauncher" && toolID != "wabt" {
+		if !isDirectWindowsBinary(toolID) {
 			req = &runtimePkg{
 				command:  "git",
 				apt:      []string{"git"},
@@ -88,7 +88,8 @@ func (r *Runner) ensureRuntime(toolID string, target *catalog.Target) error {
 			}
 		}
 	case catalog.TypeScript:
-		if toolID == "opengym" || toolID == "openstock" || toolID == "openmaicapp" {
+		switch toolID {
+		case "opengym", "openstock", "openmaicapp", "craftlauncher", "gethomepage", "keep":
 			req = &runtimePkg{
 				command:  "git",
 				apt:      []string{"git"},
@@ -99,15 +100,28 @@ func (r *Runner) ensureRuntime(toolID string, target *catalog.Target) error {
 				brew:     []string{"git"},
 				wingetID: "Git.Git",
 			}
-		} else if toolID == "ghidra" && !r.haveCommand("unzip") && !r.haveCommand("python3") {
+		case "ax":
 			req = &runtimePkg{
-				command: "unzip",
-				apt:     []string{"unzip"},
-				dnf:     []string{"unzip"},
-				pacman:  []string{"unzip"},
-				zypper:  []string{"unzip"},
-				eopkg:   []string{"unzip"},
-				brew:    []string{"unzip"},
+				command:  "go",
+				apt:      []string{"golang"},
+				dnf:      []string{"golang"},
+				pacman:   []string{"go"},
+				zypper:   []string{"go"},
+				eopkg:    []string{"golang"},
+				brew:     []string{"go"},
+				wingetID: "GoLang.Go",
+			}
+		case "ghidra", "binaryninja", "codeql", "geist", "stabilitymatrix":
+			if !r.haveCommand("unzip") && !r.haveCommand("python3") {
+				req = &runtimePkg{
+					command: "unzip",
+					apt:     []string{"unzip"},
+					dnf:     []string{"unzip"},
+					pacman:  []string{"unzip"},
+					zypper:  []string{"unzip"},
+					eopkg:   []string{"unzip"},
+					brew:    []string{"unzip"},
+				}
 			}
 		}
 	}

@@ -127,6 +127,57 @@ func extractZipStripRoot(zipPath, destDir string) error {
 	return nil
 }
 
+// extractZipSafe extrai um arquivo zip preservando sua estrutura interna com proteção contra ZipSlip.
+func extractZipSafe(zipPath, destDir string) error {
+	zr, err := zip.OpenReader(zipPath)
+	if err != nil {
+		return err
+	}
+	defer zr.Close()
+
+	cleanDest := filepath.Clean(destDir)
+	for _, f := range zr.File {
+		rel := filepath.FromSlash(filepath.Clean("/" + filepath.ToSlash(f.Name)))
+		rel = strings.TrimPrefix(rel, string(os.PathSeparator))
+		if rel == "" || rel == "." {
+			continue
+		}
+		destPath := filepath.Join(cleanDest, rel)
+		if !strings.HasPrefix(destPath, cleanDest+string(os.PathSeparator)) && destPath != cleanDest {
+			continue
+		}
+
+		if f.FileInfo().IsDir() {
+			if err := os.MkdirAll(destPath, 0755); err != nil {
+				return err
+			}
+			continue
+		}
+		if err := os.MkdirAll(filepath.Dir(destPath), 0755); err != nil {
+			return err
+		}
+		rc, err := f.Open()
+		if err != nil {
+			return err
+		}
+		out, err := os.OpenFile(destPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, f.Mode())
+		if err != nil {
+			rc.Close()
+			return err
+		}
+		_, copyErr := io.Copy(out, rc)
+		closeErr := out.Close()
+		rc.Close()
+		if copyErr != nil {
+			return copyErr
+		}
+		if closeErr != nil {
+			return closeErr
+		}
+	}
+	return nil
+}
+
 // resolveGitHubLatestTag resolve a tag da release mais recente do GitHub seguindo o redirect
 // de /releases/latest, evitando erros de 404 em assets com versão no nome de arquivo.
 func resolveGitHubLatestTag(client *http.Client, repo, defaultTag string) string {

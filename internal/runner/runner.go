@@ -320,7 +320,7 @@ func (r *Runner) toolNeedsSudo(tool catalog.Tool, isInstallOrUpdate bool) bool {
 	}
 	if target.Type == catalog.TypeScript {
 		switch tool.ID {
-		case "docker", "tailscale":
+		case "docker", "tailscale", "antigravity", "dockerdesktop", "warp", "waydroid":
 			return isInstallOrUpdate
 		case "ollama":
 			if isInstallOrUpdate {
@@ -347,10 +347,11 @@ func (r *Runner) batchNeedsSudo(tools []catalog.Tool, isInstallOrUpdate bool) bo
 }
 
 // isDirectWindowsBinary identifica ferramentas TypeDirect que possuem receita
-// própria de download/instalação de binário no Windows (em contraste com skills Git).
+// própria de download/instalação de binário ou fonte no Windows (em contraste com skills Git).
 func isDirectWindowsBinary(toolID string) bool {
 	switch toolID {
-	case "craftlauncher", "orca", "openmausbot", "apktool", "ghidra", "wabt":
+	case "craftlauncher", "orca", "openmausbot", "apktool", "ghidra", "wabt",
+		"goose", "ohmypi", "atkinson", "sourcesans3", "sourceserif4":
 		return true
 	default:
 		return false
@@ -362,7 +363,7 @@ func isDirectWindowsBinary(toolID string) bool {
 // sendo seguras para instalação concorrente em worker pool.
 func isDirectPortableDownload(toolID string) bool {
 	switch toolID {
-	case "apktool", "ghidra", "wabt":
+	case "apktool", "ghidra", "wabt", "goose", "ohmypi", "atkinson", "sourcesans3", "sourceserif4":
 		return true
 	default:
 		return false
@@ -905,6 +906,26 @@ func (r *Runner) uninstallInternal(tool catalog.Tool, prefix string, showVisual 
 				}
 			}
 			err = r.reg.MarkUninstalled(tool.ID)
+		} else if tool.ID == "goose" {
+			localApp := os.Getenv("LOCALAPPDATA")
+			if localApp != "" {
+				_ = os.RemoveAll(filepath.Join(localApp, "multitool", "goose"))
+				_ = os.Remove(filepath.Join(localApp, "multitool", "bin", "goose.exe"))
+				_ = os.Remove(filepath.Join(localApp, "multitool", "bin", "goose.bat"))
+			}
+			err = r.reg.MarkUninstalled(tool.ID)
+		} else if tool.ID == "ohmypi" {
+			localApp := os.Getenv("LOCALAPPDATA")
+			if localApp != "" {
+				_ = os.Remove(filepath.Join(localApp, "multitool", "bin", "omp.exe"))
+			}
+			err = r.reg.MarkUninstalled(tool.ID)
+		} else if tool.ID == "atkinson" || tool.ID == "sourcesans3" || tool.ID == "sourceserif4" {
+			localApp := os.Getenv("LOCALAPPDATA")
+			if localApp != "" {
+				_ = os.RemoveAll(filepath.Join(localApp, "multitool", "fonts", tool.ID))
+			}
+			err = r.reg.MarkUninstalled(tool.ID)
 		} else {
 			err = r.uninstallGitSkill(tool.ID)
 		}
@@ -1051,7 +1072,7 @@ func (r *Runner) updateInternal(tool catalog.Tool, prefix string, showVisual boo
 		err = r.installGitSkillWithActivity(actFn, tool.ID, target.PackageID)
 
 	case catalog.TypeDirect:
-		if tool.ID == "craftlauncher" || tool.ID == "orca" || tool.ID == "openmausbot" || tool.ID == "apktool" || tool.ID == "ghidra" || tool.ID == "wabt" {
+		if isDirectWindowsBinary(tool.ID) {
 			err = r.installDirectWindowsTargetWithActivity(actFn, tool.ID, target)
 		} else {
 			err = r.installGitSkillWithActivity(actFn, tool.ID, target.PackageID)

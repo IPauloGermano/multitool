@@ -12,7 +12,7 @@ Unificação e evolução integrada dos projetos `linux-multitool` e `windows-mu
   - **Linux**: Lê `/etc/os-release` e identifica automaticamente se a distro é Ubuntu, Debian, Fedora, Arch, openSUSE ou Solus, mapeando o gerenciador nativo (`apt`, `dnf`, `pacman`, `zypper`, `eopkg`).
   - **Windows**: Identifica x64 e ARM64 (Snapdragon X / Copilot+ PCs) utilizando `winget`.
   - **macOS**: Suporta Apple Silicon e Intel utilizando `brew`.
-- **Catálogo Unificado de 169 Ferramentas**:
+- **Catálogo Unificado de 177 Ferramentas**:
   - Mapeamento granular com alvos específicos por plataforma (`winget`, `native`, `npm`, `pipx`, `cargo`, `flatpak`, `git skill`, `script`).
   - Filtro contextual: exibe e instala apenas ferramentas compatíveis com o SO atual.
 - **TUI Interativa Avançada com Bubble Tea**:
@@ -38,9 +38,9 @@ Unificação e evolução integrada dos projetos `linux-multitool` e `windows-mu
   - Hashes são opcionais: o catálogo ainda não os fornece, e cada download sem hash emite aviso explícito. Para fixar um hash, fixe também a versão/URL do artefato. Em scripts de bootstrap, a verificação cobre o script baixado, não os downloads internos realizados por ele. Gerenciadores de pacotes mantêm sua própria política de integridade.
 - **Suítes Integradas (@pacotes)**:
   - `@vibecode`: Aider, Repomix, ast-grep, Ollama, Ripgrep, jq, LLM CLI, Goose, Claude Code, OpenCode, Oh My Pi, 9Router, OmniRoute, Hermes Agent, Orca, GitHub Copilot CLI.
-  - `@mcp`: MCPM, MCP Inspector, Supergateway, Codebase Memory, Repomix, Context7, REA, Agent Toolkit for AWS.
+  - `@mcp`: MCPM, MCP Inspector, Supergateway, Codebase Memory, Repomix, Context7, REA, Agent Toolkit for AWS, Inspo MCP, Motion AI Kit, shadcn MCP, Magic UI MCP.
   - `@agentstack`: LangGraph CLI, CrewAI, AX, Bubblewrap, Promptfoo, Arize Phoenix, OpenTelemetry Collector, Podman, ECC, Paperclip, HyperFrames, Orca, OpenMausBot, OpenShell, Agent Desktop, Agent Browser, Skills CLI, Scrapling, Claude-Mem, Astryx.
-  - `@skills`: Coleção de 25 skills (incluindo Scientific Agent Skills, Elephant-Goldfish Model (EGM), Hallmark, AWS Agent Toolkit, Android Skills, Superpowers, Impeccable, REA, etc.) com linking automático para Claude Code (`~/.claude/skills`), OpenCode (`~/.config/opencode/skills`), Gemini/Antigravity (`~/.gemini/skills`, `~/.gemini/config/skills`) e Codex (`~/.codex/skills`, `~/.agents/skills`).
+  - `@skills`: Coleção de 28 skills (incluindo Stitch Skills, Claude BugHunter, Vercel Agent Skills, Scientific Agent Skills, Elephant-Goldfish Model (EGM), Hallmark, AWS Agent Toolkit, Android Skills, Superpowers, Impeccable, REA, etc.) com linking automático para Claude Code (`~/.claude/skills`), OpenCode (`~/.config/opencode/skills`), Gemini/Antigravity (`~/.gemini/skills`, `~/.gemini/config/skills`) e Codex (`~/.codex/skills`, `~/.agents/skills`).
   - `@dev`: Git, GitHub CLI, fzf, Btop, Node.js, Go, Temurin JDK, Docker, VS Code, Neovim, Wave Terminal, Ghostty, Jujutsu, uv, Rustup, bat.
   - `@toolchain`: GCC, Make, GDB, CMake, Clang.
   - `@termstack`: Wave Terminal, Ghostty, bat, fzf, Zsh, Oh My Zsh.
@@ -138,7 +138,7 @@ multitool list
 # Listar todas as ferramentas da plataforma atual (incluindo instaladas)
 multitool list --all
 
-# Listar todas as 170 ferramentas de todas as plataformas
+# Listar todas as 177 ferramentas de todas as plataformas
 multitool list --all-platforms
 
 # Listar ferramentas já instaladas

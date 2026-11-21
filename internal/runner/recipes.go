@@ -231,6 +231,13 @@ func (r *Runner) installScript(id string, target *catalog.Target) error {
 	return r.installScriptWithActivity(nil, id, target)
 }
 
+func (r *Runner) resolveLatestTag(repo, fallback string) string {
+	if resolver, ok := r.executor.(ReleaseTagResolver); ok {
+		return resolver.ResolveLatestTag(repo, fallback)
+	}
+	return fallback
+}
+
 func (r *Runner) installScriptWithActivity(actFn func(string), id string, target *catalog.Target) error {
 	if r.dryRun {
 		return nil
@@ -241,7 +248,8 @@ func (r *Runner) installScriptWithActivity(actFn func(string), id string, target
 		}
 		return r.execWithActivity(actFn, "flatpak", "--noninteractive", "remote-add", "--if-not-exists", "flathub", "https://dl.flathub.org/repo/flathub.flatpakrepo")
 	}
-	if id == "opengym" || id == "openstock" || id == "openmaicapp" || id == "craftlauncher" {
+	switch id {
+	case "opengym", "openstock", "openmaicapp", "craftlauncher", "gethomepage", "keep":
 		if r.sysInfo.OS == system.OSLinux {
 			if target.SHA256 != "" || len(target.ArtifactSHA256) > 0 {
 				return fmt.Errorf("checksum de artefato não se aplica a clone git: %s", id)
@@ -254,11 +262,18 @@ func (r *Runner) installScriptWithActivity(actFn func(string), id string, target
 			if err := os.MkdirAll(base, 0755); err != nil {
 				return err
 			}
-			return r.execWithActivity(actFn, "git", "clone", "--depth", "1", "https://github.com/"+target.PackageID, filepath.Join(base, id))
+			dest := filepath.Join(base, id)
+			if fi, err := os.Stat(dest); err == nil && fi.IsDir() {
+				return r.execWithActivity(actFn, "git", "-c", "credential.helper=", "-C", dest, "pull", "--ff-only")
+			}
+			return r.execWithActivity(actFn, "git", "-c", "credential.helper=", "clone", "--depth", "1", "https://github.com/"+target.PackageID, dest)
 		}
 	}
 	if r.sysInfo.OS != system.OSLinux && !(id == "gbrain" && r.sysInfo.OS == system.OSDarwin) {
 		return fmt.Errorf("script de instalação direta não implementado para: %s em %s", id, r.sysInfo.OS)
+	}
+	if id == "ax" {
+		return r.execWithActivity(actFn, "go", "install", "github.com/google/ax/cmd/ax@latest")
 	}
 	dir, err := os.MkdirTemp("", "multitool-download-*")
 	if err != nil {
@@ -282,7 +297,33 @@ func (r *Runner) installScriptWithActivity(actFn func(string), id string, target
 		}
 		return r.execWithActivity(actFn, "sh", "-c", `mkdir -p "$HOME/.local/bin" && cp "$1" "$HOME/.local/bin/$2" && chmod +x "$HOME/.local/bin/$2"`, "multitool", path, id)
 	}
+	installNamedBinary := func(name, url string) error {
+		path, err := download(name, url)
+		if err != nil {
+			return err
+		}
+		return r.execWithActivity(actFn, "sh", "-c", `mkdir -p "$HOME/.local/bin" && cp "$1" "$HOME/.local/bin/$2" && chmod +x "$HOME/.local/bin/$2"`, "multitool", path, id)
+	}
 	switch id {
+	case "agy":
+		return runScript("bash", "https://antigravity.google/cli/install.sh")
+	case "antigravity":
+		switch r.sysInfo.PrimaryManager {
+		case system.MgrApt:
+			keyPath, err := download("antigravity-repo-key.gpg", "https://us-central1-apt.pkg.dev/doc/repo-signing-key.gpg")
+			if err != nil {
+				return err
+			}
+			cmd := `mkdir -p /etc/apt/keyrings && cp "$1" /etc/apt/keyrings/antigravity-repo-key.gpg && ` +
+				`echo "deb [signed-by=/etc/apt/keyrings/antigravity-repo-key.gpg] https://us-central1-apt.pkg.dev/projects/antigravity-auto-updater-dev/ antigravity-debian main" > /etc/apt/sources.list.d/antigravity.list && ` +
+				`apt-get update && apt-get install -y antigravity`
+			return r.execWithSudoAndActivity(actFn, "sh", "-c", cmd, "multitool", keyPath)
+		case system.MgrDnf:
+			cmd := `printf '[antigravity-rpm]\nname=Antigravity RPM Repository\nbaseurl=https://us-central1-yum.pkg.dev/projects/antigravity-auto-updater-dev/antigravity-rpm\nenabled=1\ngpgcheck=0\n' > /etc/yum.repos.d/antigravity.repo && dnf install -y antigravity`
+			return r.execWithSudoAndActivity(actFn, "sh", "-c", cmd)
+		default:
+			return r.execWithSudoAndActivity(actFn, "snap", "install", "antigravity-ide", "--classic")
+		}
 	case "ollama":
 		return runScript("sh", "https://ollama.com/install.sh")
 	case "hermes":
@@ -293,12 +334,37 @@ func (r *Runner) installScriptWithActivity(actFn func(string), id string, target
 		return runScript("sh", "https://astral.sh/uv/install.sh")
 	case "docker":
 		return runScript("sh", "https://get.docker.com")
+	case "dockerdesktop":
+		switch r.sysInfo.PrimaryManager {
+		case system.MgrApt:
+			pkgPath, err := download("docker-desktop-amd64.deb", "https://desktop.docker.com/linux/main/amd64/docker-desktop-amd64.deb")
+			if err != nil {
+				return err
+			}
+			return r.execWithSudoAndActivity(actFn, "apt-get", "install", "-y", pkgPath)
+		case system.MgrDnf:
+			pkgPath, err := download("docker-desktop-x86_64.rpm", "https://desktop.docker.com/linux/main/amd64/docker-desktop-x86_64.rpm")
+			if err != nil {
+				return err
+			}
+			return r.execWithSudoAndActivity(actFn, "dnf", "install", "-y", pkgPath)
+		case system.MgrZypper:
+			pkgPath, err := download("docker-desktop-x86_64.rpm", "https://desktop.docker.com/linux/main/amd64/docker-desktop-x86_64.rpm")
+			if err != nil {
+				return err
+			}
+			return r.execWithSudoAndActivity(actFn, "zypper", "install", "-y", pkgPath)
+		default:
+			return fmt.Errorf("dockerdesktop não possui pacote oficial para o gerenciador %s", r.sysInfo.PrimaryManager)
+		}
 	case "zed":
 		return runScript("sh", "https://zed.dev/install.sh")
 	case "tailscale":
 		return runScript("sh", "https://tailscale.com/install.sh")
 	case "goose":
 		return runScript("bash", "https://github.com/block/goose/releases/download/stable/download_cli.sh")
+	case "ohmypi":
+		return runScript("sh", "https://raw.githubusercontent.com/can1357/oh-my-pi/main/scripts/install.sh")
 	case "trivy":
 		path, err := download("trivy-install.sh", "https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh")
 		if err != nil {
@@ -335,6 +401,168 @@ func (r *Runner) installScriptWithActivity(actFn func(string), id string, target
 			return err
 		}
 		return installBinary("https://github.com/CherryHQ/cherry-studio/releases/download/v2.2.2/" + asset)
+	case "invokeai":
+		asset, err := r.directAssetName(id)
+		if err != nil {
+			return err
+		}
+		return installBinary("https://github.com/invoke-ai/launcher/releases/latest/download/" + asset)
+	case "lmstudio":
+		arch, err := r.directAssetName(id)
+		if err != nil {
+			return err
+		}
+		return installNamedBinary("lmstudio.AppImage", fmt.Sprintf("https://lmstudio.ai/download/latest/linux/%s?format=AppImage", arch))
+	case "localplayer":
+		asset, err := r.directAssetName(id)
+		if err != nil {
+			return err
+		}
+		return installBinary("https://github.com/IPauloGermano/local-player/releases/latest/download/" + asset)
+	case "margem":
+		if _, err := r.directAssetName(id); err != nil {
+			return err
+		}
+		tag := r.resolveLatestTag("IPauloGermano/margem", "v1.0.3")
+		version := strings.TrimPrefix(tag, "v")
+		return installBinary(fmt.Sprintf("https://github.com/IPauloGermano/margem/releases/download/%s/Margem-%s.AppImage", tag, version))
+	case "waveterm":
+		arch, err := r.directAssetName(id)
+		if err != nil {
+			return err
+		}
+		tag := r.resolveLatestTag("wavetermdev/waveterm", "v0.14.5")
+		version := strings.TrimPrefix(tag, "v")
+		return installBinary(fmt.Sprintf("https://github.com/wavetermdev/waveterm/releases/download/%s/waveterm-linux-%s-%s.AppImage", tag, arch, version))
+	case "binaryninja":
+		asset, err := r.directAssetName(id)
+		if err != nil {
+			return err
+		}
+		path, err := download(asset, "https://cdn.binary.ninja/installers/"+asset)
+		if err != nil {
+			return err
+		}
+		cmd := `if command -v unzip >/dev/null 2>&1; then unzip -oq "$1" -d "$2"; else python3 -m zipfile -e "$1" "$2"; fi && ` +
+			`rm -rf "$HOME/.local/share/binaryninja" && mkdir -p "$HOME/.local/share/binaryninja" "$HOME/.local/bin" && ` +
+			`cp -R "$2"/binaryninja/* "$HOME/.local/share/binaryninja/" && chmod +x "$HOME/.local/share/binaryninja/binaryninja" && ` +
+			`ln -sf "$HOME/.local/share/binaryninja/binaryninja" "$HOME/.local/bin/binaryninja"`
+		return r.execWithActivity(actFn, "sh", "-c", cmd, "multitool", path, dir)
+	case "codeql":
+		asset, err := r.directAssetName(id)
+		if err != nil {
+			return err
+		}
+		path, err := download(asset, "https://github.com/github/codeql-cli-binaries/releases/latest/download/"+asset)
+		if err != nil {
+			return err
+		}
+		cmd := `if command -v unzip >/dev/null 2>&1; then unzip -oq "$1" -d "$2"; else python3 -m zipfile -e "$1" "$2"; fi && ` +
+			`rm -rf "$HOME/.local/share/codeql" && mkdir -p "$HOME/.local/share/codeql" "$HOME/.local/bin" && ` +
+			`cp -R "$2"/codeql/* "$HOME/.local/share/codeql/" && chmod +x "$HOME/.local/share/codeql/codeql" && ` +
+			`ln -sf "$HOME/.local/share/codeql/codeql" "$HOME/.local/bin/codeql"`
+		return r.execWithActivity(actFn, "sh", "-c", cmd, "multitool", path, dir)
+	case "geist":
+		tag := r.resolveLatestTag("vercel/geist-font", "v1.9.2")
+		asset := fmt.Sprintf("geist-font-%s.zip", tag)
+		path, err := download(asset, fmt.Sprintf("https://github.com/vercel/geist-font/releases/download/%s/%s", tag, asset))
+		if err != nil {
+			return err
+		}
+		cmd := `if command -v unzip >/dev/null 2>&1; then unzip -oq "$1" -d "$2"; else python3 -m zipfile -e "$1" "$2"; fi && ` +
+			`mkdir -p "$HOME/.local/share/fonts/geist" && find "$2" -type f \( -name '*.otf' -o -name '*.ttf' \) -exec cp {} "$HOME/.local/share/fonts/geist/" \; && ` +
+			`(command -v fc-cache >/dev/null 2>&1 && fc-cache -f "$HOME/.local/share/fonts/geist" || true)`
+		return r.execWithActivity(actFn, "sh", "-c", cmd, "multitool", path, dir)
+	case "jetbrainstoolbox":
+		path, err := download("jetbrains-toolbox.tar.gz", "https://data.services.jetbrains.com/products/download?platform=linux&code=TBA")
+		if err != nil {
+			return err
+		}
+		cmd := `mkdir -p "$HOME/.local/share/jetbrains-toolbox" "$HOME/.local/bin" && ` +
+			`tar -xzf "$1" -C "$HOME/.local/share/jetbrains-toolbox" --strip-components=1 && ` +
+			`bin=$(find "$HOME/.local/share/jetbrains-toolbox" -maxdepth 2 -type f -name 'jetbrains-toolbox' | head -n 1) && ` +
+			`chmod +x "$bin" && ln -sf "$bin" "$HOME/.local/bin/jetbrainstoolbox"`
+		return r.execWithActivity(actFn, "sh", "-c", cmd, "multitool", path)
+	case "otelcol":
+		arch, err := r.directAssetName(id)
+		if err != nil {
+			return err
+		}
+		tag := r.resolveLatestTag("open-telemetry/opentelemetry-collector-releases", "v0.165.0")
+		version := strings.TrimPrefix(tag, "v")
+		asset := fmt.Sprintf("otelcol_%s_linux_%s.tar.gz", version, arch)
+		path, err := download(asset, fmt.Sprintf("https://github.com/open-telemetry/opentelemetry-collector-releases/releases/download/%s/%s", tag, asset))
+		if err != nil {
+			return err
+		}
+		return r.execWithActivity(actFn, "sh", "-c", `mkdir -p "$HOME/.local/bin" && tar -xzf "$1" -C "$2" otelcol && cp "$2/otelcol" "$HOME/.local/bin/otelcol" && chmod +x "$HOME/.local/bin/otelcol"`, "multitool", path, dir)
+	case "protonge":
+		arch, err := r.directAssetName(id)
+		if err != nil {
+			return err
+		}
+		tag := r.resolveLatestTag("GloriousEggroll/proton-ge-custom", "GE-Proton11-12")
+		asset := fmt.Sprintf("%s-%s.tar.gz", tag, arch)
+		path, err := download(asset, fmt.Sprintf("https://github.com/GloriousEggroll/proton-ge-custom/releases/download/%s/%s", tag, asset))
+		if err != nil {
+			return err
+		}
+		return r.execWithActivity(actFn, "sh", "-c", `mkdir -p "$HOME/.steam/root/compatibilitytools.d" && tar -xzf "$1" -C "$HOME/.steam/root/compatibilitytools.d"`, "multitool", path)
+	case "stabilitymatrix":
+		asset, err := r.directAssetName(id)
+		if err != nil {
+			return err
+		}
+		path, err := download(asset, "https://github.com/LykosAI/StabilityMatrix/releases/latest/download/"+asset)
+		if err != nil {
+			return err
+		}
+		cmd := `if command -v unzip >/dev/null 2>&1; then unzip -oq "$1" -d "$2"; else python3 -m zipfile -e "$1" "$2"; fi && ` +
+			`mkdir -p "$HOME/.local/share/stabilitymatrix" "$HOME/.local/bin" && ` +
+			`cp -R "$2"/* "$HOME/.local/share/stabilitymatrix/" && chmod +x "$HOME/.local/share/stabilitymatrix/StabilityMatrix.AppImage" && ` +
+			`ln -sf "$HOME/.local/share/stabilitymatrix/StabilityMatrix.AppImage" "$HOME/.local/bin/stabilitymatrix"`
+		return r.execWithActivity(actFn, "sh", "-c", cmd, "multitool", path, dir)
+	case "warp":
+		switch r.sysInfo.PrimaryManager {
+		case system.MgrApt:
+			pkgPath, err := download("warp-terminal.deb", "https://app.warp.dev/download?package=deb")
+			if err != nil {
+				return err
+			}
+			return r.execWithSudoAndActivity(actFn, "apt-get", "install", "-y", pkgPath)
+		case system.MgrDnf:
+			pkgPath, err := download("warp-terminal.rpm", "https://app.warp.dev/download?package=rpm")
+			if err != nil {
+				return err
+			}
+			return r.execWithSudoAndActivity(actFn, "dnf", "install", "-y", pkgPath)
+		case system.MgrZypper:
+			pkgPath, err := download("warp-terminal.rpm", "https://app.warp.dev/download?package=rpm")
+			if err != nil {
+				return err
+			}
+			return r.execWithSudoAndActivity(actFn, "zypper", "install", "-y", pkgPath)
+		case system.MgrPacman:
+			pkgPath, err := download("warp-terminal.pkg.tar.zst", "https://app.warp.dev/download?package=pacman")
+			if err != nil {
+				return err
+			}
+			return r.execWithSudoAndActivity(actFn, "pacman", "-U", "--noconfirm", pkgPath)
+		default:
+			return fmt.Errorf("warp não possui pacote oficial para o gerenciador %s", r.sysInfo.PrimaryManager)
+		}
+	case "waydroid":
+		if r.sysInfo.PrimaryManager == system.MgrApt {
+			scriptPath, err := download("waydroid-repo.sh", "https://repo.waydro.id")
+			if err != nil {
+				return err
+			}
+			if err := r.execWithSudoAndActivity(actFn, "bash", scriptPath); err != nil {
+				return err
+			}
+			return r.execWithSudoAndActivity(actFn, "apt-get", "install", "-y", "waydroid")
+		}
+		return r.installNativeWithActivity(actFn, "waydroid")
 	case "temurin":
 		arch, err := r.adoptiumArch()
 		if err != nil {
@@ -369,12 +597,24 @@ func (r *Runner) directAssetName(id string) (string, error) {
 	}
 	platform := string(r.sysInfo.OS) + "/" + arch
 	assets := map[string]map[string]string{
-		"gbrain":        {"linux/amd64": "gbrain-linux-x64", "darwin/arm64": "gbrain-darwin-arm64"},
-		"orca":          {"linux/amd64": "orca-linux.AppImage", "linux/arm64": "orca-linux-arm64.AppImage", "windows/amd64": "orca-windows-setup.exe"},
-		"openmausbot":   {"linux/amd64": "OpenMausBot.AppImage", "windows/amd64": "OpenMausBot-setup.exe"},
-		"cherrystudio":  {"linux/amd64": "Cherry-Studio-2.2.2-linux-x64.AppImage", "linux/arm64": "Cherry-Studio-2.2.2-linux-arm64.AppImage"},
-		"wabt":          {"windows/amd64": "wabt-1.0.42-windows-x64.tar.gz"},
-		"craftlauncher": {"windows/amd64": "x64", "windows/arm64": "arm64"},
+		"gbrain":          {"linux/amd64": "gbrain-linux-x64", "darwin/arm64": "gbrain-darwin-arm64"},
+		"orca":            {"linux/amd64": "orca-linux.AppImage", "linux/arm64": "orca-linux-arm64.AppImage", "windows/amd64": "orca-windows-setup.exe"},
+		"openmausbot":     {"linux/amd64": "OpenMausBot.AppImage", "windows/amd64": "OpenMausBot-setup.exe"},
+		"cherrystudio":    {"linux/amd64": "Cherry-Studio-2.2.2-linux-x64.AppImage", "linux/arm64": "Cherry-Studio-2.2.2-linux-arm64.AppImage"},
+		"wabt":            {"windows/amd64": "wabt-1.0.42-windows-x64.tar.gz"},
+		"craftlauncher":   {"windows/amd64": "x64", "windows/arm64": "arm64"},
+		"binaryninja":     {"linux/amd64": "binaryninja_free_linux.zip"},
+		"codeql":          {"linux/amd64": "codeql-linux64.zip", "linux/arm64": "codeql-linux-arm64.zip"},
+		"invokeai":        {"linux/amd64": "Invoke.Community.Edition-latest.AppImage"},
+		"lmstudio":        {"linux/amd64": "x64", "linux/arm64": "arm64"},
+		"localplayer":     {"linux/amd64": "LocalPlayer.AppImage"},
+		"margem":          {"linux/amd64": "AppImage"},
+		"otelcol":         {"linux/amd64": "amd64", "linux/arm64": "arm64"},
+		"protonge":        {"linux/amd64": "x86_64", "linux/arm64": "aarch64"},
+		"stabilitymatrix": {"linux/amd64": "StabilityMatrix-linux-x64.zip"},
+		"waveterm":        {"linux/amd64": "x86_64", "linux/arm64": "arm64"},
+		"goose":           {"windows/amd64": "goose-x86_64-pc-windows-msvc.zip"},
+		"ohmypi":          {"windows/amd64": "omp-windows-x64.exe", "windows/arm64": "omp-windows-arm64.exe"},
 	}
 	if asset := assets[id][platform]; asset != "" {
 		return asset, nil
@@ -486,9 +726,73 @@ func (r *Runner) uninstallScript(tool catalog.Tool, target *catalog.Target) erro
 			_ = os.RemoveAll(filepath.Join(home, ".gbrain"))
 		}
 
-	case "opengym", "openstock", "openmaicapp", "craftlauncher":
+	case "opengym", "openstock", "openmaicapp", "craftlauncher", "gethomepage", "keep":
 		if home != "" {
 			_ = os.RemoveAll(filepath.Join(home, ".local", "share", "apps", tool.ID))
+		}
+
+	case "ax":
+		if home != "" {
+			_ = os.Remove(filepath.Join(home, "go", "bin", "ax"))
+			_ = os.Remove(filepath.Join(home, ".local", "bin", "ax"))
+		}
+
+	case "binaryninja":
+		if home != "" {
+			_ = os.RemoveAll(filepath.Join(home, ".local", "share", "binaryninja"))
+			_ = os.Remove(filepath.Join(home, ".local", "bin", "binaryninja"))
+		}
+
+	case "codeql":
+		if home != "" {
+			_ = os.RemoveAll(filepath.Join(home, ".local", "share", "codeql"))
+			_ = os.Remove(filepath.Join(home, ".local", "bin", "codeql"))
+		}
+
+	case "geist":
+		if home != "" {
+			_ = os.RemoveAll(filepath.Join(home, ".local", "share", "fonts", "geist"))
+		}
+
+	case "jetbrainstoolbox":
+		if home != "" {
+			_ = os.RemoveAll(filepath.Join(home, ".local", "share", "jetbrains-toolbox"))
+			_ = os.Remove(filepath.Join(home, ".local", "bin", "jetbrainstoolbox"))
+		}
+
+	case "stabilitymatrix":
+		if home != "" {
+			_ = os.RemoveAll(filepath.Join(home, ".local", "share", "stabilitymatrix"))
+			_ = os.Remove(filepath.Join(home, ".local", "bin", "stabilitymatrix"))
+		}
+
+	case "protonge":
+		if home != "" {
+			matches, _ := filepath.Glob(filepath.Join(home, ".steam", "root", "compatibilitytools.d", "GE-Proton*"))
+			for _, m := range matches {
+				_ = os.RemoveAll(m)
+			}
+		}
+
+	case "antigravity":
+		_ = r.uninstallNative("antigravity")
+		if home != "" {
+			_ = os.Remove(filepath.Join(home, ".local", "bin", "antigravity"))
+		}
+
+	case "dockerdesktop":
+		_ = r.uninstallNative("docker-desktop")
+
+	case "warp":
+		_ = r.uninstallNative("warp-terminal")
+
+	case "waydroid":
+		_ = r.uninstallNative("waydroid")
+
+	case "ohmypi":
+		if home != "" {
+			_ = os.Remove(filepath.Join(home, ".local", "bin", "omp"))
+			_ = os.Remove(filepath.Join(home, ".local", "bin", "ohmypi"))
 		}
 
 	case "ohmyzsh":
@@ -721,6 +1025,108 @@ func (r *Runner) installDirectWindowsTargetWithActivity(actFn func(string), tool
 				if err == nil {
 					_ = os.WriteFile(dst, data, 0755)
 				}
+			}
+		}
+		return nil
+
+	case "goose":
+		gooseDir := filepath.Join(localApp, "multitool", "goose")
+		if err := os.MkdirAll(gooseDir, 0755); err != nil {
+			return err
+		}
+		asset, err := r.directAssetName(toolID)
+		if err != nil {
+			return err
+		}
+		zipURL := "https://github.com/block/goose/releases/latest/download/" + asset
+		zipPath, err := download(asset, zipURL)
+		if err != nil {
+			return err
+		}
+		if fi, err := os.Stat(zipPath); err == nil && fi.Size() > 0 {
+			if err := extractZipSafe(zipPath, gooseDir); err != nil {
+				return fmt.Errorf("falha ao extrair Goose: %w", err)
+			}
+		}
+		if data, err := os.ReadFile(filepath.Join(gooseDir, "goose.exe")); err == nil {
+			if err := os.WriteFile(filepath.Join(binDir, "goose.exe"), data, 0755); err != nil {
+				return err
+			}
+		} else {
+			batContent := "@echo off\r\n\"%LOCALAPPDATA%\\multitool\\goose\\goose.exe\" %*\r\n"
+			if err := os.WriteFile(filepath.Join(binDir, "goose.bat"), []byte(batContent), 0755); err != nil {
+				return err
+			}
+		}
+		return nil
+
+	case "ohmypi":
+		asset, err := r.directAssetName(toolID)
+		if err != nil {
+			return err
+		}
+		exeURL := "https://github.com/can1357/oh-my-pi/releases/latest/download/" + asset
+		exePath, err := download(asset, exeURL)
+		if err != nil {
+			return err
+		}
+		data, err := os.ReadFile(exePath)
+		if err != nil {
+			return err
+		}
+		return os.WriteFile(filepath.Join(binDir, "omp.exe"), data, 0755)
+
+	case "atkinson":
+		fontDir := filepath.Join(localApp, "multitool", "fonts", "atkinson")
+		if err := os.MkdirAll(fontDir, 0755); err != nil {
+			return err
+		}
+		zipPath, err := download("atkinson-hyperlegible-next.zip", "https://github.com/googlefonts/atkinson-hyperlegible-next/archive/refs/heads/main.zip")
+		if err != nil {
+			return err
+		}
+		if fi, err := os.Stat(zipPath); err == nil && fi.Size() > 0 {
+			if err := extractZipSafe(zipPath, fontDir); err != nil {
+				return fmt.Errorf("falha ao extrair fonte Atkinson: %w", err)
+			}
+		}
+		return nil
+
+	case "sourcesans3":
+		fontDir := filepath.Join(localApp, "multitool", "fonts", "sourcesans3")
+		if err := os.MkdirAll(fontDir, 0755); err != nil {
+			return err
+		}
+		tag := r.resolveLatestTag("adobe-fonts/source-sans", "3.052R")
+		asset := fmt.Sprintf("TTF-source-sans-%s.zip", tag)
+		zipURL := fmt.Sprintf("https://github.com/adobe-fonts/source-sans/releases/download/%s/%s", tag, asset)
+		zipPath, err := download(asset, zipURL)
+		if err != nil {
+			return err
+		}
+		if fi, err := os.Stat(zipPath); err == nil && fi.Size() > 0 {
+			if err := extractZipSafe(zipPath, fontDir); err != nil {
+				return fmt.Errorf("falha ao extrair fonte Source Sans 3: %w", err)
+			}
+		}
+		return nil
+
+	case "sourceserif4":
+		fontDir := filepath.Join(localApp, "multitool", "fonts", "sourceserif4")
+		if err := os.MkdirAll(fontDir, 0755); err != nil {
+			return err
+		}
+		tag := r.resolveLatestTag("adobe-fonts/source-serif", "4.005R")
+		ver := strings.TrimSuffix(tag, "R")
+		asset := fmt.Sprintf("source-serif-%s_Desktop.zip", ver)
+		zipURL := fmt.Sprintf("https://github.com/adobe-fonts/source-serif/releases/download/%s/%s", tag, asset)
+		zipPath, err := download(asset, zipURL)
+		if err != nil {
+			return err
+		}
+		if fi, err := os.Stat(zipPath); err == nil && fi.Size() > 0 {
+			if err := extractZipSafe(zipPath, fontDir); err != nil {
+				return fmt.Errorf("falha ao extrair fonte Source Serif 4: %w", err)
 			}
 		}
 		return nil
