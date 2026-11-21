@@ -30,8 +30,10 @@ func TestMain(m *testing.M) {
 			"HOME":              home,
 			"USERPROFILE":       home,
 			"LOCALAPPDATA":      filepath.Join(home, "AppData", "Local"),
+			"APPDATA":           filepath.Join(home, "AppData", "Roaming"),
 			"ProgramFiles":      filepath.Join(home, "Program Files"),
 			"ProgramFiles(x86)": filepath.Join(home, "Program Files (x86)"),
+			"WINDIR":            filepath.Join(home, "Windows"),
 		} {
 			if err := os.Setenv(key, value); err != nil {
 				fmt.Fprintln(os.Stderr, err)

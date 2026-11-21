@@ -141,8 +141,10 @@ func TestIndividualToolsLifecycle(t *testing.T) {
 					t.Setenv("HOME", root)
 					t.Setenv("USERPROFILE", root)
 					t.Setenv("LOCALAPPDATA", filepath.Join(root, "AppData", "Local"))
+					t.Setenv("APPDATA", filepath.Join(root, "AppData", "Roaming"))
 					t.Setenv("ProgramFiles", filepath.Join(root, "Program Files"))
 					t.Setenv("ProgramFiles(x86)", filepath.Join(root, "Program Files (x86)"))
+					t.Setenv("WINDIR", filepath.Join(root, "Windows"))
 
 					skillDir := filepath.Join(root, ".claude", "skills")
 

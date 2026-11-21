@@ -427,3 +427,73 @@ func TestDoctorAuditReport(t *testing.T) {
 		t.Errorf("resumo do doctor inconsistente: %+v", rep.Summary)
 	}
 }
+
+func TestFindWindowsTargetBinaryPaths(t *testing.T) {
+	root := t.TempDir()
+	progFiles := filepath.Join(root, "Program Files")
+	localApp := filepath.Join(root, "AppData", "Local")
+	appData := filepath.Join(root, "AppData", "Roaming")
+	winDir := filepath.Join(root, "Windows")
+
+	t.Setenv("ProgramFiles", progFiles)
+	t.Setenv("ProgramFiles(x86)", filepath.Join(root, "Program Files (x86)"))
+	t.Setenv("LOCALAPPDATA", localApp)
+	t.Setenv("APPDATA", appData)
+	t.Setenv("WINDIR", winDir)
+
+	filesToCreate := []string{
+		filepath.Join(progFiles, "LLVM", "bin", "clang.exe"),
+		filepath.Join(localApp, "DBeaver", "dbeaver.exe"),
+		filepath.Join(localApp, "Discord", "app-1.0.9269", "Discord.exe"),
+		filepath.Join(progFiles, "Docker", "Docker", "Docker Desktop.exe"),
+		filepath.Join(winDir, "Fonts", "JetBrainsMonoNerdFont-Regular.ttf"),
+		filepath.Join(localApp, "JetBrains", "Toolbox", "bin", "jetbrains-toolbox.exe"),
+		filepath.Join(progFiles, "obs-studio", "bin", "64bit", "obs64.exe"),
+		filepath.Join(appData, "Telegram Desktop", "Telegram.exe"),
+		filepath.Join(progFiles, "VideoLAN", "VLC", "vlc.exe"),
+	}
+
+	for _, f := range filesToCreate {
+		if err := os.MkdirAll(filepath.Dir(f), 0755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(f, []byte("stub"), 0755); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	reg, err := registry.New(filepath.Join(root, "installed.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	toolIDs := []string{
+		"clang", "dbeaver", "discord", "dockerdesktop",
+		"jetbrainsmono", "jetbrainstoolbox", "obs", "telegram", "vlc",
+	}
+	for _, id := range toolIDs {
+		_ = reg.MarkInstalled(id)
+	}
+
+	mock := &MockExecutor{
+		missing: map[string]bool{
+			"clang.exe":             true,
+			"dbeaver.exe":           true,
+			"Discord.exe":           true,
+			"Docker Desktop.exe":    true,
+			"JetBrainsMono.ttf":     true,
+			"jetbrains-toolbox.exe": true,
+			"obs64.exe":             true,
+			"Telegram.exe":          true,
+			"vlc.exe":               true,
+		},
+	}
+	r := NewWithExecutor(reg, mock, false)
+	r.sysInfo.OS = system.OSWindows
+
+	rep := r.Doctor()
+	for _, check := range rep.Tools {
+		if check.Status != DoctorOK {
+			t.Errorf("esperava %s=ok no doctor Windows, obteve status=%s detail=%s", check.Name, check.Status, check.Detail)
+		}
+	}
+}

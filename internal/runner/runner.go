@@ -739,39 +739,8 @@ func (r *Runner) findTargetBinaryPath(tool catalog.Tool, target *catalog.Target)
 		}
 	}
 	if (r.sysInfo != nil && r.sysInfo.OS == system.OSWindows || runtime.GOOS == "windows") && target.Binary != "" {
-		progDirs := []string{
-			os.Getenv("ProgramFiles"),
-			os.Getenv("ProgramFiles(x86)"),
-			filepath.Join(os.Getenv("LOCALAPPDATA"), "Programs"),
-		}
-		for _, base := range progDirs {
-			if base == "" {
-				continue
-			}
-			pName := filepath.Join(base, tool.Name, target.Binary)
-			if _, err := os.Stat(pName); err == nil {
-				return pName
-			}
-			pNameBin := filepath.Join(base, tool.Name, "bin", target.Binary)
-			if _, err := os.Stat(pNameBin); err == nil {
-				return pNameBin
-			}
-			pID := filepath.Join(base, tool.ID, target.Binary)
-			if _, err := os.Stat(pID); err == nil {
-				return pID
-			}
-			pIDBin := filepath.Join(base, tool.ID, "bin", target.Binary)
-			if _, err := os.Stat(pIDBin); err == nil {
-				return pIDBin
-			}
-		}
-		if tool.ID == "craftlauncher" {
-			if localApp := os.Getenv("LOCALAPPDATA"); localApp != "" {
-				pArt := filepath.Join(localApp, "Programs", "ArtCraft", "Launcher", "artcraft-launcher.exe")
-				if _, err := os.Stat(pArt); err == nil {
-					return pArt
-				}
-			}
+		if winPath := findWindowsTargetBinaryPath(tool, target); winPath != "" {
+			return winPath
 		}
 	}
 	if target.Binary != "" {
@@ -779,6 +748,192 @@ func (r *Runner) findTargetBinaryPath(tool catalog.Tool, target *catalog.Target)
 			return p
 		}
 	}
+	return ""
+}
+
+func findWindowsTargetBinaryPath(tool catalog.Tool, target *catalog.Target) string {
+	progFiles := os.Getenv("ProgramFiles")
+	progFilesX86 := os.Getenv("ProgramFiles(x86)")
+	localApp := os.Getenv("LOCALAPPDATA")
+	appData := os.Getenv("APPDATA")
+	winDir := os.Getenv("WINDIR")
+
+	// 1. Fontes (.ttf / .otf ou categoria Fontes)
+	lowerBin := strings.ToLower(target.Binary)
+	if tool.Category == "Fontes" || strings.HasSuffix(lowerBin, ".ttf") || strings.HasSuffix(lowerBin, ".otf") {
+		var fontDirs []string
+		if localApp != "" {
+			fontDirs = append(fontDirs, filepath.Join(localApp, "Microsoft", "Windows", "Fonts"))
+		}
+		if winDir != "" {
+			fontDirs = append(fontDirs, filepath.Join(winDir, "Fonts"))
+		}
+		prefix := strings.TrimSuffix(target.Binary, filepath.Ext(target.Binary))
+		for _, dir := range fontDirs {
+			exact := filepath.Join(dir, target.Binary)
+			if _, err := os.Stat(exact); err == nil {
+				return exact
+			}
+			if prefix != "" {
+				for _, ext := range []string{"*.ttf", "*.otf"} {
+					if matches, err := filepath.Glob(filepath.Join(dir, prefix+ext)); err == nil && len(matches) > 0 {
+						return matches[0]
+					}
+				}
+			}
+		}
+	}
+
+	// 2. Diretórios padrão de instalação Windows (Program Files, LocalAppData, AppData)
+	var baseDirs []string
+	for _, b := range []string{progFiles, progFilesX86} {
+		if b != "" {
+			baseDirs = append(baseDirs, b)
+		}
+	}
+	if localApp != "" {
+		baseDirs = append(baseDirs, filepath.Join(localApp, "Programs"), localApp)
+	}
+	if appData != "" {
+		baseDirs = append(baseDirs, appData)
+	}
+
+	var vendor, product string
+	if target.Type == catalog.TypeWinget && strings.Contains(target.PackageID, ".") {
+		parts := strings.Split(target.PackageID, ".")
+		vendor = parts[0]
+		product = parts[1]
+	}
+
+	for _, base := range baseDirs {
+		candidates := []string{
+			filepath.Join(base, tool.Name, target.Binary),
+			filepath.Join(base, tool.Name, "bin", target.Binary),
+			filepath.Join(base, tool.ID, target.Binary),
+			filepath.Join(base, tool.ID, "bin", target.Binary),
+		}
+		if vendor != "" && product != "" {
+			candidates = append(candidates,
+				filepath.Join(base, vendor, product, target.Binary),
+				filepath.Join(base, vendor, product, "bin", target.Binary),
+				filepath.Join(base, product, target.Binary),
+				filepath.Join(base, product, "bin", target.Binary),
+			)
+		}
+		for _, c := range candidates {
+			if _, err := os.Stat(c); err == nil {
+				return c
+			}
+		}
+	}
+
+	// 3. Layouts específicos conhecidos de instaladores Windows
+	var explicit []string
+	var globs []string
+	for _, pf := range []string{progFiles, progFilesX86} {
+		if pf == "" {
+			continue
+		}
+		switch tool.ID {
+		case "clang":
+			explicit = append(explicit, filepath.Join(pf, "LLVM", "bin", target.Binary))
+		case "docker":
+			explicit = append(explicit, filepath.Join(pf, "Docker", "Docker", "resources", "bin", target.Binary))
+		case "dockerdesktop":
+			explicit = append(explicit, filepath.Join(pf, "Docker", "Docker", target.Binary))
+		case "obs":
+			explicit = append(explicit, filepath.Join(pf, "obs-studio", "bin", "64bit", target.Binary))
+		case "vlc":
+			explicit = append(explicit, filepath.Join(pf, "VideoLAN", "VLC", target.Binary))
+		case "git":
+			explicit = append(explicit, filepath.Join(pf, "Git", "cmd", target.Binary), filepath.Join(pf, "Git", "bin", target.Binary))
+		case "gh":
+			explicit = append(explicit, filepath.Join(pf, "GitHub CLI", target.Binary))
+		case "golang":
+			explicit = append(explicit, filepath.Join(pf, "Go", "bin", target.Binary))
+		case "nodejs":
+			explicit = append(explicit, filepath.Join(pf, "nodejs", target.Binary))
+		case "neovim":
+			explicit = append(explicit, filepath.Join(pf, "Neovim", "bin", target.Binary))
+		case "openssh":
+			explicit = append(explicit, filepath.Join(pf, "OpenSSH", target.Binary))
+		case "vscode":
+			explicit = append(explicit, filepath.Join(pf, "Microsoft VS Code", "bin", target.Binary))
+		case "temurin":
+			globs = append(globs, filepath.Join(pf, "Eclipse Adoptium", "jdk-*", "bin", target.Binary))
+		}
+	}
+
+	if localApp != "" {
+		switch tool.ID {
+		case "craftlauncher":
+			explicit = append(explicit, filepath.Join(localApp, "Programs", "ArtCraft", "Launcher", "artcraft-launcher.exe"))
+		case "dbeaver":
+			explicit = append(explicit, filepath.Join(localApp, "DBeaver", target.Binary))
+		case "discord":
+			globs = append(globs, filepath.Join(localApp, "Discord", "app-*", target.Binary))
+			explicit = append(explicit, filepath.Join(localApp, "Discord", "Update.exe"))
+		case "jetbrainstoolbox":
+			explicit = append(explicit, filepath.Join(localApp, "JetBrains", "Toolbox", "bin", target.Binary))
+		case "vscode":
+			explicit = append(explicit, filepath.Join(localApp, "Programs", "Microsoft VS Code", "bin", target.Binary))
+		case "copilot":
+			explicit = append(explicit, filepath.Join(localApp, "Programs", "Microsoft VS Code", "bin", "copilot-shim", target.Binary))
+		}
+	}
+
+	if appData != "" {
+		if tool.ID == "telegram" {
+			explicit = append(explicit, filepath.Join(appData, "Telegram Desktop", target.Binary))
+		}
+		if target.Type == catalog.TypeNpm {
+			explicit = append(explicit, filepath.Join(appData, "npm", target.Binary))
+		}
+	}
+
+	for _, p := range explicit {
+		if _, err := os.Stat(p); err == nil {
+			return p
+		}
+	}
+	for _, pattern := range globs {
+		if matches, err := filepath.Glob(pattern); err == nil && len(matches) > 0 {
+			return matches[len(matches)-1]
+		}
+	}
+
+	// 4. WinGet Links & Portable Packages
+	if localApp != "" {
+		wingetLink := filepath.Join(localApp, "Microsoft", "WinGet", "Links", target.Binary)
+		if _, err := os.Stat(wingetLink); err == nil {
+			return wingetLink
+		}
+		if target.Type == catalog.TypeWinget && target.PackageID != "" {
+			pkgPattern := filepath.Join(localApp, "Microsoft", "WinGet", "Packages", target.PackageID+"_*")
+			if pkgDirs, err := filepath.Glob(pkgPattern); err == nil {
+				for _, pkgDir := range pkgDirs {
+					for _, sub := range []string{
+						filepath.Join(pkgDir, target.Binary),
+						filepath.Join(pkgDir, "bin", target.Binary),
+						filepath.Join(pkgDir, "mingw64", "bin", target.Binary),
+					} {
+						if _, err := os.Stat(sub); err == nil {
+							return sub
+						}
+					}
+					for _, subGlob := range []string{
+						filepath.Join(pkgDir, "*", "bin", target.Binary),
+						filepath.Join(pkgDir, "*", target.Binary),
+					} {
+						if matches, err := filepath.Glob(subGlob); err == nil && len(matches) > 0 {
+							return matches[len(matches)-1]
+						}
+					}
+				}
+			}
+		}
+	}
+
 	return ""
 }
 
