@@ -573,3 +573,174 @@ func TestTargetSHA256Field(t *testing.T) {
 		t.Errorf("Campo SHA256 não deveria estar vazio")
 	}
 }
+
+func TestRuffCatalogIntegration(t *testing.T) {
+	tool := FindTool("ruff")
+	if tool == nil {
+		t.Fatalf("ferramenta ruff não encontrada no catálogo")
+	}
+	if tool.Name != "Ruff" {
+		t.Errorf("esperava nome Ruff, obteve %s", tool.Name)
+	}
+	if tool.Windows == nil || tool.Windows.PackageID != "astral-sh.ruff" {
+		t.Errorf("alvo Windows de ruff incorreto: %+v", tool.Windows)
+	}
+	if tool.Linux == nil || tool.Linux.Type != TypeScript {
+		t.Errorf("alvo Linux de ruff incorreto: %+v", tool.Linux)
+	}
+	if tool.Darwin == nil || tool.Darwin.PackageID != "ruff" {
+		t.Errorf("alvo Darwin de ruff incorreto: %+v", tool.Darwin)
+	}
+
+	aliases := []string{
+		"astral-sh/ruff",
+		"astral-ruff",
+		"https://github.com/astral-sh/ruff",
+	}
+	for _, a := range aliases {
+		found := FindTool(a)
+		if found == nil || found.ID != "ruff" {
+			t.Errorf("alias %q não resolveu para ruff: %+v", a, found)
+		}
+	}
+
+	upstream := GetUpstreamRepo("ruff")
+	if upstream != "https://github.com/astral-sh/ruff" {
+		t.Errorf("upstream de ruff incorreto: %s", upstream)
+	}
+
+	devMembers := Suites()["dev"]
+	foundInDev := false
+	for _, m := range devMembers {
+		if m == "ruff" {
+			foundInDev = true
+			break
+		}
+	}
+	if !foundInDev {
+		t.Errorf("ruff não está incluído na suíte dev")
+	}
+}
+
+func TestUvPyenvFastapiCatalogIntegration(t *testing.T) {
+	// 1. uv
+	uvTool := FindTool("uv")
+	if uvTool == nil {
+		t.Fatalf("ferramenta uv não encontrada no catálogo")
+	}
+	if uvTool.Darwin == nil || uvTool.Darwin.PackageID != "uv" {
+		t.Errorf("alvo Darwin de uv incorreto: %+v", uvTool.Darwin)
+	}
+	for _, a := range []string{"astral-sh/uv", "astral-uv", "https://github.com/astral-sh/uv"} {
+		found := FindTool(a)
+		if found == nil || found.ID != "uv" {
+			t.Errorf("alias %q não resolveu para uv: %+v", a, found)
+		}
+	}
+	if up := GetUpstreamRepo("uv"); up != "https://github.com/astral-sh/uv" {
+		t.Errorf("upstream de uv incorreto: %s", up)
+	}
+
+	// 2. pyenv
+	pyenvTool := FindTool("pyenv")
+	if pyenvTool == nil {
+		t.Fatalf("ferramenta pyenv não encontrada no catálogo")
+	}
+	if pyenvTool.Windows == nil || pyenvTool.Windows.PackageID != "pyenv-win" {
+		t.Errorf("alvo Windows de pyenv incorreto: %+v", pyenvTool.Windows)
+	}
+	if pyenvTool.Linux == nil || pyenvTool.Linux.Type != TypeScript {
+		t.Errorf("alvo Linux de pyenv incorreto: %+v", pyenvTool.Linux)
+	}
+	if pyenvTool.Darwin == nil || pyenvTool.Darwin.PackageID != "pyenv" {
+		t.Errorf("alvo Darwin de pyenv incorreto: %+v", pyenvTool.Darwin)
+	}
+	for _, a := range []string{"pyenv/pyenv", "pyenv-win", "https://github.com/pyenv/pyenv"} {
+		found := FindTool(a)
+		if found == nil || found.ID != "pyenv" {
+			t.Errorf("alias %q não resolveu para pyenv: %+v", a, found)
+		}
+	}
+	if up := GetUpstreamRepo("pyenv"); up != "https://github.com/pyenv/pyenv" {
+		t.Errorf("upstream de pyenv incorreto: %s", up)
+	}
+	devMembers := Suites()["dev"]
+	foundPyenvInDev := false
+	for _, m := range devMembers {
+		if m == "pyenv" {
+			foundPyenvInDev = true
+			break
+		}
+	}
+	if !foundPyenvInDev {
+		t.Errorf("pyenv não está incluído na suíte dev")
+	}
+
+	// 3. fastapi
+	fastapiTool := FindTool("fastapi")
+	if fastapiTool == nil {
+		t.Fatalf("ferramenta fastapi não encontrada no catálogo")
+	}
+	if fastapiTool.Windows == nil || fastapiTool.Windows.PackageID != "fastapi-cli" {
+		t.Errorf("alvo Windows de fastapi incorreto: %+v", fastapiTool.Windows)
+	}
+	if fastapiTool.Linux == nil || fastapiTool.Linux.PackageID != "fastapi-cli" {
+		t.Errorf("alvo Linux de fastapi incorreto: %+v", fastapiTool.Linux)
+	}
+	if fastapiTool.Darwin == nil || fastapiTool.Darwin.PackageID != "fastapi-cli" {
+		t.Errorf("alvo Darwin de fastapi incorreto: %+v", fastapiTool.Darwin)
+	}
+	for _, a := range []string{"fastapi-cli", "fastapi/fastapi", "fastapi/fastapi-cli", "https://github.com/fastapi/fastapi"} {
+		found := FindTool(a)
+		if found == nil || found.ID != "fastapi" {
+			t.Errorf("alias %q não resolveu para fastapi: %+v", a, found)
+		}
+	}
+	if up := GetUpstreamRepo("fastapi"); up != "https://github.com/fastapi/fastapi" {
+		t.Errorf("upstream de fastapi incorreto: %s", up)
+	}
+}
+
+func TestGoogleDriveAndRcloneCatalogIntegration(t *testing.T) {
+	// 1. googledrive
+	gdrive := FindTool("googledrive")
+	if gdrive == nil {
+		t.Fatalf("ferramenta googledrive não encontrada no catálogo")
+	}
+	if gdrive.Windows == nil || gdrive.Windows.PackageID != "Google.GoogleDrive" {
+		t.Errorf("alvo Windows de googledrive incorreto: %+v", gdrive.Windows)
+	}
+	if gdrive.Darwin == nil || gdrive.Darwin.PackageID != "google-drive" {
+		t.Errorf("alvo Darwin de googledrive incorreto: %+v", gdrive.Darwin)
+	}
+	for _, a := range []string{"google-drive", "gdrive", "Google.GoogleDrive"} {
+		found := FindTool(a)
+		if found == nil || found.ID != "googledrive" {
+			t.Errorf("alias %q não resolveu para googledrive: %+v", a, found)
+		}
+	}
+
+	// 2. rclone
+	rclone := FindTool("rclone")
+	if rclone == nil {
+		t.Fatalf("ferramenta rclone não encontrada no catálogo")
+	}
+	if rclone.Windows == nil || rclone.Windows.PackageID != "Rclone.Rclone" {
+		t.Errorf("alvo Windows de rclone incorreto: %+v", rclone.Windows)
+	}
+	if rclone.Linux == nil || rclone.Linux.PackageID != "rclone" {
+		t.Errorf("alvo Linux de rclone incorreto: %+v", rclone.Linux)
+	}
+	if rclone.Darwin == nil || rclone.Darwin.PackageID != "rclone" {
+		t.Errorf("alvo Darwin de rclone incorreto: %+v", rclone.Darwin)
+	}
+	for _, a := range []string{"rclone/rclone", "https://github.com/rclone/rclone", "Rclone.Rclone"} {
+		found := FindTool(a)
+		if found == nil || found.ID != "rclone" {
+			t.Errorf("alias %q não resolveu para rclone: %+v", a, found)
+		}
+	}
+	if up := GetUpstreamRepo("rclone"); up != "https://github.com/rclone/rclone" {
+		t.Errorf("upstream de rclone incorreto: %s", up)
+	}
+}

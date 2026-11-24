@@ -92,7 +92,7 @@ var packages = map[string][]string{
 		"superpowers", "impeccable", "tasteskill", "emilkowalski", "archify", "opencodereview", "securityaudit", "contextmode", "ponytail", "reverseskill", "pocockskills", "diagramdesign", "ihaveadhd", "addyosmani", "humanizer", "openmaic", "openseo", "linkedin", "universalmodder", "androidskills", "hallmark", "awsagenttoolkit", "egm", "scientificagentskills", "reanimate", "vercelagentskills", "stitchskills", "claudebughunter",
 	},
 	"dev": {
-		"git", "gh", "fzf", "btop", "nodejs", "golang", "temurin", "docker", "vscode", "neovim", "waveterm", "ghostty", "jj", "uv", "rustup", "bat",
+		"git", "gh", "fzf", "btop", "nodejs", "golang", "temurin", "docker", "vscode", "neovim", "waveterm", "ghostty", "jj", "uv", "rustup", "bat", "ruff", "pyenv",
 	},
 	"toolchain": {
 		"gcc", "make", "gdb", "cmake", "clang",
@@ -370,6 +370,49 @@ var toolAliases = map[string]string{
 	"bug-hunter":                                     "claudebughunter",
 	"elementalsouls/claude-bughunter":                "claudebughunter",
 	"https://github.com/elementalsouls/Claude-BugHunter": "claudebughunter",
+	// Ruff
+	"ruff":                                 "ruff",
+	"astral-sh/ruff":                       "ruff",
+	"astral-ruff":                          "ruff",
+	"astralsh/ruff":                        "ruff",
+	"https://github.com/astral-sh/ruff":     "ruff",
+	"https://github.com/astral-sh/ruff.git": "ruff",
+	// UV
+	"uv":                                 "uv",
+	"astral-sh/uv":                       "uv",
+	"astral-uv":                          "uv",
+	"astralsh/uv":                        "uv",
+	"https://github.com/astral-sh/uv":     "uv",
+	"https://github.com/astral-sh/uv.git": "uv",
+	// Pyenv
+	"pyenv":                                 "pyenv",
+	"pyenv/pyenv":                           "pyenv",
+	"pyenv-win":                             "pyenv",
+	"pyenv-win/pyenv-win":                   "pyenv",
+	"https://github.com/pyenv/pyenv":         "pyenv",
+	"https://github.com/pyenv/pyenv.git":     "pyenv",
+	"https://github.com/pyenv-win/pyenv-win": "pyenv",
+	// FastAPI
+	"fastapi":                                 "fastapi",
+	"fastapi-cli":                             "fastapi",
+	"fastapi/fastapi":                         "fastapi",
+	"fastapi/fastapi-cli":                     "fastapi",
+	"https://github.com/fastapi/fastapi":       "fastapi",
+	"https://github.com/fastapi/fastapi.git":   "fastapi",
+	"https://github.com/fastapi/fastapi-cli":   "fastapi",
+	// Google Drive
+	"googledrive":          "googledrive",
+	"google-drive":         "googledrive",
+	"gdrive":               "googledrive",
+	"google-drive-desktop": "googledrive",
+	"googledrivedesktop":   "googledrive",
+	"Google.GoogleDrive":   "googledrive",
+	// Rclone
+	"rclone":                               "rclone",
+	"rclone/rclone":                        "rclone",
+	"https://github.com/rclone/rclone":     "rclone",
+	"https://github.com/rclone/rclone.git": "rclone",
+	"Rclone.Rclone":                        "rclone",
 }
 
 var catalogList = []Tool{
@@ -667,6 +710,12 @@ var catalogList = []Tool{
 		Linux:   &Target{Type: TypeFlatpak, PackageID: "com.mattjakeman.ExtensionManager", Binary: "extensionmanager"},
 	},
 	{
+		ID: "fastapi", Name: "FastAPI CLI", Category: "Infraestrutura", Description: "CLI oficial do framework FastAPI para desenvolvimento e execução de APIs",
+		Windows: &Target{Type: TypePipx, PackageID: "fastapi-cli", Binary: "fastapi.exe"},
+		Linux:   &Target{Type: TypePipx, PackageID: "fastapi-cli", Binary: "fastapi"},
+		Darwin:  &Target{Type: TypePipx, PackageID: "fastapi-cli", Binary: "fastapi"},
+	},
+	{
 		ID: "ffmpeg", Name: "FFmpeg", Category: "Infraestrutura", Description: "Multimídia (conversão, codecs)",
 		Windows: &Target{Type: TypeWinget, PackageID: "Gyan.FFmpeg", Binary: "ffmpeg.exe"},
 		Linux:   &Target{Type: TypeNative, PackageID: "ffmpeg", Binary: "ffmpeg"},
@@ -781,6 +830,11 @@ var catalogList = []Tool{
 		ID: "goose", Name: "Goose", Category: "Agentes", Description: "Agente autônomo de código da Block/AAIF",
 		Windows: &Target{Type: TypeDirect, PackageID: "block/goose", Binary: "goose.exe"},
 		Linux:   &Target{Type: TypeScript, PackageID: "goose", Binary: "goose"},
+	},
+	{
+		ID: "googledrive", Name: "Google Drive", Category: "Desktop", Description: "Cliente desktop oficial do Google Drive para sincronização e backup de arquivos na nuvem",
+		Windows: &Target{Type: TypeWinget, PackageID: "Google.GoogleDrive", Binary: "GoogleDriveFS.exe"},
+		Darwin:  &Target{Type: TypeBrew, PackageID: "google-drive", Binary: "Google Drive"},
 	},
 	{
 		ID: "grafana", Name: "Grafana", Category: "Observabilidade", Description: "Dashboards e visualização de métricas",
@@ -1095,6 +1149,12 @@ var catalogList = []Tool{
 		Linux:   &Target{Type: TypeScript, PackageID: "protonge", Binary: "protonge"},
 	},
 	{
+		ID: "pyenv", Name: "Pyenv", Category: "Infraestrutura", Description: "Gerenciador simples e isolado de múltiplas versões do Python",
+		Windows: &Target{Type: TypePipx, PackageID: "pyenv-win", Binary: "pyenv.bat"},
+		Linux:   &Target{Type: TypeScript, PackageID: "pyenv", Binary: "pyenv"},
+		Darwin:  &Target{Type: TypeBrew, PackageID: "pyenv", Binary: "pyenv"},
+	},
+	{
 		ID: "qbittorrent", Name: "qBittorrent", Category: "Desktop", Description: "Cliente BitTorrent open-source moderno e leve em C++ / Qt",
 		Windows: &Target{Type: TypeWinget, PackageID: "qBittorrent.qBittorrent", Binary: "qbittorrent.exe"},
 		Linux:   &Target{Type: TypeNative, PackageID: "qbittorrent", Binary: "qbittorrent"},
@@ -1121,6 +1181,12 @@ var catalogList = []Tool{
 		Linux:   &Target{Type: TypeSkill, PackageID: "zhaoxuya520/reverse-skill", Binary: "SKILL.md"},
 	},
 	{
+		ID: "rclone", Name: "Rclone", Category: "Infraestrutura", Description: "Sincronização e montagem de armazenamento em nuvem (Google Drive, S3, Dropbox, OneDrive)",
+		Windows: &Target{Type: TypeWinget, PackageID: "Rclone.Rclone", Binary: "rclone.exe"},
+		Linux:   &Target{Type: TypeNative, PackageID: "rclone", Binary: "rclone"},
+		Darwin:  &Target{Type: TypeBrew, PackageID: "rclone", Binary: "rclone"},
+	},
+	{
 		ID: "ripgrep", Name: "Ripgrep", Category: "Infraestrutura", Description: "Busca de texto ultrarrápida (rg)",
 		Windows: &Target{Type: TypeWinget, PackageID: "BurntSushi.ripgrep.MSVC", Binary: "rg.exe"},
 		Linux:   &Target{Type: TypeNative, PackageID: "ripgrep", Binary: "rg"},
@@ -1130,6 +1196,12 @@ var catalogList = []Tool{
 		ID: "robusta", Name: "Robusta CLI", Category: "Observabilidade", Description: "Troubleshooting Kubernetes com IA",
 		Windows: &Target{Type: TypePipx, PackageID: "robusta-cli", Binary: "robusta.exe"},
 		Linux:   &Target{Type: TypePipx, PackageID: "robusta-cli", Binary: "robusta"},
+	},
+	{
+		ID: "ruff", Name: "Ruff", Category: "Infraestrutura", Description: "Linter e formatador de código Python ultrarrápido em Rust",
+		Windows: &Target{Type: TypeWinget, PackageID: "astral-sh.ruff", Binary: "ruff.exe"},
+		Linux:   &Target{Type: TypeScript, PackageID: "ruff", Binary: "ruff"},
+		Darwin:  &Target{Type: TypeBrew, PackageID: "ruff", Binary: "ruff"},
 	},
 	{
 		ID: "rustdesk", Name: "RustDesk", Category: "Desktop", Description: "Acesso e suporte a desktop remoto",
@@ -1261,6 +1333,7 @@ var catalogList = []Tool{
 		ID: "uv", Name: "uv", Category: "Infraestrutura", Description: "Gerenciador Python ultrarrápido",
 		Windows: &Target{Type: TypeWinget, PackageID: "astral-sh.uv", Binary: "uv.exe"},
 		Linux:   &Target{Type: TypeScript, PackageID: "uv", Binary: "uv"},
+		Darwin:  &Target{Type: TypeBrew, PackageID: "uv", Binary: "uv"},
 	},
 	{
 		ID: "vercelagentskills", Name: "Vercel Agent Skills", Category: "Skills", Description: "Coleção oficial de skills da Vercel para React, Next.js, web design e deploy com agentes IA",
@@ -1663,7 +1736,7 @@ func GetUpstreamRepo(toolID string) string {
 	// 2. Procura primeiro por alias explícito com URL canônica https://github.com/
 	for alias, tid := range toolAliases {
 		if tid == tool.ID && strings.HasPrefix(alias, "https://github.com/") {
-			return alias
+			return strings.TrimSuffix(alias, ".git")
 		}
 	}
 

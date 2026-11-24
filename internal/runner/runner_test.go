@@ -502,6 +502,10 @@ func TestUninstallScriptCleanup(t *testing.T) {
 	uvBin := filepath.Join(tempHome, ".local", "bin", "uv")
 	uvxBin := filepath.Join(tempHome, ".local", "bin", "uvx")
 	uvShare := filepath.Join(tempHome, ".local", "share", "uv")
+	ruffBin := filepath.Join(tempHome, ".local", "bin", "ruff")
+	ruffShare := filepath.Join(tempHome, ".local", "share", "ruff")
+	pyenvDir := filepath.Join(tempHome, ".pyenv")
+	pyenvBin := filepath.Join(tempHome, ".local", "bin", "pyenv")
 	rustupDir := filepath.Join(tempHome, ".rustup")
 	cargoDir := filepath.Join(tempHome, ".cargo")
 	ollamaBin := filepath.Join(tempHome, ".local", "bin", "ollama")
@@ -517,6 +521,10 @@ func TestUninstallScriptCleanup(t *testing.T) {
 	_ = os.WriteFile(uvBin, []byte("#!/bin/sh"), 0755)
 	_ = os.WriteFile(uvxBin, []byte("#!/bin/sh"), 0755)
 	_ = os.MkdirAll(uvShare, 0755)
+	_ = os.WriteFile(ruffBin, []byte("#!/bin/sh"), 0755)
+	_ = os.MkdirAll(ruffShare, 0755)
+	_ = os.MkdirAll(pyenvDir, 0755)
+	_ = os.WriteFile(pyenvBin, []byte("#!/bin/sh"), 0755)
 
 	_ = os.MkdirAll(rustupDir, 0755)
 	_ = os.MkdirAll(cargoDir, 0755)
@@ -576,7 +584,37 @@ func TestUninstallScriptCleanup(t *testing.T) {
 		}
 	}
 
-	// 4. Desinstalação do rustup
+	// 4. Desinstalação do ruff
+	ruffTool := catalog.FindTool("ruff")
+	if ruffTool != nil {
+		_ = reg.MarkInstalled("ruff")
+		if err := r.Uninstall(*ruffTool); err != nil {
+			t.Fatalf("Erro ao desinstalar ruff: %v", err)
+		}
+		if _, err := os.Stat(ruffBin); !os.IsNotExist(err) {
+			t.Errorf("Binário %s não foi removido após uninstall ruff", ruffBin)
+		}
+		if _, err := os.Stat(ruffShare); !os.IsNotExist(err) {
+			t.Errorf("Diretório %s não foi removido após uninstall ruff", ruffShare)
+		}
+	}
+
+	// 5. Desinstalação do pyenv
+	pyenvTool := catalog.FindTool("pyenv")
+	if pyenvTool != nil {
+		_ = reg.MarkInstalled("pyenv")
+		if err := r.Uninstall(*pyenvTool); err != nil {
+			t.Fatalf("Erro ao desinstalar pyenv: %v", err)
+		}
+		if _, err := os.Stat(pyenvBin); !os.IsNotExist(err) {
+			t.Errorf("Binário %s não foi removido após uninstall pyenv", pyenvBin)
+		}
+		if _, err := os.Stat(pyenvDir); !os.IsNotExist(err) {
+			t.Errorf("Diretório %s não foi removido após uninstall pyenv", pyenvDir)
+		}
+	}
+
+	// 6. Desinstalação do rustup
 	rustupTool := catalog.FindTool("rustup")
 	if rustupTool != nil {
 		_ = reg.MarkInstalled("rustup")

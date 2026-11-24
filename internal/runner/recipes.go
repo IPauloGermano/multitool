@@ -332,6 +332,10 @@ func (r *Runner) installScriptWithActivity(actFn func(string), id string, target
 		return runScript("sh", "https://sh.rustup.rs", "-y")
 	case "uv":
 		return runScript("sh", "https://astral.sh/uv/install.sh")
+	case "ruff":
+		return runScript("sh", "https://astral.sh/ruff/install.sh")
+	case "pyenv":
+		return runScript("bash", "https://pyenv.run")
 	case "docker":
 		return runScript("sh", "https://get.docker.com")
 	case "dockerdesktop":
@@ -666,6 +670,19 @@ func (r *Runner) uninstallScript(tool catalog.Tool, target *catalog.Target) erro
 			_ = os.Remove(filepath.Join(home, ".cargo", "bin", "uv"))
 			_ = os.Remove(filepath.Join(home, ".cargo", "bin", "uvx"))
 			_ = os.RemoveAll(filepath.Join(home, ".local", "share", "uv"))
+		}
+
+	case "ruff":
+		if home != "" {
+			_ = os.Remove(filepath.Join(home, ".local", "bin", "ruff"))
+			_ = os.Remove(filepath.Join(home, ".cargo", "bin", "ruff"))
+			_ = os.RemoveAll(filepath.Join(home, ".local", "share", "ruff"))
+		}
+
+	case "pyenv":
+		if home != "" {
+			_ = os.RemoveAll(filepath.Join(home, ".pyenv"))
+			_ = os.Remove(filepath.Join(home, ".local", "bin", "pyenv"))
 		}
 
 	case "rustup":

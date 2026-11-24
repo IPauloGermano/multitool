@@ -757,6 +757,14 @@ func findWindowsTargetBinaryPath(tool catalog.Tool, target *catalog.Target) stri
 	localApp := os.Getenv("LOCALAPPDATA")
 	appData := os.Getenv("APPDATA")
 	winDir := os.Getenv("WINDIR")
+	home, _ := os.UserHomeDir()
+
+	if home != "" && (tool.ID == "uv" || tool.ID == "ruff" || tool.ID == "rustup") {
+		cargoBin := filepath.Join(home, ".cargo", "bin", target.Binary)
+		if _, err := os.Stat(cargoBin); err == nil {
+			return cargoBin
+		}
+	}
 
 	// 1. Fontes (.ttf / .otf ou categoria Fontes)
 	lowerBin := strings.ToLower(target.Binary)
@@ -859,6 +867,15 @@ func findWindowsTargetBinaryPath(tool catalog.Tool, target *catalog.Target) stri
 			explicit = append(explicit, filepath.Join(pf, "OpenSSH", target.Binary))
 		case "vscode":
 			explicit = append(explicit, filepath.Join(pf, "Microsoft VS Code", "bin", target.Binary))
+		case "googledrive":
+			globs = append(globs,
+				filepath.Join(pf, "Google", "Drive File Stream", "*", target.Binary),
+				filepath.Join(pf, "Google", "Drive", "*", target.Binary),
+			)
+			explicit = append(explicit,
+				filepath.Join(pf, "Google", "Drive File Stream", target.Binary),
+				filepath.Join(pf, "Google", "Drive", target.Binary),
+			)
 		case "temurin":
 			globs = append(globs, filepath.Join(pf, "Eclipse Adoptium", "jdk-*", "bin", target.Binary))
 		}
@@ -879,6 +896,24 @@ func findWindowsTargetBinaryPath(tool catalog.Tool, target *catalog.Target) stri
 			explicit = append(explicit, filepath.Join(localApp, "Programs", "Microsoft VS Code", "bin", target.Binary))
 		case "copilot":
 			explicit = append(explicit, filepath.Join(localApp, "Programs", "Microsoft VS Code", "bin", "copilot-shim", target.Binary))
+		case "ruff":
+			explicit = append(explicit, filepath.Join(localApp, "Microsoft", "WinGet", "Links", target.Binary))
+		case "rclone":
+			explicit = append(explicit, filepath.Join(localApp, "Microsoft", "WinGet", "Links", target.Binary))
+		case "pyenv":
+			if home != "" {
+				explicit = append(explicit,
+					filepath.Join(home, ".local", "bin", target.Binary),
+					filepath.Join(home, ".pyenv", "pyenv-win", "bin", target.Binary),
+					filepath.Join(home, ".pyenv", "pyenv-win", "shims", target.Binary),
+				)
+			}
+		case "fastapi":
+			if home != "" {
+				explicit = append(explicit,
+					filepath.Join(home, ".local", "bin", target.Binary),
+				)
+			}
 		}
 	}
 

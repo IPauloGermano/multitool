@@ -1,6 +1,6 @@
 # Catálogo Universal e Suítes
 
-O **Multitool** consolida **177 ferramentas** rigorosamente curadas para engenharia de software moderna, agentes de inteligência artificial, segurança e produtividade.
+O **Multitool** consolida **182 ferramentas** rigorosamente curadas para engenharia de software moderna, agentes de inteligência artificial, segurança e produtividade.
 
 ---
 
@@ -111,7 +111,7 @@ Coleção de metodologias e habilidades para agentes de código:
 - `claudebughunter`: Coleção de 83 skills de bug hunting, análise de vulnerabilidades e red-team (`elementalsouls/Claude-BugHunter`).
 
 ### 5. `@dev` (Ferramentas Essenciais de Desenvolvimento)
-- `git`, `gh`, `fzf`, `btop`, `nodejs`, `golang`, `temurin`, `docker`, `vscode`, `neovim`, `waveterm`, `ghostty`, `jj`, `uv`, `rustup`, `bat`.
+- `git`, `gh`, `fzf`, `btop`, `nodejs`, `golang`, `temurin`, `docker`, `vscode`, `neovim`, `waveterm`, `ghostty`, `jj`, `uv`, `rustup`, `bat`, `ruff`, `pyenv`.
 
 ### 6. `@toolchain` (Compilação C/C++)
 - `gcc`, `make`, `gdb`, `cmake`, `clang`.
@@ -170,3 +170,8 @@ Abaixo estão alguns destaques da compatibilidade cruzada:
 | `magicuimcp` | Magic UI MCP | Agentes | `@magicuidesign/mcp` (npm) | `@magicuidesign/mcp` (npm) |
 | `stitchskills` | Stitch Skills | Skills | `google-labs-code/stitch-skills` (direct) | `google-labs-code/stitch-skills` (skill) |
 | `claudebughunter` | Claude BugHunter | Skills | `elementalsouls/Claude-BugHunter` (direct) | `elementalsouls/Claude-BugHunter` (skill) |
+| `ruff` | Ruff | Infraestrutura | `astral-sh.ruff` (winget) | script (`astral.sh/ruff`) |
+| `pyenv` | Pyenv | Infraestrutura | `pyenv-win` (pipx) | script (`pyenv.run`) |
+| `fastapi` | FastAPI CLI | Infraestrutura | `fastapi-cli` (pipx) | `fastapi-cli` (pipx) |
+| `googledrive` | Google Drive | Desktop | `Google.GoogleDrive` (winget) | *Não disponível* |
+| `rclone` | Rclone | Infraestrutura | `Rclone.Rclone` (winget) | `rclone` (native) |

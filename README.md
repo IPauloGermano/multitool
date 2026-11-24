@@ -12,7 +12,7 @@ Unificação e evolução integrada dos projetos `linux-multitool` e `windows-mu
   - **Linux**: Lê `/etc/os-release` e identifica automaticamente se a distro é Ubuntu, Debian, Fedora, Arch, openSUSE ou Solus, mapeando o gerenciador nativo (`apt`, `dnf`, `pacman`, `zypper`, `eopkg`).
   - **Windows**: Identifica x64 e ARM64 (Snapdragon X / Copilot+ PCs) utilizando `winget`.
   - **macOS**: Suporta Apple Silicon e Intel utilizando `brew`.
-- **Catálogo Unificado de 177 Ferramentas**:
+- **Catálogo Unificado de 182 Ferramentas**:
   - Mapeamento granular com alvos específicos por plataforma (`winget`, `native`, `npm`, `pipx`, `cargo`, `flatpak`, `git skill`, `script`).
   - Filtro contextual: exibe e instala apenas ferramentas compatíveis com o SO atual.
 - **TUI Interativa Avançada com Bubble Tea**:
@@ -41,7 +41,7 @@ Unificação e evolução integrada dos projetos `linux-multitool` e `windows-mu
   - `@mcp`: MCPM, MCP Inspector, Supergateway, Codebase Memory, Repomix, Context7, REA, Agent Toolkit for AWS, Inspo MCP, Motion AI Kit, shadcn MCP, Magic UI MCP.
   - `@agentstack`: LangGraph CLI, CrewAI, AX, Bubblewrap, Promptfoo, Arize Phoenix, OpenTelemetry Collector, Podman, ECC, Paperclip, HyperFrames, Orca, OpenMausBot, OpenShell, Agent Desktop, Agent Browser, Skills CLI, Scrapling, Claude-Mem, Astryx.
   - `@skills`: Coleção de 28 skills (incluindo Stitch Skills, Claude BugHunter, Vercel Agent Skills, Scientific Agent Skills, Elephant-Goldfish Model (EGM), Hallmark, AWS Agent Toolkit, Android Skills, Superpowers, Impeccable, REA, etc.) com linking automático para Claude Code (`~/.claude/skills`), OpenCode (`~/.config/opencode/skills`), Gemini/Antigravity (`~/.gemini/skills`, `~/.gemini/config/skills`) e Codex (`~/.codex/skills`, `~/.agents/skills`).
-  - `@dev`: Git, GitHub CLI, fzf, Btop, Node.js, Go, Temurin JDK, Docker, VS Code, Neovim, Wave Terminal, Ghostty, Jujutsu, uv, Rustup, bat.
+  - `@dev`: Git, GitHub CLI, fzf, Btop, Node.js, Go, Temurin JDK, Docker, VS Code, Neovim, Wave Terminal, Ghostty, Jujutsu, uv, Rustup, bat, Ruff, Pyenv.
   - `@toolchain`: GCC, Make, GDB, CMake, Clang.
   - `@termstack`: Wave Terminal, Ghostty, bat, fzf, Zsh, Oh My Zsh.
   - `@flatpakfull`.
